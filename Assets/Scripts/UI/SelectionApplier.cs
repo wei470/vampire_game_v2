@@ -37,14 +37,19 @@ public class SelectionApplier : MonoBehaviour
 
     private void FindReferences()
     {
-        if (_playerController == null)
-            _playerController = GameReferences.Player;
-        if (_weaponController == null)
-            _weaponController = GameReferences.Player?.GetComponent<WeaponController>();
-        if (_skillManager == null)
-            _skillManager = GameReferences.Player?.GetComponent<PlayerSkillManager>();
-        if (_playerDamageable == null && _playerController != null)
-            _playerDamageable = _playerController.GetComponent<Damageable>();
+        // 使用 Unity null 检查而非 C# ?. 运算符，避免已销毁对象的 MissingReferenceException
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            if (_playerController == null)
+                _playerController = player;
+            if (_weaponController == null)
+                _weaponController = player.GetComponent<WeaponController>();
+            if (_skillManager == null)
+                _skillManager = player.GetComponent<PlayerSkillManager>();
+            if (_playerDamageable == null && _playerController != null)
+                _playerDamageable = _playerController.GetComponent<Damageable>();
+        }
     }
 
     /// <summary>

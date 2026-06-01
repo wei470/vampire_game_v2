@@ -49,6 +49,13 @@ public class CharacterData : ScriptableObject
     [Header("默认技能")]
     public SkillData defaultSkill;             // 角色初始技能
 
+    [Header("角色专属升级")]
+    [Tooltip("如果为空，使用默认升级选项池（攻击/生命/速度/护甲/磁铁）")]
+    public CharacterUpgradeOption[] customUpgrades;  // 角色专属升级选项
+
+    [Tooltip("是否使用通用升级（false = 只使用 customUpgrades）")]
+    public bool useGenericUpgrades = true;     // true: 通用+专属; false: 只用专属
+
     /// <summary>
     /// 获取暴击倍率（基础2倍 + 额外加成）
     /// </summary>

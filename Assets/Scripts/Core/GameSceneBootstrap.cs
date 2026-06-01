@@ -32,6 +32,11 @@ public class GameSceneBootstrap : MonoBehaviour
     private bool _selectionDone = false;
     private bool _gameStarted = false;
 
+    /// <summary>
+    /// 当前选择的角色数据（静态，供 LevelUpUI 等访问）
+    /// </summary>
+    public static CharacterData CurrentCharacter { get; private set; }
+
     // ── 数据 ──
     private CharacterData[] _characters;
     private WeaponData[] _weapons;
@@ -87,11 +92,6 @@ public class GameSceneBootstrap : MonoBehaviour
         _inputHandler = gameObject.AddComponent<GameInputHandler>();
         _inputHandler.Setup(_spawnManager);
         _inputHandler.SetShopUI(_shopUI);
-
-        // 注入 WeaponController 到 InputHandler（武器切换输入迁移）
-        var wc = _player?.GetComponent<WeaponController>();
-        if (wc != null)
-            _inputHandler.SetWeaponController(wc);
 
         // 创建 SelectionUI 组件
         _selectionUI = gameObject.AddComponent<SelectionUI>();
@@ -152,6 +152,26 @@ public class GameSceneBootstrap : MonoBehaviour
             if (s != null) skillList.Add(s);
         }
         _skills = skillList.Count > 0 ? skillList.ToArray() : new SkillData[0];
+
+        // ── 为 Mage 角色运行时注入专属升级和描述（.asset 无法在代码中编辑）──
+        foreach (var c in _characters)
+        {
+            if (c != null && (c.characterId == "mage" || c.characterName.ToLower().Contains("mage")))
+            {
+                // 覆盖描述
+                c.description = "DOT 大师 — 所有持续伤害时间延长 20%，DOT 可暴击，拥有专属引爆技能。升级时获得独特的 DOT 强化选项。";
+                c.passiveDescription = "DOT 持续时间 +20%，DOT 可暴击，按 Q 引爆所有 DOT 造成巨额伤害（冷却 12s）";
+                c.characterColor = new Color(0.6f, 0.2f, 0.9f); // 紫色
+
+                // 注入专属升级
+                if (c.customUpgrades == null || c.customUpgrades.Length == 0)
+                {
+                    c.customUpgrades = CreateMageUpgrades();
+                    c.useGenericUpgrades = false; // Mage 只用专属升级
+                    DebugHelper.Log("[GameSceneBootstrap] Injected 14 Mage custom upgrades");
+                }
+            }
+        }
 
         // ── 确保至少有选项 ──
         if (_characters.Length == 0) _characters = new CharacterData[] { CreateDefaultCharacter() };
@@ -243,6 +263,66 @@ public class GameSceneBootstrap : MonoBehaviour
     }
 
     /// <summary>
+    /// 创建 Mage 角色的 14 个专属升级选项（运行时注入）
+    /// </summary>
+    private CharacterUpgradeOption[] CreateMageUpgrades()
+    {
+        return new CharacterUpgradeOption[]
+        {
+            // 4 种 DOT 子弹（解锁新子弹类型）
+            MakeUpgrade("bleed", "流血 (Bleed / Rupture)", "🔴 发射红色子弹\n敌人移动时持续受伤",
+                CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
+            MakeUpgrade("poison", "中毒 (Poison / Venom)", "🟢 投掷药瓶生成毒液池\n叠加层数越高伤害越高",
+                CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
+            MakeUpgrade("burn", "燃烧 (Burn / Ignite)", "🟠 发射慢速橙色子弹\n叠加层数加速燃烧频率",
+                CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
+            MakeUpgrade("frostbite", "霜冻 (Frostbite / Chill)", "🔵 发射快速冰霜子弹\n冰冻+永久减速+霜伤",
+                CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
+
+            // DOT 增强（强化已有子弹）
+            MakeUpgrade("corrosion", "腐蚀 (Corrosion / Decay)", "腐蚀敌方护甲\n所有 DOT 伤害 +10%",
+                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.10f, 0f, 0f),
+            MakeUpgrade("curse", "诅咒 (Curse / Hex)", "诅咒目标\n所有 DOT 持续时间 +15%",
+                CharacterUpgradeOption.UpgradeCategory.DotDuration, 0.15f, 0f, 0f),
+            MakeUpgrade("agony", "痛苦 (Agony / Affliction)", "DOT 伤害暴击率 +10%\n暴击伤害 +50%",
+                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.10f, 0f, 0f),
+            MakeUpgrade("wither", "凋零 (Wither / Blight)", "凋零之力\n所有 DOT 伤害 +15%",
+                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.15f, 0f, 0f),
+
+            // 引爆增强
+            MakeUpgrade("radiate", "辐射 (Radiation / Irradiate)", "引爆伤害 +30%\n引爆冷却 -20%",
+                CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, 0.30f, 0f, 0f),
+            MakeUpgrade("contaminate", "污染 (Bio-contamination)", "引爆冷却 -30%\n引爆范围 +20%",
+                CharacterUpgradeOption.UpgradeCategory.DetonateAbility, 0.30f, 0f, 0f),
+
+            // DOT 时间增强
+            MakeUpgrade("erosion", "侵蚀 (Erosion)", "所有 DOT 持续时间 +20%\nDOT 伤害 +5%",
+                CharacterUpgradeOption.UpgradeCategory.DotDuration, 0.20f, 0f, 0f),
+            MakeUpgrade("wind_erosion", "风蚀 (Wind Erosion)", "所有 DOT 伤害 +20%\nDOT 持续时间 +10%",
+                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.20f, 0f, 0f),
+        };
+    }
+
+    /// <summary>
+    /// 工具方法：创建一个 CharacterUpgradeOption
+    /// </summary>
+    private CharacterUpgradeOption MakeUpgrade(string id, string name, string desc,
+        CharacterUpgradeOption.UpgradeCategory category, float v1, float v2, float v3)
+    {
+        return new CharacterUpgradeOption
+        {
+            upgradeId = id,
+            upgradeName = name,
+            description = desc,
+            category = category,
+            value1 = v1,
+            value2 = v2,
+            value3 = v3,
+            maxStacks = 0 // 无限叠加
+        };
+    }
+
+    /// <summary>
     /// 选择完成回调（由 SelectionUI 触发）
     /// </summary>
     private void OnSelectionConfirmed(int selectedChar, int selectedWeapon, int selectedSkill)
@@ -257,6 +337,10 @@ public class GameSceneBootstrap : MonoBehaviour
     private void ApplySelectionAndStartGame(int selectedChar, int selectedWeapon, int selectedSkill)
     {
         _gameStarted = true;
+
+        // 记录当前角色数据
+        if (selectedChar < _characters.Length && _characters[selectedChar] != null)
+            CurrentCharacter = _characters[selectedChar];
 
         // 应用角色 + 永久加成
         if (selectedChar < _characters.Length && _characters[selectedChar] != null)
@@ -335,6 +419,20 @@ public class GameSceneBootstrap : MonoBehaviour
                 skillMgr.AddSkillByData(_skills[selectedSkill]);
             }
             DebugHelper.Log($"[GameSceneBootstrap] Skill: {_skills[selectedSkill].skillName}");
+        }
+
+        // 根据角色类型添加专属被动组件
+        if (_player != null && CurrentCharacter != null)
+        {
+            // Mage 角色专属：DOT 增强 + 暴击 + 引爆
+            if (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage"))
+            {
+                if (_player.GetComponent<MagePassive>() == null)
+                {
+                    _player.gameObject.AddComponent<MagePassive>();
+                    DebugHelper.Log("[GameSceneBootstrap] MagePassive component added");
+                }
+            }
         }
 
         // 广播选择完成事件

@@ -257,6 +257,9 @@ public class SpawnManager : MonoBehaviour
     /// </summary>
     public void StartFirstWave()
     {
+        // 确保敌人预制体已创建（Start() 可能因组件被禁用而未执行）
+        EnsureEnemyPrefabs();
+
         // 确保玩家引用已缓存
         if (_playerTransform == null)
         {

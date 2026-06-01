@@ -16,7 +16,10 @@ public class HUDManager : MonoBehaviour
 
     private void Start()
     {
-        _levelSystem = GameReferences.Player?.GetComponent<PlayerLevelSystem>();
+        // 使用 Unity null 检查而非 C# ?. 运算符，避免已销毁对象的 MissingReferenceException
+        var player = GameReferences.Player;
+        if (player != null)
+            _levelSystem = player.GetComponent<PlayerLevelSystem>();
         _spawnManager = GameReferences.SpawnManager;
 
         // 订阅事件

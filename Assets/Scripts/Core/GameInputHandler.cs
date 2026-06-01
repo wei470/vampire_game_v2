@@ -16,9 +16,7 @@ public class GameInputHandler : MonoBehaviour
     private ShopUI _shopUI;
     private PauseMenuUI _pauseMenuUI;
 
-    // ── 武器切换输入 ──
-    private WeaponController _weaponController;
-    private int _pendingWeaponSwitch = -1; // -1 表示无待处理切换
+    // 武器切换已删除 — 每局游戏锁定初始选择的武器
 
     /// <summary>
     /// 最近一次鼠标世界坐标（由 GameInputHandler 统一计算）
@@ -54,14 +52,6 @@ public class GameInputHandler : MonoBehaviour
         _pauseMenuUI = pauseMenuUI;
     }
 
-    /// <summary>
-    /// 注入 WeaponController 引用（用于武器切换输入迁移）
-    /// </summary>
-    public void SetWeaponController(WeaponController wc)
-    {
-        _weaponController = wc;
-    }
-
     private void Update()
     {
         var kb = UnityEngine.InputSystem.Keyboard.current;
@@ -69,9 +59,6 @@ public class GameInputHandler : MonoBehaviour
 
         // 更新鼠标世界坐标（供 WeaponController 等组件使用）
         UpdateMouseWorldPosition();
-
-        // 武器切换输入（从 WeaponController.HandleWeaponSwitch 迁移）
-        HandleWeaponSwitchInput(kb);
 
         // T 键跳波（Skip 5 waves）
         if (kb.tKey.wasPressedThisFrame && _spawnManager != null && _spawnManager.WaveInProgress)
@@ -129,30 +116,6 @@ public class GameInputHandler : MonoBehaviour
                 else if (GameManager.Instance.CurrentState == GameManager.GameState.Paused)
                     GameManager.Instance.ResumeGame();
             }
-        }
-    }
-
-    /// <summary>
-    /// 处理武器切换输入（1-8 数字键 / Q 循环）
-    /// </summary>
-    private void HandleWeaponSwitchInput(UnityEngine.InputSystem.Keyboard kb)
-    {
-        if (_weaponController == null || _weaponController.SelectionLocked) return;
-
-        if (kb.digit1Key.wasPressedThisFrame) _weaponController.SwitchWeapon(0);
-        if (kb.digit2Key.wasPressedThisFrame) _weaponController.SwitchWeapon(1);
-        if (kb.digit3Key.wasPressedThisFrame) _weaponController.SwitchWeapon(2);
-        if (kb.digit4Key.wasPressedThisFrame) _weaponController.SwitchWeapon(3);
-        if (kb.digit5Key.wasPressedThisFrame) _weaponController.SwitchWeapon(4);
-        if (kb.digit6Key.wasPressedThisFrame) _weaponController.SwitchWeapon(5);
-        if (kb.digit7Key.wasPressedThisFrame) _weaponController.SwitchWeapon(6);
-        if (kb.digit8Key.wasPressedThisFrame) _weaponController.SwitchWeapon(7);
-
-        // Q 键循环切换
-        if (kb.qKey.wasPressedThisFrame)
-        {
-            int next = (_weaponController.CurrentWeaponIndex + 1) % 8;
-            _weaponController.SwitchWeapon(next);
         }
     }
 

@@ -1,10 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 /// <summary>
 /// 升级选择界面，升级时弹出显示 3 个选项。
 /// 对应 Python: game/level_up.py 中的升级选择逻辑
-/// 
+///
+/// 支持角色专属升级（CharacterData.customUpgrades）和通用升级混合。
+///
 /// 选择后游戏恢复，选中的效果应用到玩家。
 /// 使用方式：挂载到 Canvas 下的 Panel 上
 /// </summary>
@@ -23,6 +26,8 @@ public class LevelUpUI : MonoBehaviour
     private PlayerController _playerController;
     private PlayerLevelSystem _levelSystem;
     private WeaponController _weaponController;
+    private MagePassive _magePassive;
+    private CharacterData _currentCharacter;
     private int _pendingLevelUpCount = 0;
 
     /// <summary>
@@ -31,9 +36,9 @@ public class LevelUpUI : MonoBehaviour
     public static float MagnetRangeMultiplier { get; private set; } = 1f;
 
     /// <summary>
-    /// 升级选项类型（含武器升级）
+    /// 通用升级选项类型
     /// </summary>
-    private enum UpgradeType
+    private enum GenericUpgradeType
     {
         AttackUp,
         MaxHpUp,
@@ -46,15 +51,28 @@ public class LevelUpUI : MonoBehaviour
         WeaponRangeUp
     }
 
-    private UpgradeType[] _currentOptions = new UpgradeType[3];
+    /// <summary>
+    /// 当前显示的 3 个升级选项（可能是通用或专属）
+    /// </summary>
+    private struct UpgradeSlot
+    {
+        public bool isCustom;
+        public GenericUpgradeType genericType;
+        public CharacterUpgradeOption customOption;
+    }
+
+    private UpgradeSlot[] _currentSlots = new UpgradeSlot[3];
+
+    /// <summary>
+    /// 每个专属升级的已选次数
+    /// </summary>
+    private Dictionary<string, int> _customUpgradeStacks = new Dictionary<string, int>();
 
     private void Awake()
     {
-        // 初始隐藏面板
         if (_panel != null)
             _panel.SetActive(false);
 
-        // 应用主题颜色到面板
         ApplyThemeColors();
     }
 
@@ -68,23 +86,17 @@ public class LevelUpUI : MonoBehaviour
         EventManager.OnLevelUp -= OnLevelUp;
     }
 
-    /// <summary>
-    /// 对面板和按钮应用 UI 主题颜色
-    /// </summary>
     private void ApplyThemeColors()
     {
-        // 面板背景
         if (_panel != null)
         {
             var panelImg = _panel.GetComponent<Image>();
             if (panelImg != null) panelImg.color = UIColorTheme.OverlayDark;
         }
 
-        // 标题
         if (_titleText != null)
             _titleText.color = UIColorTheme.AccentCyan;
 
-        // 按钮列表
         var buttons = new[] { _option1Button, _option2Button, _option3Button };
         var texts = new[] { _option1Text, _option2Text, _option3Text };
 
@@ -95,7 +107,6 @@ public class LevelUpUI : MonoBehaviour
                 var img = buttons[i].GetComponent<Image>();
                 if (img != null) img.color = UIColorTheme.PanelBackground;
 
-                // 按钮颜色过渡配置
                 var cb = buttons[i].colors;
                 cb.normalColor = UIColorTheme.ButtonNormal;
                 cb.highlightedColor = UIColorTheme.ButtonHover;
@@ -111,7 +122,6 @@ public class LevelUpUI : MonoBehaviour
 
     private void Update()
     {
-        // 键盘快捷键：升级界面显示时按 1/2/3 选择选项
         if (_panel != null && _panel.activeSelf)
         {
             var kb = UnityEngine.InputSystem.Keyboard.current;
@@ -129,9 +139,26 @@ public class LevelUpUI : MonoBehaviour
 
     private void Start()
     {
-        _playerController = GameReferences.Player;
-        _levelSystem = GameReferences.Player?.GetComponent<PlayerLevelSystem>();
-        _weaponController = GameReferences.Player?.GetComponent<WeaponController>();
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            _playerController = player;
+            _levelSystem = player.GetComponent<PlayerLevelSystem>();
+            _weaponController = player.GetComponent<WeaponController>();
+            _magePassive = player.GetComponent<MagePassive>();
+        }
+
+        // 获取当前角色数据
+        _currentCharacter = GameSceneBootstrap.CurrentCharacter;
+    }
+
+    /// <summary>
+    /// 设置当前角色数据（由 GameSceneBootstrap 在选择完成后调用）
+    /// </summary>
+    public void SetCharacter(CharacterData character)
+    {
+        _currentCharacter = character;
+        _customUpgradeStacks.Clear();
     }
 
     /// <summary>
@@ -149,36 +176,37 @@ public class LevelUpUI : MonoBehaviour
     private void ShowLevelUpUI()
     {
         if (_playerController == null)
-        {
             _playerController = GameReferences.Player;
-        }
         if (_levelSystem == null)
         {
-            _levelSystem = GameReferences.Player?.GetComponent<PlayerLevelSystem>();
+            var player = GameReferences.Player;
+            if (player != null) _levelSystem = player.GetComponent<PlayerLevelSystem>();
         }
         if (_weaponController == null)
         {
-            _weaponController = GameReferences.Player?.GetComponent<WeaponController>();
+            var player = GameReferences.Player;
+            if (player != null) _weaponController = player.GetComponent<WeaponController>();
+        }
+        if (_magePassive == null)
+        {
+            var player = GameReferences.Player;
+            if (player != null) _magePassive = player.GetComponent<MagePassive>();
         }
 
-        // 暂停游戏物理但不冻结 UI
         Time.timeScale = 0.0001f;
 
-        // 生成 3 个随机升级选项
         GenerateOptions();
 
-        // 更新 UI
         if (_titleText != null)
         {
             int level = _levelSystem != null ? _levelSystem.Level : 0;
             _titleText.text = $"Level Up! (Lv.{level})";
         }
 
-        SetupButton(_option1Button, _option1Text, 0);
-        SetupButton(_option2Button, _option2Text, 1);
-        SetupButton(_option3Button, _option3Text, 2);
+        SetupSlotButton(_option1Button, _option1Text, 0);
+        SetupSlotButton(_option2Button, _option2Text, 1);
+        SetupSlotButton(_option3Button, _option3Text, 2);
 
-        // 显示面板
         if (_panel != null)
             _panel.SetActive(true);
 
@@ -186,32 +214,65 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 生成 3 个随机升级选项（确保不重复）
+    /// 生成 3 个随机升级选项（支持角色专属升级）
     /// </summary>
     private void GenerateOptions()
     {
-        var allTypes = new System.Collections.Generic.List<UpgradeType>
-        {
-            UpgradeType.AttackUp,
-            UpgradeType.MaxHpUp,
-            UpgradeType.SpeedUp,
-            UpgradeType.ArmorUp,
-            UpgradeType.MagnetRangeUp
-        };
+        // 每次动态获取当前角色（因为 Start() 可能在 CurrentCharacter 设置之前执行）
+        if (_currentCharacter == null)
+            _currentCharacter = GameSceneBootstrap.CurrentCharacter;
 
-        bool canUpgradeWeapon = _weaponController != null &&
-                                _weaponController.CurrentWeapon != null &&
-                                _weaponController.CurrentWeapon.UpgradeLevel < WeaponData.MAX_UPGRADE_LEVEL;
+        var allSlots = new List<UpgradeSlot>();
 
-        if (canUpgradeWeapon)
+        // 1. 添加通用升级（如果角色允许）
+        bool useGeneric = _currentCharacter == null || _currentCharacter.useGenericUpgrades;
+        if (useGeneric)
         {
-            allTypes.Add(UpgradeType.WeaponDamageUp);
-            allTypes.Add(UpgradeType.WeaponPierceUp);
-            allTypes.Add(UpgradeType.WeaponCooldownDown);
-            allTypes.Add(UpgradeType.WeaponRangeUp);
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.ArmorUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MagnetRangeUp });
+
+            bool canUpgradeWeapon = _weaponController != null &&
+                                    _weaponController.CurrentWeapon != null &&
+                                    _weaponController.CurrentWeapon.UpgradeLevel < WeaponData.MAX_UPGRADE_LEVEL;
+            if (canUpgradeWeapon)
+            {
+                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponDamageUp });
+                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponPierceUp });
+                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponCooldownDown });
+                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponRangeUp });
+            }
         }
 
-        var arr = allTypes.ToArray();
+        // 2. 添加角色专属升级
+        if (_currentCharacter != null && _currentCharacter.customUpgrades != null)
+        {
+            foreach (var upgrade in _currentCharacter.customUpgrades)
+            {
+                // 检查是否已达最大叠加次数
+                if (upgrade.maxStacks > 0)
+                {
+                    int currentStacks = 0;
+                    _customUpgradeStacks.TryGetValue(upgrade.upgradeId, out currentStacks);
+                    if (currentStacks >= upgrade.maxStacks) continue;
+                }
+
+                allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade });
+            }
+        }
+
+        // 如果没有可用选项，添加通用默认
+        if (allSlots.Count == 0)
+        {
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp });
+        }
+
+        // Fisher-Yates 洗牌
+        var arr = allSlots.ToArray();
         for (int i = arr.Length - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
@@ -220,67 +281,69 @@ public class LevelUpUI : MonoBehaviour
             arr[j] = temp;
         }
 
+        // 选取前 3 个（不足 3 个则重复）
         for (int i = 0; i < 3; i++)
         {
-            _currentOptions[i] = arr[i];
+            _currentSlots[i] = arr[i % arr.Length];
         }
     }
 
     /// <summary>
     /// 设置按钮文本和点击事件
     /// </summary>
-    private void SetupButton(Button button, Text text, int index)
+    private void SetupSlotButton(Button button, Text text, int index)
     {
-        if (button == null) { DebugHelper.LogWarning($"[LevelUpUI] Button {index} is null!"); return; }
+        if (button == null) return;
 
-        var option = _currentOptions[index];
+        var slot = _currentSlots[index];
         if (text != null)
         {
-            text.text = GetOptionDescription(option);
-        }
-        else
-        {
-            DebugHelper.LogWarning($"[LevelUpUI] Text for button {index} is null!");
+            text.text = GetSlotDescription(slot);
         }
 
         button.onClick.RemoveAllListeners();
         int capturedIndex = index;
-        button.onClick.AddListener(() =>
-        {
-            DebugHelper.Log($"[LevelUpUI] Button {capturedIndex} clicked!");
-            OnOptionSelected(capturedIndex);
-        });
-
-        DebugHelper.Log($"[LevelUpUI] Button {index} set up: {GetOptionDescription(option)}");
+        button.onClick.AddListener(() => OnOptionSelected(capturedIndex));
     }
 
     /// <summary>
     /// 获取选项描述文字
     /// </summary>
-    private string GetOptionDescription(UpgradeType type)
+    private string GetSlotDescription(UpgradeSlot slot)
+    {
+        if (slot.isCustom)
+        {
+            var opt = slot.customOption;
+            int stacks = 0;
+            _customUpgradeStacks.TryGetValue(opt.upgradeId, out stacks);
+            string stackText = opt.maxStacks > 0 ? $" [{stacks}/{opt.maxStacks}]" : "";
+            return $"{opt.upgradeName}{stackText}\n{opt.description}";
+        }
+
+        return GetGenericDescription(slot.genericType);
+    }
+
+    private string GetGenericDescription(GenericUpgradeType type)
     {
         switch (type)
         {
-            case UpgradeType.AttackUp: return "+ATK\n攻击力 +15%";
-            case UpgradeType.MaxHpUp: return "+HP\n最大生命 +20%";
-            case UpgradeType.SpeedUp: return "+Speed\n移动速度 +10%";
-            case UpgradeType.ArmorUp: return "+Armor\n护甲 +3";
-            case UpgradeType.MagnetRangeUp: return "+Magnet\n拾取范围 +30%";
-            case UpgradeType.WeaponDamageUp:
+            case GenericUpgradeType.AttackUp: return "+ATK\n攻击力 +15%";
+            case GenericUpgradeType.MaxHpUp: return "+HP\n最大生命 +20%";
+            case GenericUpgradeType.SpeedUp: return "+Speed\n移动速度 +10%";
+            case GenericUpgradeType.ArmorUp: return "+Armor\n护甲 +3";
+            case GenericUpgradeType.MagnetRangeUp: return "+Magnet\n拾取范围 +30%";
+            case GenericUpgradeType.WeaponDamageUp:
                 return GetWeaponUpgradeDesc(WeaponData.WeaponUpgradeType.DamageUp);
-            case UpgradeType.WeaponPierceUp:
+            case GenericUpgradeType.WeaponPierceUp:
                 return GetWeaponUpgradeDesc(WeaponData.WeaponUpgradeType.PierceUp);
-            case UpgradeType.WeaponCooldownDown:
+            case GenericUpgradeType.WeaponCooldownDown:
                 return GetWeaponUpgradeDesc(WeaponData.WeaponUpgradeType.CooldownDown);
-            case UpgradeType.WeaponRangeUp:
+            case GenericUpgradeType.WeaponRangeUp:
                 return GetWeaponUpgradeDesc(WeaponData.WeaponUpgradeType.RangeUp);
             default: return "???";
         }
     }
 
-    /// <summary>
-    /// 获取武器升级描述（含当前武器名和等级）
-    /// </summary>
     private string GetWeaponUpgradeDesc(WeaponData.WeaponUpgradeType type)
     {
         if (_weaponController == null || _weaponController.CurrentWeapon == null)
@@ -299,16 +362,22 @@ public class LevelUpUI : MonoBehaviour
     {
         try
         {
-            if (index < 0 || index >= _currentOptions.Length)
+            if (index < 0 || index >= _currentSlots.Length) return;
+
+            var slot = _currentSlots[index];
+
+            if (slot.isCustom)
             {
-                DebugHelper.LogError($"[LevelUpUI] Invalid index: {index}");
-                return;
+                ApplyCustomUpgrade(slot.customOption);
+                // 记录叠加次数
+                if (!_customUpgradeStacks.ContainsKey(slot.customOption.upgradeId))
+                    _customUpgradeStacks[slot.customOption.upgradeId] = 0;
+                _customUpgradeStacks[slot.customOption.upgradeId]++;
             }
-
-            var selectedOption = _currentOptions[index];
-            DebugHelper.Log($"[LevelUpUI] Selected option {index}: {selectedOption}");
-
-            ApplyUpgrade(selectedOption);
+            else
+            {
+                ApplyGenericUpgrade(slot.genericType);
+            }
 
             if (_panel != null)
                 _panel.SetActive(false);
@@ -336,9 +405,9 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 应用升级效果到玩家
+    /// 应用通用升级效果
     /// </summary>
-    private void ApplyUpgrade(UpgradeType type)
+    private void ApplyGenericUpgrade(GenericUpgradeType type)
     {
         if (_playerController == null) return;
 
@@ -347,53 +416,133 @@ public class LevelUpUI : MonoBehaviour
 
         switch (type)
         {
-            case UpgradeType.AttackUp:
+            case GenericUpgradeType.AttackUp:
                 if (_weaponController != null)
-                {
                     _weaponController.DamageMultiplier *= 1.15f;
-                }
-                DebugHelper.Log($"[LevelUpUI] ATK +15% applied, multiplier: {(_weaponController != null ? _weaponController.DamageMultiplier : 0):F2}");
+                DebugHelper.Log($"[LevelUpUI] ATK +15% applied");
                 break;
 
-            case UpgradeType.MaxHpUp:
+            case GenericUpgradeType.MaxHpUp:
                 int newMaxHp = Mathf.RoundToInt(damageable.MaxHp * 1.2f);
                 damageable.SetMaxHp(newMaxHp);
                 damageable.Heal(Mathf.RoundToInt(damageable.MaxHp * 0.2f));
                 DebugHelper.Log($"[LevelUpUI] Max HP increased to {newMaxHp}");
                 break;
 
-            case UpgradeType.SpeedUp:
+            case GenericUpgradeType.SpeedUp:
                 _playerController.MoveSpeed *= 1.1f;
-                DebugHelper.Log($"[LevelUpUI] Speed increased to {_playerController.MoveSpeed:F1}");
+                DebugHelper.Log($"[LevelUpUI] Speed increased");
                 break;
 
-            case UpgradeType.ArmorUp:
+            case GenericUpgradeType.ArmorUp:
                 damageable.SetArmor(damageable.Armor + 3);
                 DebugHelper.Log($"[LevelUpUI] Armor increased to {damageable.Armor}");
                 break;
 
-            case UpgradeType.MagnetRangeUp:
+            case GenericUpgradeType.MagnetRangeUp:
                 MagnetRangeMultiplier *= 1.3f;
-                DebugHelper.Log($"[LevelUpUI] Magnet range +30% applied, multiplier: {MagnetRangeMultiplier:F2}");
+                DebugHelper.Log($"[LevelUpUI] Magnet range +30%");
                 break;
 
-            case UpgradeType.WeaponDamageUp:
+            case GenericUpgradeType.WeaponDamageUp:
                 ApplyWeaponUpgrade(WeaponData.WeaponUpgradeType.DamageUp);
                 break;
-            case UpgradeType.WeaponPierceUp:
+            case GenericUpgradeType.WeaponPierceUp:
                 ApplyWeaponUpgrade(WeaponData.WeaponUpgradeType.PierceUp);
                 break;
-            case UpgradeType.WeaponCooldownDown:
+            case GenericUpgradeType.WeaponCooldownDown:
                 ApplyWeaponUpgrade(WeaponData.WeaponUpgradeType.CooldownDown);
                 break;
-            case UpgradeType.WeaponRangeUp:
+            case GenericUpgradeType.WeaponRangeUp:
                 ApplyWeaponUpgrade(WeaponData.WeaponUpgradeType.RangeUp);
                 break;
         }
     }
 
     /// <summary>
-    /// 隐藏升级界面（用于强制关闭）
+    /// 应用角色专属升级效果
+    /// </summary>
+    private void ApplyCustomUpgrade(CharacterUpgradeOption option)
+    {
+        if (_magePassive == null)
+            _magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+
+        var damageable = _playerController?.Damageable;
+
+        // 根据 upgradeId 解锁对应的 DOT 子弹枪
+        var dotGun = GetDotGunForUpgrade(option.upgradeId);
+        if (dotGun.HasValue && _magePassive != null)
+        {
+            var dg = dotGun.Value;
+            _magePassive.UnlockDotGun(dg.type, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
+            DebugHelper.Log($"[LevelUpUI] Unlocked DOT gun: {option.upgradeName}");
+            return;
+        }
+
+        // 非 DOT 子弹类型的升级
+        switch (option.category)
+        {
+            case CharacterUpgradeOption.UpgradeCategory.DotDamage:
+                if (_magePassive != null)
+                {
+                    _magePassive.EnhanceAllDotGuns(option.value1);
+                    DebugHelper.Log($"[LevelUpUI] All DOT damage +{option.value1 * 100}%");
+                }
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DotDuration:
+                if (_magePassive != null)
+                {
+                    _magePassive.AddDotDurationBonus(option.value1);
+                    DebugHelper.Log($"[LevelUpUI] DOT Duration +{option.value1 * 100}%");
+                }
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:
+                if (_magePassive != null)
+                {
+                    _magePassive.DetonateMultiplier += option.value1;
+                    DebugHelper.Log($"[LevelUpUI] Detonate multiplier +{option.value1}");
+                }
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DetonateAbility:
+                if (_magePassive != null)
+                {
+                    _magePassive.DetonateCooldownValue *= (1f - option.value1);
+                    DebugHelper.Log($"[LevelUpUI] Detonate cooldown -{option.value1 * 100}%");
+                }
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.StatusEffect:
+                // 通用状态效果（诅咒/凋零等）
+                DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName}");
+                break;
+
+            default:
+                DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName} ({option.category})");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 根据 upgradeId 获取 DOT 子弹枪配置
+    /// </summary>
+    private struct DotGunConfig { public StatusEffectType type; public Color color; public float cooldown; public int impactDmg; public float dotDps; public float dotDuration; }
+    private DotGunConfig? GetDotGunForUpgrade(string upgradeId)
+    {
+        switch (upgradeId)
+        {
+            case "bleed":    return new DotGunConfig { type = StatusEffectType.Bleed,    color = new Color(0.9f, 0.1f, 0.1f), cooldown = 1.0f, impactDmg = 3, dotDps = 2f, dotDuration = 4f };
+            case "poison":   return new DotGunConfig { type = StatusEffectType.Poison,   color = new Color(0.1f, 0.9f, 0.2f), cooldown = 2.0f, impactDmg = 0, dotDps = 3f, dotDuration = 5f };
+            case "burn":     return new DotGunConfig { type = StatusEffectType.Burn,     color = new Color(1f, 0.4f, 0f),     cooldown = 0.3f, impactDmg = 2, dotDps = 2f, dotDuration = 3f };
+            case "frostbite":return new DotGunConfig { type = StatusEffectType.Frostbite,color = new Color(0.3f, 0.6f, 1f),   cooldown = 2.0f, impactDmg = 6, dotDps = 2f, dotDuration = 3f };
+            default: return null;
+        }
+    }
+
+    /// <summary>
+    /// 隐藏升级界面
     /// </summary>
     public void Hide()
     {
@@ -403,9 +552,6 @@ public class LevelUpUI : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    /// <summary>
-    /// 应用武器升级
-    /// </summary>
     private void ApplyWeaponUpgrade(WeaponData.WeaponUpgradeType type)
     {
         if (_weaponController == null || _weaponController.CurrentWeapon == null) return;
@@ -419,7 +565,7 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置磁铁倍率（游戏重新开始时调用）
+    /// 重置磁铁倍率
     /// </summary>
     public static void ResetMagnetMultiplier()
     {

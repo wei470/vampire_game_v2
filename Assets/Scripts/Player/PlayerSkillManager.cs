@@ -3,13 +3,13 @@ using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 /// <summary>
-/// 玩家技能管理器 - 管理玩家的所有技能，按 E 使用主动技能。
+/// 玩家技能管理器 - 管理玩家的所有技能，按 F 使用主动技能。
 /// 对应 Python: player/skill_manager.py
-/// 
+///
 /// 功能：
 /// - 管理主动/被动技能槽位
-/// - 按 E 使用当前选中的主动技能
-/// - Q 键切换当前技能
+/// - 按 F 使用当前选中的主动技能
+/// - Q 键循环切换主动技能
 /// - 提供技能冷却信息给 HUD
 /// </summary>
 public class PlayerSkillManager : MonoBehaviour
@@ -42,8 +42,8 @@ public class PlayerSkillManager : MonoBehaviour
             return;
         }
 
-        // E 键使用当前主动技能
-        if (kb.eKey.wasPressedThisFrame)
+        // F 键使用当前主动技能
+        if (kb.fKey.wasPressedThisFrame)
         {
             UseCurrentSkill();
         }

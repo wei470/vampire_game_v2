@@ -113,6 +113,8 @@ public class WeaponController : MonoBehaviour
     public void SetWeapon(WeaponData weapon)
     {
         _currentWeapon = weapon;
+        // 重置射击计时器，防止切换武器后因旧的负值时间自动发射一发子弹
+        _lastFireTime = Time.time;
     }
 
     /// <summary>

@@ -23,10 +23,11 @@
 ```
 Assets/Scripts/
 ├── Core/           ← 基础设施（单例、事件、对象池、引用、输入、存档）
-├── Combat/         ← 武器、弹幕、伤害管理
+├── Combat/         ← 武器、弹幕、伤害管理、DOT 子弹系统、状态效果
+│   └── StatusEffects/ ← 统一状态效果管理器
 ├── Entities/       ← 可伤害实体、掉落物、经验/金币
 ├── Enemies/        ← 14 种敌人子类 + SpawnManager
-├── Player/         ← 玩家控制、等级、技能管理
+├── Player/         ← 玩家控制、等级、技能管理、MagePassive
 ├── Skills/         ← 8 种主动技能 + 被动技能
 ├── UI/             ← 所有 UI 组件（含 EnemyHealthBar）
 ├── Map/            ← 地图主题、边界、装饰、环境区域
@@ -34,7 +35,7 @@ Assets/Scripts/
 ├── Data/           ← 配置加载器
 ├── ScriptableObjects/
 │   ├── Config/     ← GameConfig, EnemyWaveConfig, MapThemeData
-│   ├── Characters/ ← CharacterData
+│   ├── Characters/ ← CharacterData, CharacterUpgradeData
 │   └── Skills/     ← SkillData
 └── Gameplay.asmdef
 Assets/Editor/      ← 编辑器工具（场景创建器）
@@ -91,8 +92,21 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 
 ### 3.7 输入系统
 - **`GameInputHandler`** — 统一输入入口
-  - WASD 移动、1-8/Q 武器切换、ESC 暂停、Tab 商店
+  - WASD 移动、鼠标自动射击、ESC 暂停、Tab 商店
   - 鼠标世界坐标统一计算（`MouseWorldPosition` 属性）
+  - **武器切换已删除** — 每局锁定初始选择的武器
+- **键位布局**：
+  | 键位 | 功能 |
+  |------|------|
+  | WASD | 移动 |
+  | 鼠标 | 自动射击（主武器 + DOT 子弹） |
+  | E | Mage 引爆（专属） |
+  | F | 使用主动技能 |
+  | Q | 切换技能 |
+  | R | 重开 |
+  | T | 跳波 |
+  | Tab | 商店 |
+  | ESC | 暂停 |
 
 ### 3.8 游戏状态机
 - **`GameManager`** — 状态：`Menu → Playing → Paused → GameOver`
@@ -117,16 +131,22 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 ### 4.2 弹幕继承体系
 ```
 MonoBehaviour
-└── Projectile (基础弹幕 — 移动/穿透/碰撞)
-    ├── Bullet (基础子弹)
-HomingProjectile (追踪弹)
-LightningBolt (闪电链)
-ShockwaveProjectile (冲击波)
-MineTrap (地雷)
-FireZone (火焰区域)
-FrostOrb (冰霜球)
-VenomDart (毒镖)
-EnemyBullet (敌人子弹)
+├── Projectile (基础弹幕 — 移动/穿透/碰撞)
+│   ├── Bullet (基础子弹)
+├── HomingProjectile (追踪弹)
+├── LightningBolt (闪电链)
+├── ShockwaveProjectile (冲击波)
+├── MineTrap (地雷)
+├── FireZone (火焰区域)
+├── FrostOrb (冰霜球)
+├── VenomDart (毒镖)
+├── EnemyBullet (敌人子弹)
+├── BleedBullet (流血子弹 — Mage 专属)
+├── BurnBullet (燃烧子弹 — Mage 专属，小球外观)
+├── FrostBullet (霜冻子弹 — Mage 专属)
+├── PoisonPotion (中毒药瓶 — Mage 专属)
+│   └── PoisonPuddle (毒液池)
+└── DotProjectile (DOT 子弹基类)
 ```
 
 ### 4.3 武器系统
@@ -134,8 +154,22 @@ EnemyBullet (敌人子弹)
   - `ProjectileType`: Bullet, Lightning, Shockwave, Homing, Mine, Fire, Frost, Venom
   - 4 级升级（`UpgradeLevel` 0-4）：伤害/穿透/冷却/范围
 - **`WeaponController`** — 武器发射控制
-  - `SwitchWeapon(int index)` / `SetWeapon(WeaponData)`
+  - `SetWeapon(WeaponData)` — 设置武器（游戏开始时锁定，不可切换）
   - `FireWeapon(direction)` → 根据类型调用对应 Spawn 方法
+
+### 4.4 DOT 子弹系统（Mage 专属）
+- **`DotProjectile.cs`** — 4 种 DOT 子弹类型：
+  - 🔴 **BleedBullet** — 命中附加流血，敌人移动时受伤
+  - 🟢 **PoisonPotion** — 投掷药瓶爆炸生成毒液池，叠加层数
+  - 🟠 **BurnBullet** — 慢速小球，叠加燃烧，层数越高 tick 越快
+  - 🔵 **FrostBullet** — 快速子弹，冰冻+永久减速+每 2 秒霜伤
+- **`DotSpriteCache`** — 共享 Sprite 缓存
+
+### 4.5 状态效果系统
+- **`StatusEffectSystem.cs`** — 统一 DOT/Debuff 管理
+  - `StatusEffectType` 枚举：14 种效果类型
+  - `StatusEffectManager` — 挂载到敌人，管理所有活跃效果
+  - 支持引爆（Detonate）、污染传播、辐射、凋零禁回血等
 
 ---
 
@@ -156,6 +190,7 @@ MonoBehaviour
 
 ### 5.2 核心组件
 - **`Damageable`** — 实现 `IDamageable`，HP/护甲/受伤/治疗/死亡 + LateUpdate 安全网
+  - **凋零状态**：`Heal()` 检查 `StatusEffectManager.IsWithered()`，凋零时禁止回血
 - **`KillRewarder`** — 实现 `IRewardable`，监听死亡事件生成掉落
 - **`Coin`** / **`XPGem`** — 掉落物，移动拾取 + 对象池回收
 - **`SpecialDrop`** — 特殊掉落（治疗/磁铁/攻击/护盾/经验）
@@ -206,7 +241,7 @@ MonoBehaviour
 
 ## 7. 技能系统（Skills 模块）
 
-### 7.1 主动技能（8 种）
+### 7.1 主动技能（8 种，按 F 使用）
 - **`BaseSkill`** — 抽象基类：冷却/伤害/效果强度/升级
 - 实现：WindWave, Berserk, TheWorld, Teleport, DeathAura, LightningStorm, GravityWell, FrostNova
 
@@ -216,55 +251,52 @@ MonoBehaviour
 
 ### 7.3 技能管理
 - **`PlayerSkillManager`** — `CreateSkillComponent()` 中必须调用 `skill.SetSkillData(data)`
+- **键位**：F 使用技能，Q 切换技能
 
 ---
 
-## 8. UI 系统
+## 8. 角色系统
 
-### 8.1 全局主题 (UIColorTheme.cs)
+### 8.1 角色数据
+- **`CharacterData`** (ScriptableObject) — 定义角色基础属性
+  - `customUpgrades[]` — 角色专属升级选项数组
+  - `useGenericUpgrades` — 是否使用通用升级池
+
+### 8.2 角色专属升级数据
+- **`CharacterUpgradeData.cs`** — `CharacterUpgradeOption` 类
+  - `UpgradeCategory` 枚举：DotDamage/DotDuration/DotType/DetonateAbility 等
+  - 通过 `value1-3` 传递数值参数
+
+### 8.3 Mage 角色（DOT 大师）
+- **`MagePassive`** — Mage 专属被动系统
+  - 被动：DOT 持续时间 +20%，DOT 可暴击
+  - **E 键引爆**：引爆所有敌人 DOT + 屏幕抖动（12 秒冷却）
+  - 通过升级解锁 4 种 DOT 子弹，独立发射
+- **12 个专属升级**：
+  - 4 个子弹解锁：流血/中毒/燃烧/霜冻
+  - 8 个增强：腐蚀/诅咒/痛苦/凋零（DOT 增伤）+ 辐射/污染（引爆增强）+ 侵蚀/风蚀（DOT 时间/伤害）
+- **运行时注入**：`GameSceneBootstrap.LoadSelectionData()` 中自动注入 `.asset` 中缺失的数据
+
+---
+
+## 9. UI 系统
+
+### 9.1 全局主题 (UIColorTheme.cs)
 - 五色配色：暗青 `#012326` / 深蓝青 `#025373` / 荧光青 `#05F2DB` / 洋红 `#D9048E` / 亮粉 `#F205CB`
 - 所有 UI 组件统一从 `UIColorTheme` 取色，确保视觉统一
-- 工具方法：`MakeTexture(Color)` 创建 1px 纹理、`DrawButtonGlow(Rect)` 绘制荧光边框发光
 
-### 8.2 IMGUI 缩放 (GUIScaleHelper.cs)
-- 参考分辨率 1920×1080，所有 IMGUI `OnGUI()` 通过 `GUI.matrix` 等比缩放
-- 用法：`BeginScale()` → 绘制 → `EndScale()`
-- 已集成入口：`GameSceneBootstrap.OnGUI()`, `PlayerHealthBarHUD`, `BossHealthBarHUD`, `SkillHUD`, `WaveRewardUI`
-
-### 8.3 字体管理 (UIFontProvider.cs)
-- 统一字体入口：`UIFontProvider.DefaultFont`
-- 优先级：`Resources.Load("Fonts/Default")` → `LegacyRuntime.ttf`
-- 动态 Canvas 自动添加 `CanvasScaler(1920×1080)`
-
-### 8.4 UI 组件表
+### 9.2 UI 组件表
 
 | 组件 | 渲染 | 功能 |
 |------|------|------|
 | `HUDManager` | UGUI | 游戏内 HUD（等级/波次/金币） |
-| `LevelUpUI` | UGUI | 升级选择界面 |
-| `SelectionUI` | IMGUI | 角色/武器/技能初始选择（三栏布局） |
+| `LevelUpUI` | UGUI | 升级选择界面（支持角色专属升级） |
+| `SelectionUI` | IMGUI | 角色/武器/技能初始选择 |
 | `WaveRewardUI` | IMGUI | 波次间奖励选择 |
 | `ShopUI` | UGUI | 商店界面 |
 | `GameOverUI` | UGUI | 游戏结束界面 |
 | `PauseMenuUI` | IMGUI | 暂停菜单 |
-| `SettingsUI` | IMGUI | 设置面板 |
-| `AchievementUI` | IMGUI | 成就系统 UI |
-| `MinimapUI` | IMGUI | 小地图 |
-| `DamagePopup` | 3D Text | 浮动伤害数字 |
-| `ScreenShake` | Transform | 屏幕抖动效果 |
-| `EnemyHealthBar` | Sprite | 敌人头顶血条 |
-| `PlayerHealthBarHUD` | **IMGUI 新增** | **左上角玩家血量条** |
-| `BossHealthBarHUD` | **IMGUI 新增** | **中上方 Boss 血量条** |
-| `SkillHUD` | **IMGUI 新增** | **左下角技能冷却 + 操作提示** |
-
----
-
-## 9. 地图系统（Map 模块）
-
-- **`MapBoundary`** — 碰撞墙 + 边界线
-- **`MapThemeManager`** — 主题切换
-- **`GridBackground`** — 网格背景
-- **`EnvironmentZone`** / **`DecorationSpawner`** — 环境区域 + 装饰
+| `ScreenShake` | Transform | 屏幕抖动效果（含引爆抖动） |
 
 ---
 
@@ -276,6 +308,8 @@ MonoBehaviour
 3. 初始化 Player / SpawnManager / ObjectPool / MapBoundary / 各 UI
 4. `WarmUpObjectPools()` — 预热所有对象池（含运行时创建的敌人预制体）
 5. `SpawnManager.EnsureEnemyPrefabs()` — Inspector 未赋值时自动创建 14 种敌人预制体
+6. 根据角色类型添加专属被动组件（如 MagePassive）
+7. 设置 `CurrentCharacter` 静态属性供 LevelUpUI 等访问
 
 ---
 
@@ -296,7 +330,8 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 | `GameConfig` | Config/GameConfig.cs | 全局游戏参数 |
 | `EnemyWaveConfig` | Config/EnemyWaveConfig.cs | 波次配置 |
 | `MapThemeData` | Config/MapThemeData.cs | 主题配置 |
-| `CharacterData` | Characters/CharacterData.cs | 角色属性 |
+| `CharacterData` | Characters/CharacterData.cs | 角色属性 + 专属升级 |
+| `CharacterUpgradeData` | Characters/CharacterUpgradeData.cs | 升级选项数据 |
 | `WeaponData` | WeaponData.cs | 武器属性（8种×4级） |
 | `SkillData` | Skills/SkillData.cs | 技能属性 |
 | `PassiveSkillData` | Skills/PassiveSkill.cs | 被动技能（10种） |
@@ -324,6 +359,7 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 - [ ] 新增技能 → 继承 `BaseSkill` + `SetSkillData()` + 注册到 `PlayerSkillManager`
 - [ ] 新增被动 → `PassiveSkillData.PassiveType` + `Apply()` 方法
 - [ ] 新增 UI → 集成到 `GameSceneBootstrap` 或 `HUDManager`
+- [ ] 新增 DOT 子弹 → 继承对应基类 + 注册到 `MagePassive` + 更新 `LevelUpUI` 和 `GameSceneBootstrap`
 
 ---
 
@@ -335,10 +371,15 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 | GameSceneBootstrap | Core/GameSceneBootstrap.cs |
 | EventManager | Core/EventManager.cs |
 | GameReferences | Core/GameReferences.cs |
+| GameInputHandler | Core/GameInputHandler.cs |
 | CombatManager | Combat/CombatManager.cs |
 | SpawnManager | Enemies/SpawnManager.cs |
 | WeaponController | Combat/WeaponController.cs |
 | PlayerController | Player/PlayerController.cs |
+| MagePassive | Player/MagePassive.cs |
+| DotProjectile | Combat/DotProjectile.cs |
+| StatusEffectSystem | Combat/StatusEffects/StatusEffectSystem.cs |
+| LevelUpUI | UI/LevelUpUI.cs |
 | Damageable | Entities/Damageable.cs |
 | GameConfig | ScriptableObjects/Config/GameConfig.cs |
 | PoolHelper | Core/PoolHelper.cs |
@@ -357,24 +398,28 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 ## 15. 新增文件清单
 
 ```
-Assets/Scripts/Core/PoolHelper.cs          ← 对象池工具
-Assets/Scripts/Core/ComboManager.cs        ← 连击系统
-Assets/Scripts/Core/GameReferences.cs      ← 全局引用缓存
-Assets/Scripts/Core/DebugHelper.cs         ← 调试日志
-Assets/Scripts/Core/GameInputHandler.cs    ← 输入管理
-Assets/Scripts/UI/SelectionUI.cs           ← 角色选择
-Assets/Scripts/UI/DebugOverlay.cs          ← 调试覆盖
-Assets/Scripts/UI/DamagePopup.cs           ← 伤害数字
-Assets/Scripts/UI/ScreenShake.cs           ← 屏幕抖动
-Assets/Scripts/UI/PauseMenuUI.cs           ← 暂停菜单
-Assets/Scripts/UI/SettingsUI.cs            ← 设置面板
-Assets/Scripts/UI/WaveRewardUI.cs          ← 波次奖励
-Assets/Scripts/UI/AchievementUI.cs         ← 成就UI
-Assets/Scripts/UI/MinimapUI.cs             ← 小地图
-Assets/Scripts/UI/EnemyHealthBar.cs        ← 敌人血条
-Assets/Scripts/Skills/PassiveSkill.cs      ← 被动技能
-Assets/Scripts/Map/MapBoundary.cs          ← 地图边界
-Assets/Scripts/Entities/SpecialDrop.cs     ← 特殊掉落
+Assets/Scripts/Core/PoolHelper.cs              ← 对象池工具
+Assets/Scripts/Core/ComboManager.cs            ← 连击系统
+Assets/Scripts/Core/GameReferences.cs          ← 全局引用缓存
+Assets/Scripts/Core/DebugHelper.cs             ← 调试日志
+Assets/Scripts/Core/GameInputHandler.cs        ← 输入管理
+Assets/Scripts/Combat/DotProjectile.cs         ← DOT 子弹系统（4种类型）
+Assets/Scripts/Combat/StatusEffects/StatusEffectSystem.cs ← 状态效果系统
+Assets/Scripts/Player/MagePassive.cs           ← Mage 角色被动系统
+Assets/Scripts/ScriptableObjects/Characters/CharacterUpgradeData.cs ← 角色升级数据
+Assets/Scripts/UI/SelectionUI.cs               ← 角色选择
+Assets/Scripts/UI/DebugOverlay.cs              ← 调试覆盖
+Assets/Scripts/UI/DamagePopup.cs               ← 伤害数字
+Assets/Scripts/UI/ScreenShake.cs               ← 屏幕抖动
+Assets/Scripts/UI/PauseMenuUI.cs               ← 暂停菜单
+Assets/Scripts/UI/SettingsUI.cs                ← 设置面板
+Assets/Scripts/UI/WaveRewardUI.cs              ← 波次奖励
+Assets/Scripts/UI/AchievementUI.cs             ← 成就UI
+Assets/Scripts/UI/MinimapUI.cs                 ← 小地图
+Assets/Scripts/UI/EnemyHealthBar.cs            ← 敌人血条
+Assets/Scripts/Skills/PassiveSkill.cs          ← 被动技能
+Assets/Scripts/Map/MapBoundary.cs              ← 地图边界
+Assets/Scripts/Entities/SpecialDrop.cs         ← 特殊掉落
 ```
 
 ---
@@ -392,9 +437,3 @@ feat: 新增敌人类型 XXX
 fix: 修复敌人死亡后不移除的问题
 refactor: 重构伤害计算公式
 docs: 更新 Ai_content.md
-```
-
-### 协作流程
-1. 从 `dev` 创建 `feature/xxx` 分支
-2. 完成后提 PR 合并回 `dev`
-3. 测试通过后合并到 `main`

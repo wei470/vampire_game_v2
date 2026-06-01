@@ -1,0 +1,4 @@
+﻿<Solution>
+  <Project Path="Gameplay.csproj" />
+  <Project Path="Scripts.Editor.csproj" />
+</Solution>

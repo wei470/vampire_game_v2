@@ -161,6 +161,14 @@ public class Damageable : MonoBehaviour, IDamageable
     {
         if (_currentHp <= 0) return;
 
+        // 凋零状态禁止回血（由 StatusEffectManager 设置）
+        var sem = GetComponent<StatusEffectManager>();
+        if (sem != null && sem.IsWithered())
+        {
+            DebugHelper.Log($"[Damageable] {gameObject.name} is Withered — heal blocked!");
+            return;
+        }
+
         int oldHp = _currentHp;
         _currentHp = Mathf.Min(_maxHp, _currentHp + amount);
         int actualHeal = _currentHp - oldHp;
