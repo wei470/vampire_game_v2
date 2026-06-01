@@ -221,21 +221,41 @@ MonoBehaviour
 
 ## 8. UI 系统
 
-| 组件 | 功能 |
-|------|------|
-| `HUDManager` | 游戏内 HUD |
-| `LevelUpUI` | 升级选择界面 |
-| `SelectionUI` | 角色/武器/技能初始选择 |
-| `WaveRewardUI` | 波次间奖励选择 |
-| `ShopUI` | 商店界面 |
-| `GameOverUI` | 游戏结束界面 |
-| `PauseMenuUI` | 暂停菜单 |
-| `SettingsUI` | 设置面板 |
-| `AchievementUI` | 成就系统 UI |
-| `MinimapUI` | 小地图 |
-| `DamagePopup` | 浮动伤害数字 |
-| `ScreenShake` | 屏幕抖动效果 |
-| `EnemyHealthBar` | 敌人头顶血条 |
+### 8.1 全局主题 (UIColorTheme.cs)
+- 五色配色：暗青 `#012326` / 深蓝青 `#025373` / 荧光青 `#05F2DB` / 洋红 `#D9048E` / 亮粉 `#F205CB`
+- 所有 UI 组件统一从 `UIColorTheme` 取色，确保视觉统一
+- 工具方法：`MakeTexture(Color)` 创建 1px 纹理、`DrawButtonGlow(Rect)` 绘制荧光边框发光
+
+### 8.2 IMGUI 缩放 (GUIScaleHelper.cs)
+- 参考分辨率 1920×1080，所有 IMGUI `OnGUI()` 通过 `GUI.matrix` 等比缩放
+- 用法：`BeginScale()` → 绘制 → `EndScale()`
+- 已集成入口：`GameSceneBootstrap.OnGUI()`, `PlayerHealthBarHUD`, `BossHealthBarHUD`, `SkillHUD`, `WaveRewardUI`
+
+### 8.3 字体管理 (UIFontProvider.cs)
+- 统一字体入口：`UIFontProvider.DefaultFont`
+- 优先级：`Resources.Load("Fonts/Default")` → `LegacyRuntime.ttf`
+- 动态 Canvas 自动添加 `CanvasScaler(1920×1080)`
+
+### 8.4 UI 组件表
+
+| 组件 | 渲染 | 功能 |
+|------|------|------|
+| `HUDManager` | UGUI | 游戏内 HUD（等级/波次/金币） |
+| `LevelUpUI` | UGUI | 升级选择界面 |
+| `SelectionUI` | IMGUI | 角色/武器/技能初始选择（三栏布局） |
+| `WaveRewardUI` | IMGUI | 波次间奖励选择 |
+| `ShopUI` | UGUI | 商店界面 |
+| `GameOverUI` | UGUI | 游戏结束界面 |
+| `PauseMenuUI` | IMGUI | 暂停菜单 |
+| `SettingsUI` | IMGUI | 设置面板 |
+| `AchievementUI` | IMGUI | 成就系统 UI |
+| `MinimapUI` | IMGUI | 小地图 |
+| `DamagePopup` | 3D Text | 浮动伤害数字 |
+| `ScreenShake` | Transform | 屏幕抖动效果 |
+| `EnemyHealthBar` | Sprite | 敌人头顶血条 |
+| `PlayerHealthBarHUD` | **IMGUI 新增** | **左上角玩家血量条** |
+| `BossHealthBarHUD` | **IMGUI 新增** | **中上方 Boss 血量条** |
+| `SkillHUD` | **IMGUI 新增** | **左下角技能冷却 + 操作提示** |
 
 ---
 
