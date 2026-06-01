@@ -24,6 +24,9 @@ public class HUDManager : MonoBehaviour
         EventManager.OnWaveStart += OnWaveStart;
         EventManager.OnCoinChanged += OnCoinChanged;
 
+        // 应用主题颜色
+        ApplyThemeColors();
+
         UpdateAllHUD();
     }
 
@@ -37,6 +40,16 @@ public class HUDManager : MonoBehaviour
     private void OnLevelUp(int level) { UpdateLevelText(); }
     private void OnWaveStart(int wave) { UpdateWaveText(); }
     private void OnCoinChanged(int coins) { UpdateCoinText(); }
+
+    /// <summary>
+    /// 应用 UI 主题颜色到 HUD 文本
+    /// </summary>
+    private void ApplyThemeColors()
+    {
+        if (_levelText != null) _levelText.color = UIColorTheme.AccentCyan;
+        if (_waveText != null) _waveText.color = UIColorTheme.AccentMagenta;
+        if (_coinText != null) _coinText.color = UIColorTheme.GoldText;
+    }
 
     private void UpdateLevelText()
     {

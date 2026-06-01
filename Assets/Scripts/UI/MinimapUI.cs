@@ -17,25 +17,23 @@ using System.Collections.Generic;
 public class MinimapUI : MonoBehaviour
 {
     [Header("小地图设置")]
-    [SerializeField] private float _size = 180f;             // 小地图像素大小
-    [SerializeField] private float _worldRange = 60f;        // 显示的世界范围半径
-    [SerializeField] private float _margin = 10f;            // 屏幕边距
-    [SerializeField] private bool _enabled = true;           // 是否启用
+    [SerializeField] private float _size = 180f;
+    [SerializeField] private float _worldRange = 60f;
+    [SerializeField] private float _margin = 10f;
+    [SerializeField] private bool _enabled = true;
 
     [Header("颜色")]
-    [SerializeField] private Color _bgColor = new Color(0.1f, 0.1f, 0.2f, 0.8f);
-    [SerializeField] private Color _playerColor = new Color(0.3f, 0.8f, 1f);
-    [SerializeField] private Color _enemyColor = new Color(1f, 0.3f, 0.3f);
-    [SerializeField] private Color _lootColor = new Color(0.5f, 1f, 0.5f);
-    [SerializeField] private Color _borderColor = new Color(0.4f, 0.4f, 0.6f);
+    [SerializeField] private Color _bgColor = new Color(0.004f, 0.137f, 0.149f, 0.8f);  // #012326
+    [SerializeField] private Color _playerColor = new Color(0.02f, 0.949f, 0.859f);      // #05F2DB 荧光青
+    [SerializeField] private Color _enemyColor = new Color(0.851f, 0.016f, 0.557f);      // #D9048E 洋红
+    [SerializeField] private Color _lootColor = new Color(0.02f, 0.949f, 0.6f);          // 荧光青变体
+    [SerializeField] private Color _borderColor = new Color(0.008f, 0.325f, 0.451f);     // #025373 边框
 
-    // 缓存的 Texture2D 用于绘制
     private Texture2D _dotTexture;
     private Texture2D _bgTexture;
 
     private void Awake()
     {
-        // 创建 1x1 像素纹理用于绘制点
         _dotTexture = new Texture2D(1, 1);
         _dotTexture.SetPixel(0, 0, Color.white);
         _dotTexture.Apply();
@@ -51,9 +49,6 @@ public class MinimapUI : MonoBehaviour
         if (_bgTexture != null) Destroy(_bgTexture);
     }
 
-    /// <summary>
-    /// 渲染小地图（在 OnGUI 中调用）
-    /// </summary>
     public void DrawMinimap()
     {
         if (!_enabled) return;
@@ -63,7 +58,6 @@ public class MinimapUI : MonoBehaviour
 
         Vector3 playerPos = player.transform.position;
 
-        // 小地图区域（右上角）
         float mapX = Screen.width - _size - _margin;
         float mapY = _margin;
         Rect mapRect = new Rect(mapX, mapY, _size, _size);
@@ -76,40 +70,31 @@ public class MinimapUI : MonoBehaviour
         // ── 边框 ──
         DrawBorder(mapRect, _borderColor);
 
-        // 开始裁剪区域
         GUI.BeginGroup(mapRect);
 
         float center = _size / 2f;
         float scale = _size / (_worldRange * 2f);
 
-        // ── 地图边界线 ──
         DrawMapBounds(center, scale, playerPos);
-
-        // ── 掉落物（绿色/黄色小点）──
         DrawLootDots(center, scale, playerPos);
-
-        // ── 敌人（红色小点）──
         DrawEnemyDots(center, scale, playerPos);
 
-        // ── 玩家（中心蓝色大点）──
+        // ── 玩家（荧光青色大点）──
         DrawDot(center - 3, center - 3, 6, _playerColor);
 
         GUI.EndGroup();
 
         // ── 标签 ──
-        GUI.color = new Color(0.7f, 0.7f, 0.8f);
+        GUI.color = UIColorTheme.TextSecondary;
         var labelStyle = new GUIStyle(GUI.skin.label)
         {
-            fontSize = 10,
+            fontSize = 14,
             alignment = TextAnchor.MiddleCenter
         };
         GUI.Label(new Rect(mapX, mapY + _size + 2, _size, 15), "MINIMAP", labelStyle);
         GUI.color = Color.white;
     }
 
-    /// <summary>
-    /// 绘制敌人点
-    /// </summary>
     private void DrawEnemyDots(float center, float scale, Vector3 playerPos)
     {
         var enemies = FindObjectsByType<EnemyBase>();
@@ -121,21 +106,17 @@ public class MinimapUI : MonoBehaviour
             if (dist > _worldRange) continue;
 
             float px = center + offset.x * scale;
-            float py = center - offset.y * scale; // Y 轴翻转
+            float py = center - offset.y * scale;
 
-            // Boss 用更大的点
             float dotSize = (enemy is BossEnemy) ? 5f : 3f;
-            Color dotColor = (enemy is BossEnemy) ? new Color(1f, 0f, 0f) : _enemyColor;
+            // Boss 用亮粉，普通敌人用洋红
+            Color dotColor = (enemy is BossEnemy) ? UIColorTheme.AccentPink : _enemyColor;
             DrawDot(px - dotSize / 2, py - dotSize / 2, dotSize, dotColor);
         }
     }
 
-    /// <summary>
-    /// 绘制掉落物点
-    /// </summary>
     private void DrawLootDots(float center, float scale, Vector3 playerPos)
     {
-        // 经验宝石
         var gems = FindObjectsByType<XPGem>();
         foreach (var gem in gems)
         {
@@ -148,7 +129,6 @@ public class MinimapUI : MonoBehaviour
             DrawDot(px - 1, py - 1, 2, _lootColor);
         }
 
-        // 金币
         var coins = FindObjectsByType<Coin>();
         foreach (var coin in coins)
         {
@@ -158,16 +138,12 @@ public class MinimapUI : MonoBehaviour
 
             float px = center + offset.x * scale;
             float py = center - offset.y * scale;
-            DrawDot(px - 1, py - 1, 2, new Color(1f, 0.85f, 0f));
+            DrawDot(px - 1, py - 1, 2, UIColorTheme.GoldText);
         }
     }
 
-    /// <summary>
-    /// 绘制地图边界
-    /// </summary>
     private void DrawMapBounds(float center, float scale, Vector3 playerPos)
     {
-        // 假设地图边界为 ±50 单位
         float mapHalfSize = 50f;
         float left = center + (-mapHalfSize - playerPos.x) * scale;
         float right = center + (mapHalfSize - playerPos.x) * scale;
@@ -175,29 +151,19 @@ public class MinimapUI : MonoBehaviour
         float bottom = center - (-mapHalfSize - playerPos.y) * scale;
 
         GUI.color = new Color(_borderColor.r, _borderColor.g, _borderColor.b, 0.3f);
-        // 上边
         GUI.DrawTexture(new Rect(left, top, right - left, 1), _dotTexture);
-        // 下边
         GUI.DrawTexture(new Rect(left, bottom, right - left, 1), _dotTexture);
-        // 左边
         GUI.DrawTexture(new Rect(left, top, 1, bottom - top), _dotTexture);
-        // 右边
         GUI.DrawTexture(new Rect(right, top, 1, bottom - top), _dotTexture);
         GUI.color = Color.white;
     }
 
-    /// <summary>
-    /// 绘制单个点
-    /// </summary>
     private void DrawDot(float x, float y, float size, Color color)
     {
         GUI.color = color;
         GUI.DrawTexture(new Rect(x, y, size, size), _dotTexture);
     }
 
-    /// <summary>
-    /// 绘制边框
-    /// </summary>
     private void DrawBorder(Rect rect, Color color)
     {
         GUI.color = color;
@@ -208,17 +174,11 @@ public class MinimapUI : MonoBehaviour
         GUI.color = Color.white;
     }
 
-    /// <summary>
-    /// 切换小地图显示
-    /// </summary>
     public void Toggle()
     {
         _enabled = !_enabled;
     }
 
-    /// <summary>
-    /// 设置是否启用
-    /// </summary>
     public void SetEnabled(bool enabled)
     {
         _enabled = enabled;

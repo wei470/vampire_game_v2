@@ -53,6 +53,9 @@ public class LevelUpUI : MonoBehaviour
         // 初始隐藏面板
         if (_panel != null)
             _panel.SetActive(false);
+
+        // 应用主题颜色到面板
+        ApplyThemeColors();
     }
 
     private void OnEnable()
@@ -63,6 +66,47 @@ public class LevelUpUI : MonoBehaviour
     private void OnDisable()
     {
         EventManager.OnLevelUp -= OnLevelUp;
+    }
+
+    /// <summary>
+    /// 对面板和按钮应用 UI 主题颜色
+    /// </summary>
+    private void ApplyThemeColors()
+    {
+        // 面板背景
+        if (_panel != null)
+        {
+            var panelImg = _panel.GetComponent<Image>();
+            if (panelImg != null) panelImg.color = UIColorTheme.OverlayDark;
+        }
+
+        // 标题
+        if (_titleText != null)
+            _titleText.color = UIColorTheme.AccentCyan;
+
+        // 按钮列表
+        var buttons = new[] { _option1Button, _option2Button, _option3Button };
+        var texts = new[] { _option1Text, _option2Text, _option3Text };
+
+        for (int i = 0; i < 3; i++)
+        {
+            if (buttons[i] != null)
+            {
+                var img = buttons[i].GetComponent<Image>();
+                if (img != null) img.color = UIColorTheme.PanelBackground;
+
+                // 按钮颜色过渡配置
+                var cb = buttons[i].colors;
+                cb.normalColor = UIColorTheme.ButtonNormal;
+                cb.highlightedColor = UIColorTheme.ButtonHover;
+                cb.pressedColor = new Color(UIColorTheme.AccentCyan.r, UIColorTheme.AccentCyan.g, UIColorTheme.AccentCyan.b, 0.6f);
+                cb.selectedColor = UIColorTheme.ButtonSelected;
+                buttons[i].colors = cb;
+            }
+
+            if (texts[i] != null)
+                texts[i].color = UIColorTheme.TextPrimary;
+        }
     }
 
     private void Update()
@@ -118,8 +162,6 @@ public class LevelUpUI : MonoBehaviour
         }
 
         // 暂停游戏物理但不冻结 UI
-        // 注意：不能用 Time.timeScale = 0 会导致 InputSystem UI 模块失效
-        // 使用极小值代替（GameManager 的 Paused 状态会设 timeScale=0，所以这里不用它）
         Time.timeScale = 0.0001f;
 
         // 生成 3 个随机升级选项
@@ -157,7 +199,6 @@ public class LevelUpUI : MonoBehaviour
             UpgradeType.MagnetRangeUp
         };
 
-        // 如果武器未满级，添加武器升级选项
         bool canUpgradeWeapon = _weaponController != null &&
                                 _weaponController.CurrentWeapon != null &&
                                 _weaponController.CurrentWeapon.UpgradeLevel < WeaponData.MAX_UPGRADE_LEVEL;
@@ -170,7 +211,6 @@ public class LevelUpUI : MonoBehaviour
             allTypes.Add(UpgradeType.WeaponRangeUp);
         }
 
-        // Fisher-Yates 洗牌取前 3 个
         var arr = allTypes.ToArray();
         for (int i = arr.Length - 1; i > 0; i--)
         {
@@ -203,9 +243,8 @@ public class LevelUpUI : MonoBehaviour
             DebugHelper.LogWarning($"[LevelUpUI] Text for button {index} is null!");
         }
 
-        // 清除旧监听器，添加新的
         button.onClick.RemoveAllListeners();
-        int capturedIndex = index; // 捕获到局部变量确保闭包正确
+        int capturedIndex = index;
         button.onClick.AddListener(() =>
         {
             DebugHelper.Log($"[LevelUpUI] Button {capturedIndex} clicked!");
@@ -269,14 +308,11 @@ public class LevelUpUI : MonoBehaviour
             var selectedOption = _currentOptions[index];
             DebugHelper.Log($"[LevelUpUI] Selected option {index}: {selectedOption}");
 
-            // 应用升级效果
             ApplyUpgrade(selectedOption);
 
-            // 隐藏面板
             if (_panel != null)
                 _panel.SetActive(false);
 
-            // 恢复游戏
             _pendingLevelUpCount--;
             if (_pendingLevelUpCount <= 0)
             {
@@ -285,7 +321,6 @@ public class LevelUpUI : MonoBehaviour
             }
             else
             {
-                // 还有连续升级，继续显示
                 ShowLevelUpUI();
             }
 
@@ -294,7 +329,6 @@ public class LevelUpUI : MonoBehaviour
         catch (System.Exception e)
         {
             DebugHelper.LogError($"[LevelUpUI] Error in OnOptionSelected: {e.Message}\n{e.StackTrace}");
-            // 强制恢复游戏
             if (_panel != null) _panel.SetActive(false);
             _pendingLevelUpCount = 0;
             Time.timeScale = 1f;
@@ -314,7 +348,6 @@ public class LevelUpUI : MonoBehaviour
         switch (type)
         {
             case UpgradeType.AttackUp:
-                // 攻击力 +15%（通过修改 WeaponController 的伤害倍率）
                 if (_weaponController != null)
                 {
                     _weaponController.DamageMultiplier *= 1.15f;
@@ -325,7 +358,7 @@ public class LevelUpUI : MonoBehaviour
             case UpgradeType.MaxHpUp:
                 int newMaxHp = Mathf.RoundToInt(damageable.MaxHp * 1.2f);
                 damageable.SetMaxHp(newMaxHp);
-                damageable.Heal(Mathf.RoundToInt(damageable.MaxHp * 0.2f)); // 额外恢复 20%
+                damageable.Heal(Mathf.RoundToInt(damageable.MaxHp * 0.2f));
                 DebugHelper.Log($"[LevelUpUI] Max HP increased to {newMaxHp}");
                 break;
 
@@ -340,7 +373,6 @@ public class LevelUpUI : MonoBehaviour
                 break;
 
             case UpgradeType.MagnetRangeUp:
-                // 磁铁范围增加（通过全局变量传递给 XPGem）
                 MagnetRangeMultiplier *= 1.3f;
                 DebugHelper.Log($"[LevelUpUI] Magnet range +30% applied, multiplier: {MagnetRangeMultiplier:F2}");
                 break;
@@ -382,7 +414,6 @@ public class LevelUpUI : MonoBehaviour
         if (success)
         {
             DebugHelper.Log($"[LevelUpUI] Weapon '{weapon.weaponName}' upgraded to Lv.{weapon.UpgradeLevel}: {type}");
-            // 通知 WeaponController 刷新当前武器属性
             _weaponController.RefreshCurrentWeapon();
         }
     }

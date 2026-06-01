@@ -293,7 +293,13 @@ public class GameSceneBootstrap : MonoBehaviour
                     dmg.SetArmor(baseArmor);
                 }
                 var sr = _player.GetComponent<SpriteRenderer>();
-                if (sr != null) sr.color = charData.characterColor;
+                if (sr != null)
+                {
+                    // 绑定选择界面的角色 Sprite 到游戏内 Player
+                    if (charData.icon != null)
+                        sr.sprite = charData.icon;
+                    sr.color = charData.characterColor;
+                }
             }
             DebugHelper.Log($"[GameSceneBootstrap] Character: {charData.characterName}");
         }
@@ -354,6 +360,19 @@ public class GameSceneBootstrap : MonoBehaviour
         // 开始播放 BGM
         if (_bgmManager != null)
             _bgmManager.Play();
+
+        // ── 创建游戏内 HUD 组件 ──
+        // 左上角 - 玩家血量条
+        if (gameObject.GetComponent<PlayerHealthBarHUD>() == null)
+            gameObject.AddComponent<PlayerHealthBarHUD>();
+
+        // 中上方 - Boss 血量条
+        if (gameObject.GetComponent<BossHealthBarHUD>() == null)
+            gameObject.AddComponent<BossHealthBarHUD>();
+
+        // 左下角 - 技能冷却与操作提示
+        if (gameObject.GetComponent<SkillHUD>() == null)
+            gameObject.AddComponent<SkillHUD>();
 
         DebugHelper.Log("[GameSceneBootstrap] Game started! WASD=Move, Mouse=Aim/Shoot, E=Skill, R=Restart");
     }
@@ -459,13 +478,17 @@ public class GameSceneBootstrap : MonoBehaviour
 
     /// <summary>
     /// 选择界面 GUI + 调试 GUI（委托给拆分的组件）
+    /// 所有子组件共享 GUIScaleHelper 缩放，以 1920×1080 为参考分辨率。
     /// </summary>
     private void OnGUI()
     {
+        GUIScaleHelper.BeginScale();
+
         // ── 选择界面（全屏）──
         if (!_selectionDone)
         {
             _selectionUI.DrawSelectionUI();
+            GUIScaleHelper.EndScale();
             return;
         }
 
@@ -474,5 +497,7 @@ public class GameSceneBootstrap : MonoBehaviour
 
         // ── 调试面板 ──
         _debugOverlay.DrawDebugGUI();
+
+        GUIScaleHelper.EndScale();
     }
 }

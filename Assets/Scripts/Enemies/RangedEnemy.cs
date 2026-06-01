@@ -33,7 +33,7 @@ public class RangedEnemy : EnemyBase
         if (player != null) _target = player.transform;
     }
 
-    private new void FixedUpdate()
+    private void FixedUpdate()
     {
         // 安全检查：如果 HP 已归零但 _alive 标记仍为 true，强制触发死亡
         var dmg = GetComponent<Damageable>();
@@ -66,7 +66,7 @@ public class RangedEnemy : EnemyBase
         }
     }
 
-    private new void Update()
+    private void Update()
     {
         // 安全检查：如果 HP 已归零但 _alive 标记仍为 true，强制触发死亡
         var dmg = GetComponent<Damageable>();

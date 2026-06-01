@@ -47,24 +47,24 @@ public class EnemyHealthBar : MonoBehaviour
         _barTransform.localPosition = new Vector3(0f, _offsetY, 0f);
         _barTransform.localRotation = Quaternion.identity;
 
-        // 背景（黑色边框）
+        // 背景（深海暗青，半透明可见边框效果）
         var bgObj = new GameObject("HP_BG");
         bgObj.transform.SetParent(_barTransform);
         bgObj.transform.localPosition = Vector3.zero;
         bgObj.transform.localScale = new Vector3(_barWidth, _barHeight, 1f);
         _backgroundRenderer = bgObj.AddComponent<SpriteRenderer>();
         _backgroundRenderer.sprite = _whiteSprite;
-        _backgroundRenderer.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
-        _backgroundRenderer.sortingOrder = 10; // 确保在敌人之上
+        _backgroundRenderer.color = UIColorTheme.DarkBackground; // #012326 深色背景
+        _backgroundRenderer.sortingOrder = 10;
 
-        // 填充条（绿色 → 黄色 → 红色）
+        // 填充条（荧光青 → 洋红 → 亮粉）
         var fillObj = new GameObject("HP_Fill");
         fillObj.transform.SetParent(_barTransform);
         fillObj.transform.localPosition = Vector3.zero;
         fillObj.transform.localScale = new Vector3(_barWidth, _barHeight, 1f);
         _fillRenderer = fillObj.AddComponent<SpriteRenderer>();
         _fillRenderer.sprite = _whiteSprite;
-        _fillRenderer.color = Color.green;
+        _fillRenderer.color = UIColorTheme.AccentCyan; // 初始满血荧光青
         _fillRenderer.sortingOrder = 11;
     }
 
@@ -95,18 +95,21 @@ public class EnemyHealthBar : MonoBehaviour
         fillPos.x = -_barWidth * (1f - percent) * 0.5f;
         _fillRenderer.transform.localPosition = fillPos;
 
-        // 颜色渐变：绿 → 黄 → 红
+        // 颜色渐变：荧光青 → 洋红 → 亮粉
         if (percent > 0.6f)
         {
-            _fillRenderer.color = Color.Lerp(Color.yellow, Color.green, (percent - 0.6f) / 0.4f);
+            // 60%-100%：洋红 → 荧光青
+            _fillRenderer.color = Color.Lerp(UIColorTheme.AccentMagenta, UIColorTheme.AccentCyan, (percent - 0.6f) / 0.4f);
         }
         else if (percent > 0.3f)
         {
-            _fillRenderer.color = Color.Lerp(Color.red, Color.yellow, (percent - 0.3f) / 0.3f);
+            // 30%-60%：亮粉 → 洋红
+            _fillRenderer.color = Color.Lerp(UIColorTheme.AccentPink, UIColorTheme.AccentMagenta, (percent - 0.3f) / 0.3f);
         }
         else
         {
-            _fillRenderer.color = Color.red;
+            // 0%-30%：亮粉（危险警告色）
+            _fillRenderer.color = UIColorTheme.AccentPink;
         }
 
         // 满血时隐藏血条

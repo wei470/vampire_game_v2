@@ -72,7 +72,7 @@ public class DebugOverlay : MonoBehaviour
         bool waveInProgress = spawnMgr != null ? spawnMgr.WaveInProgress : false;
 
         // 右上角状态面板
-        GUI.skin.label.fontSize = 14;
+        GUI.skin.label.fontSize = 18;
         GUILayout.BeginArea(new Rect(Screen.width - 350, 10, 340, 400));
 
         GUI.color = Color.cyan;

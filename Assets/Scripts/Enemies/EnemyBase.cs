@@ -37,7 +37,7 @@ public class EnemyBase : BaseEntity
     /// <summary>
     /// 注册死亡事件。子类若重写 OnEnable，应调用 base.OnEnable()。
     /// </summary>
-    protected virtual void OnEnable()
+    protected override void OnEnable()
     {
         base.OnEnable(); // 重置 _alive = true
         RegisterDeathEvent();
