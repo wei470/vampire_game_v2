@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b8a93e16442c73a49b31a5c669ec5b71, type: 3}
+  m_Name: Skill_DeathAura
+  m_EditorClassIdentifier: Assembly-CSharp::SkillData
+  skillName: Death Aura
+  description: Creates a damaging aura around the player that continuously hurts
+    enemies
+  icon: {fileID: 0}
+  skillId: 0
+  skillType: 0
+  targetType: 1
+  cooldown: 15
+  duration: 6
+  baseDamage: 8
+  effectRadius: 3
+  effectStrength: 1
+  effectDuration: 6
+  maxLevel: 5
+  damagePerLevel: 3
+  cooldownReductionPerLevel: 1
+  effectPerLevel: 0.1
+  skillColor: {r: 0.5, g: 0, b: 0.8, a: 1}
+  visualScale: 1

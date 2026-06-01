@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 611933ce7a6005a44b7b973fc11956bb, type: 3}
+  m_Name: Char_berserker
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterData
+  characterName: Berserker
+  characterId: berserker
+  description: Gets stronger at low HP, unkillable rage
+  passiveDescription: +16 ATK, 5% lifesteal, 2 HP/s regen
+  icon: {fileID: 0}
+  characterColor: {r: 0.78431374, g: 0.19607843, b: 0.11764706, a: 1}
+  maxHP: 1000
+  moveSpeed: 3.8
+  armor: 0
+  attackDamage: 16
+  attackCooldown: 0.45
+  attackRange: 20
+  pierce: 0
+  critChance: 0.05
+  critMultiplier: 0
+  dodgeChance: 0
+  thornsDamage: 0
+  thornsRange: 0
+  hpRegen: 2
+  lifesteal: 0.05
+  auraDamage: 0
+  auraRadius: 0
+  onKillExplosionDamage: 0
+  onKillExplosionRange: 0
+  defaultSkill: {fileID: 0}

@@ -1,0 +1,22 @@
+{
+    "name": "Scripts.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Gameplay",
+        "Unity.InputSystem",
+        "Unity.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Unity.InputSystem"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

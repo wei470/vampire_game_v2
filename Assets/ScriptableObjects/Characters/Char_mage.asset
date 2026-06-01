@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 611933ce7a6005a44b7b973fc11956bb, type: 3}
+  m_Name: Char_mage
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterData
+  characterName: Mage
+  characterId: mage
+  description: High damage, pierce attacks, fragile
+  passiveDescription: Attacks pierce 2 enemies, +80% ATK
+  icon: {fileID: 0}
+  characterColor: {r: 0.39215687, g: 0.47058824, b: 1, a: 1}
+  maxHP: 1000
+  moveSpeed: 3.5
+  armor: 0
+  attackDamage: 18
+  attackCooldown: 0.55
+  attackRange: 20
+  pierce: 2
+  critChance: 0.1
+  critMultiplier: 0
+  dodgeChance: 0
+  thornsDamage: 0
+  thornsRange: 0
+  hpRegen: 0
+  lifesteal: 0
+  auraDamage: 0
+  auraRadius: 0
+  onKillExplosionDamage: 0
+  onKillExplosionRange: 0
+  defaultSkill: {fileID: 0}
