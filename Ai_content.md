@@ -219,7 +219,7 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | 2 | FastEnemy | 高速追击，低血量 |
 | 3 | TankEnemy | 高血量(80)，慢速 |
 
-> ⚠️ 所有敌人默认速度已调整为原来的50%（EnemyBase._moveSpeed: 3f → 1.5f）
+> ⚠️ 所有敌人默认速度已调整为原来的50%（在 SpawnManager.SpawnRandomEnemy 中统一乘以 0.5f）
 
 | 4 | RangedEnemy | 保持距离射击 |
 | 5 | ThrowerEnemy | 投掷炸弹 |
