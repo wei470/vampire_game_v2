@@ -111,10 +111,9 @@ public class GameSceneBootstrap : MonoBehaviour
         // 测试模式：跳过选择，直接用默认配置开始
         if (GameReferences.TestMode)
         {
-            _selectionUI.SetPreSelection(0, 1, 3);
+            _selectionUI.SetPreSelection(1, 0, 3);
             _selectionUI.ConfirmSelection();
-            // 直接跳到最后一步（需要连续确认3次）
-            _selectionUI.ConfirmSelection();
+            // 直接跳到最后一步（需要连续确认2次）
             _selectionUI.ConfirmSelection();
         }
     }
@@ -168,7 +167,7 @@ public class GameSceneBootstrap : MonoBehaviour
                 {
                     c.customUpgrades = CreateMageUpgrades();
                     c.useGenericUpgrades = false; // Mage 只用专属升级
-                    DebugHelper.Log("[GameSceneBootstrap] Injected 14 Mage custom upgrades");
+                    DebugHelper.Log("[GameSceneBootstrap] Injected 16 Mage custom upgrades");
                 }
             }
         }
@@ -245,7 +244,7 @@ public class GameSceneBootstrap : MonoBehaviour
         c.characterName = "Default";
         c.description = "Default character";
         c.maxHP = 100;
-        c.moveSpeed = 5f;
+        c.moveSpeed = 10f;
         c.armor = 0;
         c.attackDamage = 10;
         c.characterColor = Color.blue;
@@ -263,43 +262,69 @@ public class GameSceneBootstrap : MonoBehaviour
     }
 
     /// <summary>
-    /// 创建 Mage 角色的 14 个专属升级选项（运行时注入）
+    /// 创建 Mage 角色的 16 个专属升级选项（运行时注入）
     /// </summary>
     private CharacterUpgradeOption[] CreateMageUpgrades()
     {
         return new CharacterUpgradeOption[]
         {
-            // 4 种 DOT 子弹（解锁新子弹类型）
-            MakeUpgrade("bleed", "流血 (Bleed / Rupture)", "🔴 发射红色子弹\n敌人移动时持续受伤",
+            // ═══ 4 种 DOT 子弹（解锁新子弹类型）═══
+            MakeUpgrade("bleed", "流血 (Bleed)",
+                "🔴 红色子弹 | DPS:3/s | 持续4秒\n移动越快受伤越频繁",
                 CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
-            MakeUpgrade("poison", "中毒 (Poison / Venom)", "🟢 投掷药瓶生成毒液池\n叠加层数越高伤害越高",
+            MakeUpgrade("poison", "中毒 (Poison)",
+                "🟢 药瓶爆炸生成毒液池 | 持续5秒\n叠加层数越高伤害越高",
                 CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
-            MakeUpgrade("burn", "燃烧 (Burn / Ignite)", "🟠 发射慢速橙色子弹\n叠加层数加速燃烧频率",
+            MakeUpgrade("burn", "燃烧 (Burn)",
+                "🟠 快速橙色子弹 | DPS:2/s | 持续3秒\n叠加层数加速燃烧频率",
                 CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
-            MakeUpgrade("frostbite", "霜冻 (Frostbite / Chill)", "🔵 发射快速冰霜子弹\n冰冻+永久减速+霜伤",
+            MakeUpgrade("frostbite", "霜冻 (Frostbite)",
+                "🔵 快速冰霜子弹 | 冰冻1秒\n永久减速30% + 每2秒霜伤",
                 CharacterUpgradeOption.UpgradeCategory.DotType, 0f, 0f, 0f),
 
-            // DOT 增强（强化已有子弹）
-            MakeUpgrade("corrosion", "腐蚀 (Corrosion / Decay)", "腐蚀敌方护甲\n所有 DOT 伤害 +10%",
-                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.10f, 0f, 0f),
-            MakeUpgrade("curse", "诅咒 (Curse / Hex)", "诅咒目标\n所有 DOT 持续时间 +15%",
-                CharacterUpgradeOption.UpgradeCategory.DotDuration, 0.15f, 0f, 0f),
-            MakeUpgrade("agony", "痛苦 (Agony / Affliction)", "DOT 伤害暴击率 +10%\n暴击伤害 +50%",
-                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.10f, 0f, 0f),
-            MakeUpgrade("wither", "凋零 (Wither / Blight)", "凋零之力\n所有 DOT 伤害 +15%",
-                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.15f, 0f, 0f),
+            // ═══ DOT 增强（4 种）═══
+            MakeUpgrade("corrosion", "腐蚀 (Corrosion)",
+                "破甲：DOT敌人护甲-10%\n可无限叠加，越打越疼",
+                CharacterUpgradeOption.UpgradeCategory.ArmorReduction, 0.10f, 0f, 0f),
+            MakeUpgrade("curse", "诅咒 (Curse)",
+                "传染：DOT敌人死亡时\n扩散所有DOT给附近1个敌人\n每层+1目标",
+                CharacterUpgradeOption.UpgradeCategory.DotSpread, 1f, 0f, 0f),
+            MakeUpgrade("agony", "痛苦 (Agony)",
+                "频率：DOT触发间隔-10%\n可无限叠加，总伤不变但节奏更快",
+                CharacterUpgradeOption.UpgradeCategory.DotFrequency, 0.10f, 0f, 0f),
+            MakeUpgrade("wither", "凋零 (Wither)",
+                "暴击：DOT生效时10%几率双倍伤害\n超过100%后暴击倍率+100%",
+                CharacterUpgradeOption.UpgradeCategory.DotCritBurst, 0.10f, 0f, 0f),
 
-            // 引爆增强
-            MakeUpgrade("radiate", "辐射 (Radiation / Irradiate)", "引爆伤害 +30%\n引爆冷却 -20%",
+            // ═══ 引爆增强（2 种）═══
+            MakeUpgrade("radiate", "辐射 (Radiation)",
+                "引爆伤害 +30%，可无限叠加",
                 CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, 0.30f, 0f, 0f),
-            MakeUpgrade("contaminate", "污染 (Bio-contamination)", "引爆冷却 -30%\n引爆范围 +20%",
+            MakeUpgrade("contaminate", "污染 (Contaminate)",
+                "引爆冷却 -30%，可无限叠加",
                 CharacterUpgradeOption.UpgradeCategory.DetonateAbility, 0.30f, 0f, 0f),
 
-            // DOT 时间增强
-            MakeUpgrade("erosion", "侵蚀 (Erosion)", "所有 DOT 持续时间 +20%\nDOT 伤害 +5%",
-                CharacterUpgradeOption.UpgradeCategory.DotDuration, 0.20f, 0f, 0f),
-            MakeUpgrade("wind_erosion", "风蚀 (Wind Erosion)", "所有 DOT 伤害 +20%\nDOT 持续时间 +10%",
-                CharacterUpgradeOption.UpgradeCategory.DotDamage, 0.20f, 0f, 0f),
+            // ═══ DOT 时间增强（2 种）═══
+            MakeUpgrade("erosion", "侵蚀 (Erosion)",
+                "DOT每生效5次额外冲击\n造成单跳总伤50%瞬间伤害\n每层触发次数-1（最低2次）",
+                CharacterUpgradeOption.UpgradeCategory.DotTrigger, 1f, 0.50f, 0f),
+            MakeUpgrade("wind_erosion", "风蚀 (Wind Erosion)",
+                "DOT敌人移动时生成漩涡\n每秒对周围造成微量伤害\n20%几率拉扯敌人",
+                CharacterUpgradeOption.UpgradeCategory.WindVortex, 0.20f, 0f, 0f),
+
+            // ═══ 子弹增强（4 种）═══
+            MakeUpgrade("haste", "急速 (Haste)",
+                "攻速+15% 子弹速度+10%\n速度超100%获得穿透+1",
+                CharacterUpgradeOption.UpgradeCategory.AttackSpeed, 0.15f, 0.10f, 0f),
+            MakeUpgrade("barrage", "弹幕 (Barrage)",
+                "子弹数量+1\n超过5发自动转为追踪弹",
+                CharacterUpgradeOption.UpgradeCategory.BulletCount, 1f, 0f, 0f),
+            MakeUpgrade("ricochet", "反弹 (Ricochet)",
+                "子弹30%几率反弹\n超100%增加反弹次数并移除衰减",
+                CharacterUpgradeOption.UpgradeCategory.Ricochet, 0.30f, 0f, 0f),
+            MakeUpgrade("resonance", "共振 (Resonance)",
+                "子弹体积+20% 击退+15%\n可无限叠加，更容易群伤",
+                CharacterUpgradeOption.UpgradeCategory.BulletSize, 0.20f, 0.15f, 0f),
         };
     }
 
@@ -348,7 +373,7 @@ public class GameSceneBootstrap : MonoBehaviour
             var charData = _characters[selectedChar];
             if (_player != null)
             {
-                _player.MoveSpeed = charData.moveSpeed;
+                _player.MoveSpeed = 20f; // 固定高速移动
                 var dmg = _player.Damageable;
                 if (dmg != null)
                 {
@@ -367,7 +392,7 @@ public class GameSceneBootstrap : MonoBehaviour
                         baseHp += Mathf.RoundToInt(hpBonus);
                         baseArmor += Mathf.RoundToInt(armorBonus);
                         baseAtk += Mathf.RoundToInt(atkBonus);
-                        _player.MoveSpeed *= speedMult;
+                        // 不再乘以speedMult，避免永久升级拉低速度
 
                         DebugHelper.Log($"[GameSceneBootstrap] Permanent bonuses: HP+{hpBonus}, ARM+{armorBonus}, ATK+{atkBonus}, SPD×{speedMult:F2}");
                     }
@@ -397,16 +422,26 @@ public class GameSceneBootstrap : MonoBehaviour
         // 创建地图边界
         MapBoundary.Create(50f);
 
-        // 应用武器
-        if (selectedWeapon < _weapons.Length && _weapons[selectedWeapon] != null)
+        // 应用武器（所有人自带默认子弹，Mage不用武器只用DOT枪）
         {
             var wc = _player?.GetComponent<WeaponController>();
-            if (wc != null)
+            bool isMage = CurrentCharacter != null &&
+                (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage"));
+            if (isMage)
             {
-                wc.SetWeapon(_weapons[selectedWeapon]);
-                wc.SelectionLocked = true;
+                // Mage 不使用武器系统，攻击完全由 MagePassive 的毒子弹DOT枪驱动
+                if (wc != null) wc.enabled = false;
+                DebugHelper.Log("[GameSceneBootstrap] Mage: no weapon (DOT gun only)");
             }
-            DebugHelper.Log($"[GameSceneBootstrap] Weapon: {_weapons[selectedWeapon].weaponName}");
+            else
+            {
+                if (wc != null)
+                {
+                    wc.SetWeapon(_weapons[0]); // Bullet
+                    wc.SelectionLocked = true;
+                }
+                DebugHelper.Log("[GameSceneBootstrap] Weapon: Bullet (默认)");
+            }
         }
 
         // 应用技能
@@ -471,6 +506,10 @@ public class GameSceneBootstrap : MonoBehaviour
         // 左下角 - 技能冷却与操作提示
         if (gameObject.GetComponent<SkillHUD>() == null)
             gameObject.AddComponent<SkillHUD>();
+
+        // 右下角 - Mage引爆冷却显示
+        if (gameObject.GetComponent<DetonateHUD>() == null)
+            gameObject.AddComponent<DetonateHUD>();
 
         DebugHelper.Log("[GameSceneBootstrap] Game started! WASD=Move, Mouse=Aim/Shoot, E=Skill, R=Restart");
     }

@@ -23,17 +23,54 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _detonateMultiplier = 3f;
     [SerializeField] private float _detonateRadius = 50f;
 
+    [Header("DOT 增强属性")]
+    [SerializeField] private float _corrosionArmorReduction = 0.1f;    // 腐蚀：每次叠加 -10% 护甲
+    [SerializeField] private int _curseSpreadTargets = 1;              // 诅咒：死亡时传播目标数
+    [SerializeField] private float _dotFrequencyBonus = 0f;            // 痛苦：DOT 间隔缩短比例（累加）
+    [SerializeField] private float _dotCritBurstChance = 0f;           // 凋零：DOT 双倍伤害几率
+    [SerializeField] private int _erosionTriggerCount = 5;             // 侵蚀：每N次DOT生效触发冲击
+    [SerializeField] private float _erosionDamagePercent = 0.5f;       // 侵蚀：冲击伤害比例
+    [SerializeField] private float _windVortexChance = 0.2f;           // 风蚀：漩涡触发几率
+
+    [Header("子弹增强属性")]
+    [SerializeField] private float _attackSpeedBonus = 0f;             // 急速：攻速加成
+    [SerializeField] private float _bulletSpeedBonus = 0f;             // 急速：子弹速度加成
+    [SerializeField] private int _bulletCountBonus = 0;                // 弹幕：子弹数量增加
+    [SerializeField] private float _ricochetChance = 0f;               // 反弹：反弹几率
+    [SerializeField] private int _ricochetMaxBounces = 0;              // 反弹：最大反弹次数（超过100%后）
+    [SerializeField] private float _bulletSizeBonus = 0f;              // 共振：碰撞体积加成
+    [SerializeField] private float _knockbackBonus = 0f;               // 共振：击退加成
+
     [Header("运行时状态")]
     [SerializeField] private float _lastDetonateTime = -999f;
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
 
+    // ── 公共属性 ──
     public float DetonateCooldown => _detonateCooldown;
     public float DetonateCooldownRemaining => Mathf.Max(0f, _detonateCooldown - (Time.time - _lastDetonateTime));
     public bool DetonateReady => Time.time - _lastDetonateTime >= _detonateCooldown;
     public float DetonateMultiplier { get => _detonateMultiplier; set => _detonateMultiplier = value; }
     public float DetonateCooldownValue { get => _detonateCooldown; set => _detonateCooldown = value; }
     public List<DotGunState> DotGuns => _dotGuns;
+
+    // ── DOT 增强属性访问器 ──
+    public float CorrosionArmorReduction { get => _corrosionArmorReduction; set => _corrosionArmorReduction = value; }
+    public int CurseSpreadTargets { get => _curseSpreadTargets; set => _curseSpreadTargets = value; }
+    public float DotFrequencyBonus { get => _dotFrequencyBonus; set => _dotFrequencyBonus = value; }
+    public float DotCritBurstChance { get => _dotCritBurstChance; set => _dotCritBurstChance = value; }
+    public int ErosionTriggerCount { get => _erosionTriggerCount; set => _erosionTriggerCount = Mathf.Max(2, value); }
+    public float ErosionDamagePercent { get => _erosionDamagePercent; set => _erosionDamagePercent = value; }
+    public float WindVortexChance { get => _windVortexChance; set => _windVortexChance = value; }
+
+    // ── 子弹增强属性访问器 ──
+    public float AttackSpeedBonus { get => _attackSpeedBonus; set => _attackSpeedBonus = value; }
+    public float BulletSpeedBonus { get => _bulletSpeedBonus; set => _bulletSpeedBonus = value; }
+    public int BulletCountBonus { get => _bulletCountBonus; set => _bulletCountBonus = value; }
+    public float RicochetChance { get => _ricochetChance; set => _ricochetChance = value; }
+    public int RicochetMaxBounces { get => _ricochetMaxBounces; set => _ricochetMaxBounces = value; }
+    public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
+    public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
 
     public float GetDotDurationMultiplier() => 1f + _dotDurationBonus;
 
@@ -51,6 +88,16 @@ public class MagePassive : MonoBehaviour
         _dotDurationBonus += bonus;
         DebugHelper.Log($"[MagePassive] DOT Duration Bonus +{bonus * 100}%, Total: {_dotDurationBonus * 100}%");
     }
+
+    /// <summary>
+    /// 获取攻速倍率（急速加成后）
+    /// </summary>
+    public float GetAttackSpeedMultiplier() => 1f / (1f + _attackSpeedBonus);
+
+    /// <summary>
+    /// 获取子弹速度倍率
+    /// </summary>
+    public float GetBulletSpeedMultiplier() => 1f + _bulletSpeedBonus;
 
     /// <summary>
     /// 解锁一种 DOT 子弹类型
@@ -83,6 +130,12 @@ public class MagePassive : MonoBehaviour
             gun.dotDps *= (1f + dpsMultiplier);
     }
 
+    private void Awake()
+    {
+        // Mage 默认自带毒子弹（可叠加中毒，2 DPS）
+        UnlockDotGun(StatusEffectType.Poison, new Color(0.1f, 0.8f, 0.2f), 1.5f, 0, 2f, 5f);
+    }
+
     private void Update()
     {
         // 引爆快捷键：E
@@ -102,10 +155,14 @@ public class MagePassive : MonoBehaviour
         var wc = GetComponent<WeaponController>();
         if (wc != null) dmgMult = wc.DamageMultiplier;
 
+        // 应用攻速加成
+        float attackSpeedMult = GetAttackSpeedMultiplier();
+
         for (int i = 0; i < _dotGuns.Count; i++)
         {
             var gun = _dotGuns[i];
-            if (Time.time - gun.lastFireTime >= gun.cooldown)
+            float effectiveCooldown = gun.cooldown * attackSpeedMult;
+            if (Time.time - gun.lastFireTime >= effectiveCooldown)
             {
                 gun.lastFireTime = Time.time;
                 SpawnDotBullet(gun, fireDir, dmgMult);
@@ -127,32 +184,50 @@ public class MagePassive : MonoBehaviour
         float critChance = GetDotCritChance();
         bool canCrit = true;
 
-        switch (gun.effectType)
+        // 子弹数量加成：默认1发，加上 BulletCountBonus
+        int bulletCount = 1 + _bulletCountBonus;
+        float spreadAngle = 15f; // 每发子弹散射角度
+
+        for (int b = 0; b < bulletCount; b++)
         {
-            case StatusEffectType.Bleed:
-                BleedBullet.Create(transform.position, direction, 14f, gun.impactDamage,
-                    gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
-                    canCrit, critChance, _dotCritMultiplier);
-                break;
+            // 计算散射方向
+            Vector2 fireDir = direction;
+            if (bulletCount > 1)
+            {
+                float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
+                float rad = angle * Mathf.Deg2Rad;
+                fireDir = new Vector2(
+                    direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad),
+                    direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)
+                ).normalized;
+            }
 
-            case StatusEffectType.Poison:
-                Vector2 target = (Vector2)transform.position + direction * 6f;
-                PoisonPotion.Create(transform.position, target, 10f,
-                    gun.dotDuration * durMult, 2f, gun.dotDps, dmgMultiplier,
-                    canCrit, critChance, _dotCritMultiplier);
-                break;
+            switch (gun.effectType)
+            {
+                case StatusEffectType.Bleed:
+                    BleedBullet.Create(transform.position, fireDir, 14f, gun.impactDamage,
+                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
+                        canCrit, critChance, _dotCritMultiplier);
+                    break;
 
-            case StatusEffectType.Burn:
-                BurnBullet.Create(transform.position, direction, 8f, gun.impactDamage,
-                    gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
-                    canCrit, critChance, _dotCritMultiplier);
-                break;
+                case StatusEffectType.Poison:
+                    PoisonBullet.Create(transform.position, fireDir, 14f,
+                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
+                        canCrit, critChance, _dotCritMultiplier);
+                    break;
 
-            case StatusEffectType.Frostbite:
-                FrostBullet.Create(transform.position, direction, 20f, gun.impactDamage,
-                    gun.dotDps, 1f, 0.3f, dmgMultiplier,
-                    canCrit, critChance, _dotCritMultiplier);
-                break;
+                case StatusEffectType.Burn:
+                    BurnBullet.Create(transform.position, fireDir, 12f, gun.impactDamage,
+                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
+                        canCrit, critChance, _dotCritMultiplier);
+                    break;
+
+                case StatusEffectType.Frostbite:
+                    FrostBullet.Create(transform.position, fireDir, 20f, gun.impactDamage,
+                        gun.dotDps, 1f, 0.3f, dmgMultiplier,
+                        canCrit, critChance, _dotCritMultiplier);
+                    break;
+            }
         }
     }
 

@@ -80,10 +80,10 @@ public class BleedBullet : MonoBehaviour
 /// </summary>
 public class BleedEffect : MonoBehaviour
 {
-    private float _dps;
-    private float _duration;
+    public float _dps;
+    public float _duration;
     private float _startTime;
-    private bool _canCrit; private float _critChance, _critMult;
+    public bool _canCrit; public float _critChance, _critMult;
     private Vector3 _lastPosition;
     private float _damageAccumulator;
     private const float MOVE_THRESHOLD = 0.1f; // 移动阈值
@@ -121,7 +121,7 @@ public class BleedEffect : MonoBehaviour
             if (_damageAccumulator >= 1f)
             {
                 int intDmg = Mathf.FloorToInt(_damageAccumulator);
-                _damageable.TakeDamage(intDmg);
+                _damageable.TakeDamage(intDmg, new Color(0.9f, 0.15f, 0.15f)); // 流血红色
                 _damageAccumulator -= intDmg;
             }
         }
@@ -132,6 +132,91 @@ public class BleedEffect : MonoBehaviour
         // 恢复颜色
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = Color.white;
+    }
+}
+
+/// <summary>
+/// 毒子弹 — 直线飞行（无限距离），命中第一个敌人后范围爆炸，叠加中毒层数
+/// Mage 默认攻击子弹
+/// </summary>
+public class PoisonBullet : MonoBehaviour
+{
+    private float _speed = 14f;
+    private float _poisonDps = 2f;
+    private float _poisonDuration = 5f;
+    private float _explosionRadius = 0.5f;
+    private float _damageMultiplier = 1f;
+    private bool _canCrit; private float _critChance, _critMult;
+    private Vector2 _direction;
+    private bool _exploded;
+
+    public void Setup(float speed, float poisonDps, float poisonDuration, float explosionRadius,
+        float dmgMult, bool canCrit, float critChance, float critMult)
+    {
+        _speed = speed; _poisonDps = poisonDps; _poisonDuration = poisonDuration;
+        _explosionRadius = explosionRadius; _damageMultiplier = dmgMult;
+        _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
+    }
+
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+
+    private void FixedUpdate()
+    {
+        if (!_exploded)
+            GetComponent<Rigidbody2D>().linearVelocity = _direction * _speed;
+    }
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (_exploded) return;
+        if (!other.CompareTag("Enemy")) return;
+        // 命中毒液范围生成毒液池
+        LeavePuddle(transform.position);
+    }
+
+    private void LeavePuddle(Vector2 center)
+    {
+        _exploded = true;
+        GetComponent<Rigidbody2D>().linearVelocity = Vector2.zero;
+
+        // 命中敌人本身叠加中毒
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, _explosionRadius);
+        foreach (var hit in hits)
+        {
+            if (!hit.CompareTag("Enemy")) continue;
+            var dmg = hit.GetComponent<Damageable>();
+            if (dmg == null || dmg.CurrentHp <= 0) continue;
+            var poison = hit.GetComponent<PoisonStackEffect>();
+            if (poison == null) poison = hit.gameObject.AddComponent<PoisonStackEffect>();
+            poison.AddStack(_poisonDps * _damageMultiplier, _poisonDuration,
+                _canCrit, _critChance, _critMult);
+        }
+
+    // 留下一滩毒液，持续2秒
+        PoisonPuddle.Create(center, 0.5f, 2f,
+            _poisonDps * _damageMultiplier, _canCrit, _critChance, _critMult);
+
+        // 隐藏子弹本体（毒液池会自行处理视觉和销毁）
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.enabled = false;
+        GetComponent<Collider2D>().enabled = false;
+    }
+
+    public static PoisonBullet Create(Vector2 pos, Vector2 dir, float speed,
+        float poisonDps, float poisonDuration, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = new GameObject("PoisonBullet");
+        go.transform.position = pos; go.tag = "Untagged";
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
+        go.transform.localScale = Vector3.one * 0.25f;
+        go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+        var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+        var b = go.AddComponent<PoisonBullet>();
+        b.Setup(speed, poisonDps, poisonDuration, 0.5f, dmgMult, canCrit, critChance, critMult);
+        b.SetDirection(dir);
+        return b;
     }
 }
 
@@ -147,7 +232,7 @@ public class PoisonPotion : MonoBehaviour
     private float _speed = 10f;
     private float _lifetime = 3f;
     private float _puddleDuration = 5f;
-    private float _puddleRadius = 2f;
+    private float _puddleRadius = 1.5f;
     private float _baseDps = 3f;
     private float _damageMultiplier = 1f;
     private bool _canCrit; private float _critChance, _critMult;
@@ -234,16 +319,43 @@ public class PoisonPuddle : MonoBehaviour
     private void Start()
     {
         _spawnTime = Time.time;
-        _lastTick = Time.time;
-        transform.localScale = Vector3.one * _radius * 2f;
+        _lastTick = Time.time - 0.5f; // 立即触发第一次tick
+        // 视觉特效缩小一半
+        transform.localScale = Vector3.one * _radius;
+
+        // 添加触发器碰撞体，确保敌人能被检测到
+        var col = gameObject.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius = _radius;
     }
 
     private void Update()
     {
         if (Time.time - _spawnTime > _duration) { Destroy(gameObject); return; }
-        if (Time.time - _lastTick < 0.5f) return; // 每 0.5 秒叠加
+        if (Time.time - _lastTick < 0.5f) return; // 每 0.5 秒叠加一层
         _lastTick = Time.time;
 
+        ApplyPoisonToNearby();
+    }
+
+    /// <summary>
+    /// 触发器持续检测 — 敌人站在毒液池内持续叠加中毒
+    /// </summary>
+    private void OnTriggerStay2D(Collider2D other)
+    {
+        if (!other.CompareTag("Enemy")) return;
+        if (Time.time - _lastTick < 0.5f) return;
+
+        var dmg = other.GetComponent<Damageable>();
+        if (dmg == null || dmg.CurrentHp <= 0) return;
+
+        var poison = other.GetComponent<PoisonStackEffect>();
+        if (poison == null) poison = other.gameObject.AddComponent<PoisonStackEffect>();
+        poison.AddStack(_baseDps, _duration - (Time.time - _spawnTime), _canCrit, _critChance, _critMult);
+    }
+
+    private void ApplyPoisonToNearby()
+    {
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _radius);
         foreach (var hit in hits)
         {
@@ -273,39 +385,85 @@ public class PoisonPuddle : MonoBehaviour
 }
 
 /// <summary>
-/// 中毒叠加效果 — 层数越高伤害越高
+/// 中毒叠加效果 — 每tick掉2滴血，tick间隔随层数加速
+/// x初始=1秒，每层 x = x * 0.9，最低0.2秒
+/// 中毒 debuff 持续到敌人死亡（不再有时间限制）
 /// </summary>
 public class PoisonStackEffect : MonoBehaviour
 {
     private int _stacks;
-    private float _baseDps;
-    private float _endTime;
-    private bool _canCrit; private float _critChance, _critMult;
-    private float _lastTick;
+    public bool _canCrit; public float _critChance, _critMult;
+    private float _tickAccumulator;
     private Damageable _damageable;
+    private SpriteRenderer _sr;
+    private Color _originalColor;
 
-    public void AddStack(float baseDps, float remainingTime, bool canCrit, float critChance, float critMult)
+    private const float BASE_TICK_INTERVAL = 1f;   // 初始间隔1秒
+    private const float TICK_DECAY = 0.9f;          // 每层 乘以0.9
+    private const float MIN_TICK_INTERVAL = 0.2f;   // 最低0.2秒
+    private const int DAMAGE_PER_TICK = 2;           // 每tick掉2滴血
+
+    /// <summary>
+    /// 当前中毒层数（供 EnemyHealthBar 显示）
+    /// </summary>
+    public int StackCount => _stacks;
+
+    public void AddStack(float dps, float remainingTime, bool canCrit, float critChance, float critMult)
     {
         _stacks++;
-        _baseDps = Mathf.Max(_baseDps, baseDps);
-        _endTime = Time.time + remainingTime;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
 
-    private void Start() { _damageable = GetComponent<Damageable>(); _lastTick = Time.time; }
+    private void Start()
+    {
+        _damageable = GetComponent<Damageable>();
+        _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _originalColor = _sr.color;
+    }
 
     private void Update()
     {
-        if (Time.time > _endTime || _stacks <= 0) { _stacks = 0; Destroy(this); return; }
-        if (Time.time - _lastTick < 1f) return; // 每秒伤害
-        _lastTick = Time.time;
+        // 中毒持续到敌人死亡（只在层数为0时清理）
+        if (_stacks <= 0) { Cleanup(); return; }
+
+        // 敌人死亡时清除
+        if (_damageable != null && _damageable.CurrentHp <= 0) { Cleanup(); return; }
+
+        // 绿色闪烁
+        if (_sr != null)
+        {
+            float pulse = Mathf.Sin(Time.time * 8f) * 0.3f;
+            _sr.color = Color.Lerp(_originalColor, new Color(0.1f, 0.8f, 0.1f), 0.5f + pulse * 0.2f);
+        }
+
+        // 计算当前tick间隔：1 * 0.9^(stacks-1)，最低0.2
+        float tickInterval = Mathf.Max(MIN_TICK_INTERVAL,
+            BASE_TICK_INTERVAL * Mathf.Pow(TICK_DECAY, _stacks - 1));
+
+        _tickAccumulator += Time.deltaTime;
+        if (_tickAccumulator < tickInterval) return;
+        _tickAccumulator -= tickInterval;
 
         if (_damageable != null && _damageable.CurrentHp > 0)
         {
-            float dmg = _baseDps * _stacks * 0.5f; // 层数越高伤害越高
-            if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)));
+            // 基础2 + 每层+1伤害
+            int dmg = DAMAGE_PER_TICK + (_stacks - 1);
+            if (_canCrit && Random.value < _critChance)
+                dmg = Mathf.RoundToInt(dmg * _critMult);
+            _damageable.TakeDamage(dmg, new Color(0.1f, 0.8f, 0.1f)); // 毒伤绿色
         }
+    }
+
+    private void Cleanup()
+    {
+        if (_sr != null) _sr.color = _originalColor;
+        _stacks = 0;
+        Destroy(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (_sr != null) _sr.color = _originalColor;
     }
 }
 
@@ -318,7 +476,7 @@ public class PoisonStackEffect : MonoBehaviour
 /// </summary>
 public class BurnBullet : MonoBehaviour
 {
-    private float _speed = 8f;
+    private float _speed = 12f;
     private float _lifetime = 4f;
     private int _impactDamage = 2;
     private float _burnDps = 2f;
@@ -380,10 +538,11 @@ public class BurnBullet : MonoBehaviour
 public class BurnStackEffect : MonoBehaviour
 {
     private int _stacks;
-    private float _baseDps;
-    private float _duration;
-    private float _endTime;
-    private bool _canCrit; private float _critChance, _critMult;
+    public float _baseDps;
+    public float _duration;
+    public int StackCount => _stacks;
+    public float _endTime;
+    public bool _canCrit; public float _critChance, _critMult;
     private float _lastTick;
     private Damageable _damageable;
     private SpriteRenderer _sr;
@@ -429,7 +588,7 @@ public class BurnStackEffect : MonoBehaviour
             {
                 float dmg = _baseDps * tickInterval;
                 if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-                _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)));
+                _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(1f, 0.5f, 0f)); // 燃烧橙色
             }
         }
     }
@@ -514,14 +673,13 @@ public class FrostBullet : MonoBehaviour
 public class FrostEffect : MonoBehaviour
 {
     private float _freezeEndTime;
-    private float _slowPercent;
-    private float _frostDps;
-    private bool _canCrit; private float _critChance, _critMult;
+    public float _slowPercent;
+    public float _frostDps;
+    public bool _canCrit; public float _critChance, _critMult;
     private bool _frozen;
     private EnemyBase _enemyBase;
     private Damageable _damageable;
     private float _originalSpeed;
-    private bool _speedReduced;
     private float _lastFrostTick;
     private SpriteRenderer _sr;
     private Color _originalColor;
@@ -569,7 +727,6 @@ public class FrostEffect : MonoBehaviour
             if (_enemyBase != null)
             {
                 _enemyBase.MoveSpeed = _originalSpeed * (1f - _slowPercent);
-                _speedReduced = true;
             }
             if (_sr != null) _sr.color = Color.Lerp(_originalColor, new Color(0.5f, 0.7f, 1f), 0.3f);
         }
@@ -580,7 +737,7 @@ public class FrostEffect : MonoBehaviour
             _lastFrostTick = Time.time;
             float dmg = _frostDps * 2f;
             if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)));
+            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(0.4f, 0.7f, 1f)); // 霜冻冰蓝色
         }
     }
 

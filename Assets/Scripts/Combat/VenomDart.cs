@@ -79,21 +79,15 @@ public class VenomDart : MonoBehaviour
     }
 
     /// <summary>
-    /// 施加中毒DoT
+    /// 施加中毒DoT（可叠加层数）
     /// </summary>
     private void ApplyPoison(GameObject enemy)
     {
-        var existing = enemy.GetComponent<PoisonEffect>();
-        if (existing != null)
-        {
-            // 刷新中毒持续时间
-            existing.Refresh(_dotDamage * _damageMultiplier, _dotDuration);
-        }
-        else
-        {
-            var poison = enemy.AddComponent<PoisonEffect>();
-            poison.Setup(_dotDamage * _damageMultiplier, _dotDuration);
-        }
+        var poison = enemy.GetComponent<PoisonStackEffect>();
+        if (poison == null)
+            poison = enemy.AddComponent<PoisonStackEffect>();
+        // 每次命中叠加一层中毒，基础DPS 2，持续 5 秒
+        poison.AddStack(_dotDamage * _damageMultiplier, _dotDuration, false, 0f, 2f);
     }
 
     public void SetDirection(Vector2 direction)

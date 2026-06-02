@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     [Header("移动")]
-    [SerializeField] private float _moveSpeed = 5f;
+    [SerializeField] private float _moveSpeed = 20f;
 
     [Header("碰撞")]
     [SerializeField] private float _contactDamageCooldown = 1f;

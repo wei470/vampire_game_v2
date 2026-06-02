@@ -299,7 +299,7 @@ public class SpawnManager : MonoBehaviour
     {
         for (int i = _activeEnemies.Count - 1; i >= 0; i--)
         {
-            if (_activeEnemies[i] == null)
+            if (_activeEnemies[i] == null || !_activeEnemies[i].activeInHierarchy)
             {
                 int last = _activeEnemies.Count - 1;
                 if (i != last)
@@ -410,9 +410,9 @@ public class SpawnManager : MonoBehaviour
                 dmg.SetMaxHp(scaledMaxHp);
             }
 
-            // 削弱敌人速度
+            // 削弱敌人速度 + 全局减速50%
             float weaken = WeakenMultiplier;
-            enemyBase.MoveSpeed *= weaken;
+            enemyBase.MoveSpeed *= weaken * 0.5f;
 
             enemyBase.SetTarget(_playerTransform);
         }

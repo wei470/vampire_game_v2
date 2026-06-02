@@ -1,202 +1,80 @@
 using UnityEngine;
 
 /// <summary>
-/// 浮动伤害数字组件 — 敌人受击时在头顶显示伤害值。
-/// 
-/// 功能：
-/// - 受击时显示伤害数值（暴击用红色大字）
-/// - 向上漂浮 + 淡出动画
-/// - 使用对象池回收（0.8 秒后自动回收）
-/// - 支持不同颜色（普通白色、暴击红色、治疗绿色）
-/// 
-/// 使用方式：通过 DamagePopup.Create() 静态方法创建
+/// 伤害数字弹出显示 — 受伤时在实体头顶显示浮动数字
+/// 使用 TextMesh 实现，无需 Canvas/EventSystem
+/// 支持不同颜色：普通伤害白色，DOT伤害按类型着色
 /// </summary>
 public class DamagePopup : MonoBehaviour
 {
-    private const string POOL_KEY = "DamagePopup";
-    private const float LIFETIME = 0.8f;
-    private const float FLOAT_SPEED = 2f;
-    private const float FADE_SPEED = 2f;
-
+    private float _lifetime = 0.8f;
+    private float _moveSpeed = 2f;
+    private float _timer;
     private TextMesh _textMesh;
-    private float _spawnTime;
-    private Color _startColor;
-    private float _floatDirection = 1f;
+    private Color _color;
 
-    private void Awake()
+    /// <summary>
+    /// 创建伤害数字（默认白色）
+    /// </summary>
+    public static void Create(Vector3 position, int damage, bool isCrit = false, bool isHeal = false)
     {
-        _textMesh = GetComponent<TextMesh>();
-        if (_textMesh == null)
-        {
-            _textMesh = gameObject.AddComponent<TextMesh>();
-            _textMesh.characterSize = 0.15f;
-            _textMesh.anchor = TextAnchor.MiddleCenter;
-            _textMesh.alignment = TextAlignment.Center;
-            _textMesh.fontSize = 48;
-            _textMesh.fontStyle = FontStyle.Bold;
-        }
-
-        // 确保渲染在最上层
-        var sr = GetComponent<MeshRenderer>();
-        if (sr != null)
-        {
-            sr.sortingOrder = 100;
-        }
+        Color color = isHeal ? new Color(0.3f, 1f, 0.3f) : Color.white;
+        Create(position, damage, color, isCrit);
     }
 
-    private void OnEnable()
+    /// <summary>
+    /// 创建指定颜色的伤害数字
+    /// </summary>
+    public static void Create(Vector3 position, int damage, Color color, bool isCrit = false)
     {
-        _spawnTime = Time.time;
-        _floatDirection = Random.Range(-0.3f, 0.3f); // 轻微随机水平偏移
+        var go = new GameObject("DamagePopup");
+        go.transform.position = position + new Vector3(Random.Range(-0.3f, 0.3f), 0.5f, 0);
+
+        var popup = go.AddComponent<DamagePopup>();
+        popup._color = color;
+
+        // 使用 TextMesh（无需 Canvas）
+        popup._textMesh = go.AddComponent<TextMesh>();
+        popup._textMesh.text = isCrit ? damage + "!" : damage.ToString();
+        popup._textMesh.color = color;
+        popup._textMesh.fontSize = isCrit ? 80 : 60;
+        popup._textMesh.fontStyle = isCrit ? FontStyle.Bold : FontStyle.Normal;
+        popup._textMesh.alignment = TextAlignment.Center;
+        popup._textMesh.anchor = TextAnchor.MiddleCenter;
+        popup._textMesh.characterSize = 0.12f;
+
+        // 使用默认字体
+        popup._textMesh.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        // 添加 MeshRenderer 设置
+        var mr = go.GetComponent<MeshRenderer>();
+        if (mr != null)
+        {
+            mr.sortingOrder = 100;
+        }
+
+        popup._timer = 0f;
     }
 
     private void Update()
     {
-        float elapsed = Time.time - _spawnTime;
-        float t = elapsed / LIFETIME;
+        _timer += Time.deltaTime;
 
-        if (t >= 1f)
+        // 向上飘
+        transform.position += Vector3.up * _moveSpeed * Time.deltaTime;
+
+        // 淡出
+        if (_textMesh != null)
         {
-            DespawnSelf();
-            return;
+            Color c = _textMesh.color;
+            c.a = Mathf.Lerp(1f, 0f, _timer / _lifetime);
+            _textMesh.color = c;
         }
 
-        // 向上漂浮 + 轻微水平偏移
-        transform.position += new Vector3(_floatDirection * Time.deltaTime, FLOAT_SPEED * Time.deltaTime, 0f);
-
-        // 淡出（后半段开始淡出）
-        if (t > 0.5f)
+        // 销毁
+        if (_timer >= _lifetime)
         {
-            float alpha = 1f - (t - 0.5f) * 2f;
-            if (_textMesh != null)
-            {
-                Color c = _startColor;
-                c.a = alpha;
-                _textMesh.color = c;
-            }
+            Destroy(gameObject);
         }
-
-        // 缩放动画（出现时放大，然后缩回）
-        float scale = 1f;
-        if (t < 0.1f)
-        {
-            scale = Mathf.Lerp(1.5f, 1f, t / 0.1f);
-        }
-        transform.localScale = Vector3.one * scale;
-    }
-
-    /// <summary>
-    /// 设置伤害数字文本和颜色
-    /// </summary>
-    public void Setup(int damage, bool isCrit, bool isHeal = false)
-    {
-        if (_textMesh == null) return;
-
-        if (isHeal)
-        {
-            _textMesh.text = $"+{damage}";
-            _startColor = Color.green;
-            _textMesh.characterSize = 0.12f;
-        }
-        else if (isCrit)
-        {
-            _textMesh.text = $"-{damage}!";
-            _startColor = Color.red;
-            _textMesh.characterSize = 0.2f; // 暴击更大
-            _textMesh.fontStyle = FontStyle.Bold;
-        }
-        else
-        {
-            _textMesh.text = $"-{damage}";
-            _startColor = new Color(1f, 1f, 0.8f); // 淡黄色
-            _textMesh.characterSize = 0.12f;
-        }
-
-        _textMesh.color = _startColor;
-    }
-
-    private void DespawnSelf()
-    {
-        PoolHelper.DespawnOrDestroy(gameObject, POOL_KEY);
-    }
-
-    /// <summary>
-    /// 在指定位置创建伤害数字
-    /// </summary>
-    public static void Create(Vector3 position, int damage, bool isCrit = false, bool isHeal = false)
-    {
-        // 确保池已注册
-        EnsurePoolRegistered();
-
-        // 偏移到头顶
-        Vector3 popupPos = position + Vector3.up * 0.5f + Vector3.right * Random.Range(-0.3f, 0.3f);
-
-        var pool = ObjectPool.Instance;
-        if (pool != null && pool.HasPool(POOL_KEY))
-        {
-            var obj = pool.Spawn(POOL_KEY, popupPos, Quaternion.identity);
-            if (obj != null)
-            {
-                var popup = obj.GetComponent<DamagePopup>();
-                if (popup == null) popup = obj.AddComponent<DamagePopup>();
-                popup.Setup(damage, isCrit, isHeal);
-                return;
-            }
-        }
-
-        // 池中没有，创建新对象
-        var go = new GameObject("DamagePopup");
-        go.transform.position = popupPos;
-
-        var textMesh = go.AddComponent<TextMesh>();
-        textMesh.characterSize = 0.12f;
-        textMesh.anchor = TextAnchor.MiddleCenter;
-        textMesh.alignment = TextAlignment.Center;
-        textMesh.fontSize = 48;
-        textMesh.fontStyle = FontStyle.Bold;
-
-        var renderer = go.GetComponent<MeshRenderer>();
-        if (renderer != null)
-        {
-            renderer.sortingOrder = 100;
-            // 使用默认字体材质
-            renderer.material = new Material(Shader.Find("GUI/Text Shader"));
-        }
-
-        var popup2 = go.AddComponent<DamagePopup>();
-        popup2.Setup(damage, isCrit, isHeal);
-
-        // 注册到池供后续复用
-        if (pool != null && !pool.HasPool(POOL_KEY))
-        {
-            pool.RegisterPrefab(POOL_KEY, go);
-        }
-
-        Object.Destroy(go, LIFETIME + 0.1f);
-    }
-
-    private static bool _poolRegistered = false;
-    private static void EnsurePoolRegistered()
-    {
-        if (_poolRegistered) return;
-        _poolRegistered = true;
-
-        var pool = ObjectPool.Instance;
-        if (pool == null || pool.HasPool(POOL_KEY)) return;
-
-        // 创建模板对象
-        var template = new GameObject("DamagePopup_Template");
-        var textMesh = template.AddComponent<TextMesh>();
-        textMesh.characterSize = 0.12f;
-        textMesh.anchor = TextAnchor.MiddleCenter;
-        textMesh.alignment = TextAlignment.Center;
-        textMesh.fontSize = 48;
-        textMesh.fontStyle = FontStyle.Bold;
-
-        template.AddComponent<DamagePopup>();
-        template.SetActive(false);
-
-        pool.WarmUp(POOL_KEY, template, 10);
-        Object.Destroy(template);
     }
 }

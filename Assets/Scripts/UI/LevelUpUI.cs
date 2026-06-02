@@ -234,16 +234,7 @@ public class LevelUpUI : MonoBehaviour
             allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.ArmorUp });
             allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MagnetRangeUp });
 
-            bool canUpgradeWeapon = _weaponController != null &&
-                                    _weaponController.CurrentWeapon != null &&
-                                    _weaponController.CurrentWeapon.UpgradeLevel < WeaponData.MAX_UPGRADE_LEVEL;
-            if (canUpgradeWeapon)
-            {
-                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponDamageUp });
-                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponPierceUp });
-                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponCooldownDown });
-                allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.WeaponRangeUp });
-            }
+            // 武器升级已移除（武器系统已简化）
         }
 
         // 2. 添加角色专属升级
@@ -515,8 +506,105 @@ public class LevelUpUI : MonoBehaviour
                 break;
 
             case CharacterUpgradeOption.UpgradeCategory.StatusEffect:
-                // 通用状态效果（诅咒/凋零等）
                 DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName}");
+                break;
+
+            // ═══ 腐蚀 — 拥有DOT的敌人护甲降低 ═══
+            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction:
+                if (_magePassive != null)
+                {
+                    _magePassive.CorrosionArmorReduction += option.value1;
+                    DebugHelper.Log($"[LevelUpUI] Corrosion armor reduction +{option.value1 * 100}%");
+                }
+                break;
+
+            // ═══ 诅咒 — DOT敌人死亡时传播DOT ═══
+            case CharacterUpgradeOption.UpgradeCategory.DotSpread:
+                if (_magePassive != null)
+                {
+                    _magePassive.CurseSpreadTargets += (int)option.value1;
+                    DebugHelper.Log($"[LevelUpUI] Curse spread targets +{(int)option.value1}");
+                }
+                break;
+
+            // ═══ 痛苦 — DOT触发间隔缩短 ═══
+            case CharacterUpgradeOption.UpgradeCategory.DotFrequency:
+                if (_magePassive != null)
+                {
+                    _magePassive.DotFrequencyBonus += option.value1;
+                    DebugHelper.Log($"[LevelUpUI] DOT frequency bonus +{option.value1 * 100}%");
+                }
+                break;
+
+            // ═══ 凋零 — DOT有几率造成双倍伤害 ═══
+            case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
+                if (_magePassive != null)
+                {
+                    _magePassive.DotCritBurstChance += option.value1;
+                    DebugHelper.Log($"[LevelUpUI] DOT crit burst chance +{option.value1 * 100}%");
+                }
+                break;
+
+            // ═══ 侵蚀 — 每N次DOT生效额外冲击 ═══
+            case CharacterUpgradeOption.UpgradeCategory.DotTrigger:
+                if (_magePassive != null)
+                {
+                    _magePassive.ErosionTriggerCount -= (int)option.value1;
+                    _magePassive.ErosionDamagePercent += option.value2;
+                    DebugHelper.Log($"[LevelUpUI] Erosion trigger count -> {_magePassive.ErosionTriggerCount}, dmg +{option.value2 * 100}%");
+                }
+                break;
+
+            // ═══ 风蚀 — DOT敌人移动时生成漩涡 ═══
+            case CharacterUpgradeOption.UpgradeCategory.WindVortex:
+                if (_magePassive != null)
+                {
+                    _magePassive.WindVortexChance += option.value1;
+                    DebugHelper.Log($"[LevelUpUI] Wind vortex chance +{option.value1 * 100}%");
+                }
+                break;
+
+            // ═══ 急速 — 攻速+15%, 子弹速度+10% ═══
+            case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
+                if (_magePassive != null)
+                {
+                    _magePassive.AttackSpeedBonus += option.value1;
+                    _magePassive.BulletSpeedBonus += option.value2;
+                    DebugHelper.Log($"[LevelUpUI] Attack speed +{option.value1 * 100}%, bullet speed +{option.value2 * 100}%");
+                }
+                break;
+
+            // ═══ 弹幕 — 子弹数量+1 ═══
+            case CharacterUpgradeOption.UpgradeCategory.BulletCount:
+                if (_magePassive != null)
+                {
+                    _magePassive.BulletCountBonus += (int)option.value1;
+                    DebugHelper.Log($"[LevelUpUI] Bullet count +{(int)option.value1}");
+                }
+                break;
+
+            // ═══ 反弹 — 30%几率反弹 ═══
+            case CharacterUpgradeOption.UpgradeCategory.Ricochet:
+                if (_magePassive != null)
+                {
+                    _magePassive.RicochetChance += option.value1;
+                    if (_magePassive.RicochetChance > 1f)
+                    {
+                        _magePassive.RicochetMaxBounces += 1;
+                        _magePassive.RicochetChance -= 1f;
+                    }
+                    DebugHelper.Log($"[LevelUpUI] Ricochet chance +{option.value1 * 100}%, max bounces: {_magePassive.RicochetMaxBounces}");
+                }
+                break;
+
+            // ═══ 共振 — 子弹碰撞体积+20%, 击退+15% ═══
+            case CharacterUpgradeOption.UpgradeCategory.BulletSize:
+                if (_magePassive != null)
+                {
+                    _magePassive.BulletSizeBonus += option.value1;
+                    _magePassive.KnockbackBonus += option.value2;
+                    DebugHelper.Log($"[LevelUpUI] Bullet size +{option.value1 * 100}%, knockback +{option.value2 * 100}%");
+                }
                 break;
 
             default:
@@ -535,7 +623,7 @@ public class LevelUpUI : MonoBehaviour
         {
             case "bleed":    return new DotGunConfig { type = StatusEffectType.Bleed,    color = new Color(0.9f, 0.1f, 0.1f), cooldown = 1.0f, impactDmg = 3, dotDps = 2f, dotDuration = 4f };
             case "poison":   return new DotGunConfig { type = StatusEffectType.Poison,   color = new Color(0.1f, 0.9f, 0.2f), cooldown = 2.0f, impactDmg = 0, dotDps = 3f, dotDuration = 5f };
-            case "burn":     return new DotGunConfig { type = StatusEffectType.Burn,     color = new Color(1f, 0.4f, 0f),     cooldown = 0.3f, impactDmg = 2, dotDps = 2f, dotDuration = 3f };
+            case "burn":     return new DotGunConfig { type = StatusEffectType.Burn,     color = new Color(1f, 0.4f, 0f),     cooldown = 0.2f, impactDmg = 2, dotDps = 2f, dotDuration = 3f };
             case "frostbite":return new DotGunConfig { type = StatusEffectType.Frostbite,color = new Color(0.3f, 0.6f, 1f),   cooldown = 2.0f, impactDmg = 6, dotDps = 2f, dotDuration = 3f };
             default: return null;
         }

@@ -9,7 +9,7 @@ using UnityEngine;
 public class EnemyBase : BaseEntity
 {
     [Header("敌人属性")]
-    [SerializeField] private float _moveSpeed = 3f;
+    [SerializeField] private float _moveSpeed = 0.75f;
     [SerializeField] private int _contactDamage = 10;
     [SerializeField] private float _attackCooldown = 1f;
 

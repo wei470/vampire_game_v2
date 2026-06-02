@@ -108,11 +108,22 @@ public class Damageable : MonoBehaviour, IDamageable
     }
 
     /// <summary>
-    /// 受到伤害
+    /// 受到伤害（默认白色数字）
     /// 伤害公式：actualDamage = max(1, damage - armor)
     /// </summary>
     /// <param name="damage">原始伤害值</param>
     public void TakeDamage(int damage)
+    {
+        TakeDamage(damage, Color.white);
+    }
+
+    /// <summary>
+    /// 受到伤害（指定颜色的伤害数字）
+    /// 伤害公式：actualDamage = max(1, damage - armor)
+    /// </summary>
+    /// <param name="damage">原始伤害值</param>
+    /// <param name="popupColor">伤害数字颜色</param>
+    public void TakeDamage(int damage, Color popupColor)
     {
         if (_currentHp <= 0) return;
 
@@ -135,7 +146,7 @@ public class Damageable : MonoBehaviour, IDamageable
         // 显示伤害数字（敌人受击时）
         if (!gameObject.CompareTag("Player"))
         {
-            DamagePopup.Create(transform.position, actualDamage, false);
+            DamagePopup.Create(transform.position, actualDamage, popupColor, false);
         }
 
         OnDamaged?.Invoke(_currentHp, _maxHp);

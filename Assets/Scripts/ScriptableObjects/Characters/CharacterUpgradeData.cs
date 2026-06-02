@@ -40,6 +40,18 @@ public class CharacterUpgradeOption
         DamageMultiplier,   // 伤害倍率
         Survivability,      // 生存能力
         Utility,            // 实用能力
-        Special             // 特殊能力
+        Special,            // 特殊能力
+
+        // ── Mage 专属扩展 ──
+        ArmorReduction,     // 腐蚀 — 拥有DOT的敌人护甲降低
+        DotSpread,          // 诅咒 — DOT敌人死亡时传播DOT
+        DotFrequency,       // 痛苦 — DOT触发间隔缩短
+        DotCritBurst,       // 凋零 — DOT有几率造成双倍伤害
+        DotTrigger,         // 侵蚀 — 每N次DOT生效额外冲击
+        WindVortex,         // 风蚀 — DOT敌人移动时生成漩涡
+        AttackSpeed,        // 急速 — 攻速+子弹速度
+        BulletCount,        // 弹幕 — 子弹数量增加
+        Ricochet,           // 反弹 — 子弹反弹几率
+        BulletSize          // 共振 — 子弹碰撞体积+击退
     }
 }

@@ -119,96 +119,108 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 
 ---
 
-## 4. 战斗系统（Combat 模块）
+## 4. 武器系统（已简化）
 
-### 4.1 伤害公式
-- **`CombatManager`** — 静态方法，所有伤害必须经过此处
-  - `CalculateFinalDamage(baseDamage, multiplier, armor, out isCrit)` — 暴击/护甲计算
-  - `DealDamage(target, baseDamage, multiplier)` — 单体伤害
-  - `DealAoEDamage(center, radius, baseDamage, multiplier, knockback)` — 范围伤害
-  - `ProcessPierce(ref pierce, target, base, mult, hitSet, knockback, transform)` — 穿透逻辑
+### 4.1 武器分配逻辑
+- **所有角色**默认获得 Bullet（基础子弹武器）
+- **Mage 角色**不使用 WeaponController，攻击完全由 MagePassive 的 DOT 枪系统驱动
+- 选择流程已简化为 2 步：选择角色 → 选择技能（不再选择武器）
 
-### 4.2 弹幕继承体系
-```
-MonoBehaviour
-├── Projectile (基础弹幕 — 移动/穿透/碰撞)
-│   ├── Bullet (基础子弹)
-├── HomingProjectile (追踪弹)
-├── LightningBolt (闪电链)
-├── ShockwaveProjectile (冲击波)
-├── MineTrap (地雷)
-├── FireZone (火焰区域)
-├── FrostOrb (冰霜球)
-├── VenomDart (毒镖)
-├── EnemyBullet (敌人子弹)
-├── BleedBullet (流血子弹 — Mage 专属)
-├── BurnBullet (燃烧子弹 — Mage 专属，小球外观)
-├── FrostBullet (霜冻子弹 — Mage 专属)
-├── PoisonPotion (中毒药瓶 — Mage 专属)
-│   └── PoisonPuddle (毒液池)
-└── DotProjectile (DOT 子弹基类)
-```
-
-### 4.3 武器系统
-- **`WeaponData`** (ScriptableObject) — 8 种武器类型
-  - `ProjectileType`: Bullet, Lightning, Shockwave, Homing, Mine, Fire, Frost, Venom
-  - 4 级升级（`UpgradeLevel` 0-4）：伤害/穿透/冷却/范围
-- **`WeaponController`** — 武器发射控制
-  - `SetWeapon(WeaponData)` — 设置武器（游戏开始时锁定，不可切换）
-  - `FireWeapon(direction)` → 根据类型调用对应 Spawn 方法
-
-### 4.4 DOT 子弹系统（Mage 专属）
-- **`DotProjectile.cs`** — 4 种 DOT 子弹类型：
-  - 🔴 **BleedBullet** — 命中附加流血，敌人移动时受伤
-  - 🟢 **PoisonPotion** — 投掷药瓶爆炸生成毒液池，叠加层数
-  - 🟠 **BurnBullet** — 慢速小球，叠加燃烧，层数越高 tick 越快
-  - 🔵 **FrostBullet** — 快速子弹，冰冻+永久减速+每 2 秒霜伤
-- **`DotSpriteCache`** — 共享 Sprite 缓存
-
-### 4.5 状态效果系统
-- **`StatusEffectSystem.cs`** — 统一 DOT/Debuff 管理
-  - `StatusEffectType` 枚举：14 种效果类型
-  - `StatusEffectManager` — 挂载到敌人，管理所有活跃效果
-  - 支持引爆（Detonate）、污染传播、辐射、凋零禁回血等
+### 4.2 武器数据（运行时创建）
+- 8 种 WeaponData 仍保留在代码中用于非 Mage 角色
+- Mage 的 WeaponController 在游戏开始时被禁用（`wc.enabled = false`）
 
 ---
 
-## 5. 实体系统（Entities 模块）
+## 5. DOT 子弹系统（Mage 专属）
 
-### 5.1 继承体系
-```
-MonoBehaviour
-└── BaseEntity (标签/碰撞检测/OnEnable重置_alive)
-    └── EnemyBase (敌人基类 — 追击/碰撞伤害/死亡/血条)
-        ├── FastEnemy, TankEnemy, RangedEnemy
-        ├── ChargerEnemy, ThrowerEnemy
-        ├── HealerEnemy, ChainHealerEnemy, EnhancerEnemy
-        ├── ShielderEnemy, StealthEnemy, BurstEnemy
-        ├── SplitterEnemy, SummonerEnemy
-        └── BossEnemy (5 阶段 Boss)
-```
+### 5.1 子弹类型
+| 类型 | 类名 | 颜色 | 特点 |
+|------|------|------|------|
+| 毒子弹 | `PoisonBullet` | 🟢绿色 | 无限距离，命中留毒液池(2秒) |
+| 流血 | `BleedBullet` | 🔴红色 | 命中附加流血，移动时受伤 |
+| 燃烧 | `BurnBullet` | 🟠橙色 | 快速圆形子弹(12f)，叠加燃烧层数 |
+| 霜冻 | `FrostBullet` | 🔵冰蓝 | 快速子弹(20f)，冰冻+永久减速 |
+| 中毒药瓶 | `PoisonPotion` | 🟢药瓶 | 投掷药瓶，爆炸生成毒液池 |
 
-### 5.2 核心组件
-- **`Damageable`** — 实现 `IDamageable`，HP/护甲/受伤/治疗/死亡 + LateUpdate 安全网
-  - **凋零状态**：`Heal()` 检查 `StatusEffectManager.IsWithered()`，凋零时禁止回血
-- **`KillRewarder`** — 实现 `IRewardable`，监听死亡事件生成掉落
-- **`Coin`** / **`XPGem`** — 掉落物，移动拾取 + 对象池回收
-- **`SpecialDrop`** — 特殊掉落（治疗/磁铁/攻击/护盾/经验）
+### 5.2 中毒叠加效果（PoisonStackEffect）
+- **每tick伤害**：基础2 + 每层+1（1层=2，5层=6，10层=11）
+- **初始间隔**：x = 1秒
+- **每层加速**：x = x × 0.9（每层缩短10%）
+- **最低间隔**：0.2秒
+- **中毒 debuff 持续到敌人死亡**（不再有时间限制）
+- 敌人外观变绿闪烁
+- **毒液池范围**（毒子弹命中留 0.5 半径，毒药瓶留 1.5 半径）
+- **处于毒液池的敌人每秒叠一层中毒**（1.0秒tick间隔）
+- **所有持续伤害效果显示在敌人血条上方**（EnemyHealthBar 动态显示所有 DOT 类型）
 
-### 5.3 物理质量（碰撞推力）
-- **玩家 mass = 100** — 敌人无法推走玩家
-- **敌人 mass = 1** — 玩家可轻松推开敌人
+### 5.3 Mage 被动参数
+- DOT 持续时间 +20%
+- DOT 可暴击（暴击率 5%+，暴击倍率 2x）
+- E 键引爆（12秒冷却）
+- 默认自带毒子弹（1.5秒射速）
 
 ---
 
-## 6. 敌人系统（Enemies 模块）
+## 6. 角色专属升级系统（16个）
 
-### 6.1 14 种敌人 + 1 种 Boss
+### 6.1 DOT 子弹解锁（4种）
+- 🔴 流血、🟢 中毒、🟠 燃烧、🔵 霜冻
+
+### 6.2 DOT 增强（4种）
+- **腐蚀** — 拥有DOT的敌人护甲-10%（可叠加）
+- **诅咒** — DOT敌人死亡时扩散DOT给附近敌人（每层+1目标）
+- **痛苦** — DOT触发间隔-10%（可叠加）
+- **凋零** — DOT生效时10%几率双倍伤害
+
+### 6.3 引爆增强（2种）
+- **辐射** — 引爆伤害+30%
+- **污染** — 引爆冷却-30%
+
+### 6.4 DOT 时间增强（2种）
+- **侵蚀** — 每5次DOT生效额外冲击
+- **风蚀** — DOT敌人移动时生成漩涡
+
+### 6.5 子弹增强（4种）
+- **急速** — 攻速+15%，子弹速度+10%
+- **弹幕** — 子弹数量+1（散射发射）
+- **反弹** — 30%几率反弹
+- **共振** — 子弹体积+20%，击退+15%
+
+---
+
+## 7. 状态效果系统（StatusEffectSystem）
+
+### 7.1 StatusEffectManager
+- 挂载到敌人身上，管理所有活跃 DOT/Debuff
+- 支持 14 种 StatusEffectType
+- DOT 持续时间倍率、DOT 伤害倍率
+- 引爆（Detonate）、诅咒传播、辐射、凋零禁回血
+
+### 7.2 独立 DOT 组件
+- `BleedEffect` — 移动时受伤
+- `BurnStackEffect` — 叠加燃烧层数
+- `PoisonStackEffect` — 叠加中毒层数（基础2伤/tick + 每层+1，间隔随层数加速）
+- `FrostEffect` — 冰冻+永久减速
+
+### 7.3 诅咒传播机制
+- `StatusEffectManager.OnEnable()` 注册 `BaseEntity.OnDeath` 事件
+- 敌人死亡时自动调用 `OnEnemyDeath_SpreadContaminate()`
+- 传播所有 DOT 效果给最近的 N 个敌人（N = MagePassive.CurseSpreadTargets）
+
+---
+
+## 8. 敌人系统（Enemies 模块）
+
+### 8.1 14 种敌人 + 1 种 Boss
 | # | 类型 | 行为特点 |
 |---|------|---------|
 | 1 | BasicEnemy | 基础近战，直冲玩家 |
 | 2 | FastEnemy | 高速追击，低血量 |
 | 3 | TankEnemy | 高血量(80)，慢速 |
+
+> ⚠️ 所有敌人默认速度已调整为原来的50%（EnemyBase._moveSpeed: 3f → 1.5f）
+
 | 4 | RangedEnemy | 保持距离射击 |
 | 5 | ThrowerEnemy | 投掷炸弹 |
 | 6 | HealerEnemy | 治疗附近敌人 |
@@ -222,7 +234,7 @@ MonoBehaviour
 | 14 | ChargerEnemy | 蓄力冲锋 |
 | 15 | BossEnemy | 5阶段Boss（每5波） |
 
-### 6.2 出怪逻辑（SpawnManager）
+### 8.2 出怪逻辑（SpawnManager）
 - **第 1-2 波**：只出 BasicEnemy
 - **第 3-4 波**：Basic + Ranged(30%) + Fast(30%)
 - **第 5-7 波**：+ Tank(10%) + Thrower(15%)
@@ -231,139 +243,35 @@ MonoBehaviour
 - **波次公式**：敌人数 = 3 + (wave-1) × 2
 - **难度曲线**：S 曲线递增（前10波慢，15波加速，后期平稳）
 
-### 6.3 敌人血条（EnemyHealthBar）
-- 纯 2D Sprite 实现（不依赖 Canvas）
-- 深灰背景 + 彩色填充条（绿→黄→红）
-- 满血时隐藏，受伤后显示
-- 由 EnemyBase.OnEnable() 自动创建
-
 ---
 
-## 7. 技能系统（Skills 模块）
+## 9. 技能系统（Skills 模块）
 
-### 7.1 主动技能（8 种，按 F 使用）
+### 9.1 主动技能（8 种，按 F 使用）
 - **`BaseSkill`** — 抽象基类：冷却/伤害/效果强度/升级
 - 实现：WindWave, Berserk, TheWorld, Teleport, DeathAura, LightningStorm, GravityWell, FrostNova
 
-### 7.2 被动技能
+### 9.2 被动技能
 - **`PassiveSkillData`** (ScriptableObject) — 10 种被动类型
 - 类型：MaxHP/HPRegen/MoveSpeed/AttackDamage/Cooldown/Armor/CritChance/CritDamage/PickupRange/Luck
 
-### 7.3 技能管理
+### 9.3 技能管理
 - **`PlayerSkillManager`** — `CreateSkillComponent()` 中必须调用 `skill.SetSkillData(data)`
 - **键位**：F 使用技能，Q 切换技能
 
 ---
 
-## 8. 角色系统
+## 10. 选择流程（已简化为2步）
 
-### 8.1 角色数据
-- **`CharacterData`** (ScriptableObject) — 定义角色基础属性
-  - `customUpgrades[]` — 角色专属升级选项数组
-  - `useGenericUpgrades` — 是否使用通用升级池
-
-### 8.2 角色专属升级数据
-- **`CharacterUpgradeData.cs`** — `CharacterUpgradeOption` 类
-  - `UpgradeCategory` 枚举：DotDamage/DotDuration/DotType/DetonateAbility 等
-  - 通过 `value1-3` 传递数值参数
-
-### 8.3 Mage 角色（DOT 大师）
-- **`MagePassive`** — Mage 专属被动系统
-  - 被动：DOT 持续时间 +20%，DOT 可暴击
-  - **E 键引爆**：引爆所有敌人 DOT + 屏幕抖动（12 秒冷却）
-  - 通过升级解锁 4 种 DOT 子弹，独立发射
-- **12 个专属升级**：
-  - 4 个子弹解锁：流血/中毒/燃烧/霜冻
-  - 8 个增强：腐蚀/诅咒/痛苦/凋零（DOT 增伤）+ 辐射/污染（引爆增强）+ 侵蚀/风蚀（DOT 时间/伤害）
-- **运行时注入**：`GameSceneBootstrap.LoadSelectionData()` 中自动注入 `.asset` 中缺失的数据
+### SelectionUI
+- **Step 1/2**：选择角色（8种可选）
+- **Step 2/2**：选择技能（8种可选）
+- 武器不再需要选择，所有角色自动获得默认子弹
+- Mage 的攻击由 MagePassive DOT 枪系统驱动，不使用 WeaponController
 
 ---
 
-## 9. UI 系统
-
-### 9.1 全局主题 (UIColorTheme.cs)
-- 五色配色：暗青 `#012326` / 深蓝青 `#025373` / 荧光青 `#05F2DB` / 洋红 `#D9048E` / 亮粉 `#F205CB`
-- 所有 UI 组件统一从 `UIColorTheme` 取色，确保视觉统一
-
-### 9.2 UI 组件表
-
-| 组件 | 渲染 | 功能 |
-|------|------|------|
-| `HUDManager` | UGUI | 游戏内 HUD（等级/波次/金币） |
-| `LevelUpUI` | UGUI | 升级选择界面（支持角色专属升级） |
-| `SelectionUI` | IMGUI | 角色/武器/技能初始选择 |
-| `WaveRewardUI` | IMGUI | 波次间奖励选择 |
-| `ShopUI` | UGUI | 商店界面 |
-| `GameOverUI` | UGUI | 游戏结束界面 |
-| `PauseMenuUI` | IMGUI | 暂停菜单 |
-| `ScreenShake` | Transform | 屏幕抖动效果（含引爆抖动） |
-
----
-
-## 10. 场景引导（Bootstrap）
-
-### GameSceneBootstrap 初始化顺序
-1. `Start()` → 加载数据 → 显示 `SelectionUI`
-2. `OnSelectionConfirmed()` → `ApplySelectionAndStartGame()`
-3. 初始化 Player / SpawnManager / ObjectPool / MapBoundary / 各 UI
-4. `WarmUpObjectPools()` — 预热所有对象池（含运行时创建的敌人预制体）
-5. `SpawnManager.EnsureEnemyPrefabs()` — Inspector 未赋值时自动创建 14 种敌人预制体
-6. 根据角色类型添加专属被动组件（如 MagePassive）
-7. 设置 `CurrentCharacter` 静态属性供 LevelUpUI 等访问
-
----
-
-## 11. 接口定义（Interfaces.cs）
-
-```csharp
-interface IDamageable  { void TakeDamage(int damage); }
-interface IPoolable    { void OnSpawnFromPool(); void OnDespawnToPool(); }
-interface IRewardable  { /* KillRewarder 实现 */ }
-```
-
----
-
-## 12. ScriptableObject 数据结构
-
-| 类型 | 路径 | 关键字段 |
-|------|------|---------|
-| `GameConfig` | Config/GameConfig.cs | 全局游戏参数 |
-| `EnemyWaveConfig` | Config/EnemyWaveConfig.cs | 波次配置 |
-| `MapThemeData` | Config/MapThemeData.cs | 主题配置 |
-| `CharacterData` | Characters/CharacterData.cs | 角色属性 + 专属升级 |
-| `CharacterUpgradeData` | Characters/CharacterUpgradeData.cs | 升级选项数据 |
-| `WeaponData` | WeaponData.cs | 武器属性（8种×4级） |
-| `SkillData` | Skills/SkillData.cs | 技能属性 |
-| `PassiveSkillData` | Skills/PassiveSkill.cs | 被动技能（10种） |
-
----
-
-## 13. ⚠️ 修改规范与约束
-
-### 必须遵守
-1. **所有伤害必须经过 `CombatManager`**
-2. **所有对象生命周期必须走 `ObjectPool`/`PoolHelper`**
-3. **全局引用必须通过 `GameReferences`**
-4. **事件必须通过 `EventManager`**
-5. **Debug 日志必须用 `DebugHelper`**
-6. **状态重置必须在 `OnEnable()`**（对象池回收时只调用 OnEnable，不调用 Awake）
-
-### 代码风格
-- 中文注释、`///` XML 文档注释、`[Header]` 特性标记
-- PascalCase 方法/类，camelCase 字段，_camelCase 私有字段
-
-### 修改检查清单
-- [ ] 修改 `EventManager` → 更新 `ClearAll()`
-- [ ] 新增敌人 → 池键常量 + SpawnManager 预制体字段 + ChooseEnemyPrefab
-- [ ] 新增武器 → `WeaponData.ProjectileType` + `WeaponController.FireWeaponData()`
-- [ ] 新增技能 → 继承 `BaseSkill` + `SetSkillData()` + 注册到 `PlayerSkillManager`
-- [ ] 新增被动 → `PassiveSkillData.PassiveType` + `Apply()` 方法
-- [ ] 新增 UI → 集成到 `GameSceneBootstrap` 或 `HUDManager`
-- [ ] 新增 DOT 子弹 → 继承对应基类 + 注册到 `MagePassive` + 更新 `LevelUpUI` 和 `GameSceneBootstrap`
-
----
-
-## 14. 关键文件快速索引
+## 11. 关键文件快速索引
 
 ### 最常修改
 | 文件 | 路径 |
@@ -374,7 +282,6 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 | GameInputHandler | Core/GameInputHandler.cs |
 | CombatManager | Combat/CombatManager.cs |
 | SpawnManager | Enemies/SpawnManager.cs |
-| WeaponController | Combat/WeaponController.cs |
 | PlayerController | Player/PlayerController.cs |
 | MagePassive | Player/MagePassive.cs |
 | DotProjectile | Combat/DotProjectile.cs |
@@ -395,45 +302,24 @@ interface IRewardable  { /* KillRewarder 实现 */ }
 
 ---
 
-## 15. 新增文件清单
+## 12. ⚠️ 修改规范与约束
 
-```
-Assets/Scripts/Core/PoolHelper.cs              ← 对象池工具
-Assets/Scripts/Core/ComboManager.cs            ← 连击系统
-Assets/Scripts/Core/GameReferences.cs          ← 全局引用缓存
-Assets/Scripts/Core/DebugHelper.cs             ← 调试日志
-Assets/Scripts/Core/GameInputHandler.cs        ← 输入管理
-Assets/Scripts/Combat/DotProjectile.cs         ← DOT 子弹系统（4种类型）
-Assets/Scripts/Combat/StatusEffects/StatusEffectSystem.cs ← 状态效果系统
-Assets/Scripts/Player/MagePassive.cs           ← Mage 角色被动系统
-Assets/Scripts/ScriptableObjects/Characters/CharacterUpgradeData.cs ← 角色升级数据
-Assets/Scripts/UI/SelectionUI.cs               ← 角色选择
-Assets/Scripts/UI/DebugOverlay.cs              ← 调试覆盖
-Assets/Scripts/UI/DamagePopup.cs               ← 伤害数字
-Assets/Scripts/UI/ScreenShake.cs               ← 屏幕抖动
-Assets/Scripts/UI/PauseMenuUI.cs               ← 暂停菜单
-Assets/Scripts/UI/SettingsUI.cs                ← 设置面板
-Assets/Scripts/UI/WaveRewardUI.cs              ← 波次奖励
-Assets/Scripts/UI/AchievementUI.cs             ← 成就UI
-Assets/Scripts/UI/MinimapUI.cs                 ← 小地图
-Assets/Scripts/UI/EnemyHealthBar.cs            ← 敌人血条
-Assets/Scripts/Skills/PassiveSkill.cs          ← 被动技能
-Assets/Scripts/Map/MapBoundary.cs              ← 地图边界
-Assets/Scripts/Entities/SpecialDrop.cs         ← 特殊掉落
-```
+### 必须遵守
+1. **所有伤害必须经过 `CombatManager`**
+2. **所有对象生命周期必须走 `ObjectPool`/`PoolHelper`**
+3. **全局引用必须通过 `GameReferences`**
+4. **事件必须通过 `EventManager`**
+5. **Debug 日志必须用 `DebugHelper`**
+6. **状态重置必须在 `OnEnable()`**（对象池回收时只调用 OnEnable，不调用 Awake）
 
----
+### 代码风格
+- 中文注释、`///` XML 文档注释、`[Header]` 特性标记
+- PascalCase 方法/类，camelCase 字段，_camelCase 私有字段
 
-## 16. Git 协作规范
-
-### 分支策略
-- `main` — 稳定可运行版本
-- `dev` — 开发分支
-- `feature/xxx` — 功能分支
-
-### 提交规范
-```
-feat: 新增敌人类型 XXX
-fix: 修复敌人死亡后不移除的问题
-refactor: 重构伤害计算公式
-docs: 更新 Ai_content.md
+### 修改检查清单
+- [ ] 修改 `EventManager` → 更新 `ClearAll()`
+- [ ] 新增敌人 → 池键常量 + SpawnManager 预制体字段 + ChooseEnemyPrefab
+- [ ] 新增技能 → 继承 `BaseSkill` + `SetSkillData()` + 注册到 `PlayerSkillManager`
+- [ ] 新增被动 → `PassiveSkillData.PassiveType` + `Apply()` 方法
+- [ ] 新增 UI → 集成到 `GameSceneBootstrap` 或 `HUDManager`
+- [ ] 新增 DOT 子弹 → 继承对应基类 + 注册到 `MagePassive` + 更新 `LevelUpUI` 和 `GameSceneBootstrap`

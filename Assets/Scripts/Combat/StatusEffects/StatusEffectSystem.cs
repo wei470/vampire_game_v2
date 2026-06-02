@@ -111,6 +111,27 @@ public class StatusEffectManager : MonoBehaviour
         _activeEffects.Clear();
         _lastTickTime = Time.time;
         if (_sr != null) _originalColor = _sr.color;
+
+        // 诅咒：注册死亡事件，在敌人死亡时自动传播DOT
+        var entity = GetComponent<BaseEntity>();
+        if (entity != null)
+            entity.OnDeath += OnDeathHandler;
+    }
+
+    private void OnDisable()
+    {
+        // 注销死亡事件
+        var entity = GetComponent<BaseEntity>();
+        if (entity != null)
+            entity.OnDeath -= OnDeathHandler;
+    }
+
+    /// <summary>
+    /// 敌人死亡时触发诅咒DOT传播
+    /// </summary>
+    private void OnDeathHandler(Vector3 deathPos)
+    {
+        OnEnemyDeath_SpreadContaminate();
     }
 
     /// <summary>
@@ -314,29 +335,99 @@ public class StatusEffectManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 污染传播 — 敌人死亡时调用
+    /// 污染传播 — 敌人死亡时调用（诅咒升级触发）
+    /// 传播范围 5f 内的敌人，目标数量由 MagePassive.CurseSpreadTargets 决定
     /// </summary>
     public void OnEnemyDeath_SpreadContaminate()
     {
-        if (ContaminateRange <= 0 || _activeEffects.Count == 0) return;
+        // 获取 MagePassive 的诅咒目标数
+        var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+        int spreadTargets = 1;
+        if (magePassive != null)
+        {
+            spreadTargets = magePassive.CurseSpreadTargets;
+            ContaminateRange = ContaminateRange > 0 ? ContaminateRange : 5f; // 默认传播范围5格
+        }
 
+        if (ContaminateRange <= 0) return;
+
+        // 检查是否有任何DOT效果可以传播（StatusEffectManager + 独立DOT组件）
+        bool hasAnyDot = _activeEffects.Count > 0;
+        bool hasBleed = GetComponent<BleedEffect>() != null;
+        bool hasBurn = GetComponent<BurnStackEffect>() != null;
+        bool hasPoison = GetComponent<PoisonStackEffect>() != null;
+        bool hasFrost = GetComponent<FrostEffect>() != null;
+        if (!hasAnyDot && !hasBleed && !hasBurn && !hasPoison && !hasFrost) return;
+
+        // 找到最近的 N 个敌人
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, ContaminateRange);
+        var validTargets = new System.Collections.Generic.List<Collider2D>();
         foreach (var hit in hits)
         {
             if (hit.gameObject == gameObject) continue;
             if (!hit.CompareTag("Enemy")) continue;
+            validTargets.Add(hit);
+        }
 
+        // 按距离排序，取最近的 spreadTargets 个
+        validTargets.Sort((a, b) =>
+        {
+            float distA = Vector2.Distance(transform.position, a.transform.position);
+            float distB = Vector2.Distance(transform.position, b.transform.position);
+            return distA.CompareTo(distB);
+        });
+
+        int spreadCount = Mathf.Min(spreadTargets, validTargets.Count);
+        for (int i = 0; i < spreadCount; i++)
+        {
+            var hit = validTargets[i];
             var otherManager = hit.GetComponent<StatusEffectManager>();
             if (otherManager == null)
                 otherManager = hit.gameObject.AddComponent<StatusEffectManager>();
 
-            // 传播所有 DOT（持续时间减半）
+            // 传播 StatusEffectManager 中的 DOT（持续时间减半）
             foreach (var effect in _activeEffects)
             {
                 otherManager.ApplyEffect(effect.type, effect.damagePerSecond, effect.remainingDuration * 0.5f,
                     effect.canCrit, effect.critChance, effect.critMultiplier);
             }
+
+            // 传播独立 DOT 组件（BleedEffect, BurnStackEffect, PoisonStackEffect, FrostEffect）
+            var bleed = GetComponent<BleedEffect>();
+            if (bleed != null)
+            {
+                var otherBleed = hit.GetComponent<BleedEffect>();
+                if (otherBleed == null) otherBleed = hit.gameObject.AddComponent<BleedEffect>();
+                otherBleed.Refresh(bleed._dps, bleed._duration * 0.5f, bleed._canCrit, bleed._critChance, bleed._critMult);
+            }
+
+            var burn = GetComponent<BurnStackEffect>();
+            if (burn != null)
+            {
+                var otherBurn = hit.GetComponent<BurnStackEffect>();
+                if (otherBurn == null) otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
+                otherBurn.AddStack(burn._baseDps, burn._duration * 0.5f, burn._canCrit, burn._critChance, burn._critMult);
+            }
+
+            var poison = GetComponent<PoisonStackEffect>();
+            if (poison != null)
+            {
+                var otherPoison = hit.GetComponent<PoisonStackEffect>();
+                if (otherPoison == null) otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
+                otherPoison.AddStack(2f, 0f, poison._canCrit, poison._critChance, poison._critMult);
+            }
+
+            var frost = GetComponent<FrostEffect>();
+            if (frost != null)
+            {
+                var otherFrost = hit.GetComponent<FrostEffect>();
+                if (otherFrost == null) otherFrost = hit.gameObject.AddComponent<FrostEffect>();
+                otherFrost.ApplyFreeze(0.5f, frost._slowPercent, frost._frostDps, frost._canCrit, frost._critChance, frost._critMult);
+            }
         }
+
+        if (spreadCount > 0)
+            DebugHelper.Log($"[StatusEffectManager] Curse spread to {spreadCount} enemies");
     }
 
     /// <summary>
