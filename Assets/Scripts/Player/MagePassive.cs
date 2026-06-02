@@ -29,7 +29,7 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _dotFrequencyBonus = 0f;            // 痛苦：DOT 间隔缩短比例（累加）
     [SerializeField] private float _dotCritBurstChance = 0f;           // 凋零：DOT 双倍伤害几率
     [SerializeField] private int _erosionTriggerCount = 5;             // 侵蚀：每N次DOT生效触发冲击
-    [SerializeField] private float _erosionDamagePercent = 0.5f;       // 侵蚀：冲击伤害比例
+    [SerializeField] private float _erosionDamagePercent = 0f;         // 侵蚀：冲击伤害比例（默认0，选了侵蚀升级后才生效）
     [Header("子弹增强属性")]
     [SerializeField] private float _attackSpeedBonus = 0f;             // 急速：攻速加成
     [SerializeField] private float _bulletSpeedBonus = 0f;             // 急速：子弹速度加成
@@ -178,6 +178,7 @@ public class MagePassive : MonoBehaviour
     {
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
+        float bulletSpeedMult = GetBulletSpeedMultiplier();
         bool canCrit = true;
 
         // 子弹数量加成：默认1发，加上 BulletCountBonus
@@ -201,25 +202,25 @@ public class MagePassive : MonoBehaviour
             switch (gun.effectType)
             {
                 case StatusEffectType.Bleed:
-                    BleedBullet.Create(transform.position, fireDir, 14f, gun.impactDamage,
+                    BleedBullet.Create(transform.position, fireDir, 14f * bulletSpeedMult, gun.impactDamage,
                         gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
                         canCrit, critChance, _dotCritMultiplier);
                     break;
 
                 case StatusEffectType.Poison:
-                    PoisonBullet.Create(transform.position, fireDir, 14f,
+                    PoisonBullet.Create(transform.position, fireDir, 14f * bulletSpeedMult,
                         gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
                         canCrit, critChance, _dotCritMultiplier);
                     break;
 
                 case StatusEffectType.Burn:
-                    BurnBullet.Create(transform.position, fireDir, 12f, gun.impactDamage,
+                    BurnBullet.Create(transform.position, fireDir, 12f * bulletSpeedMult, gun.impactDamage,
                         gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
                         canCrit, critChance, _dotCritMultiplier);
                     break;
 
                 case StatusEffectType.Frostbite:
-                    FrostBullet.Create(transform.position, fireDir, 20f, gun.impactDamage,
+                    FrostBullet.Create(transform.position, fireDir, 20f * bulletSpeedMult, gun.impactDamage,
                         gun.dotDps, 1f, 0.3f, dmgMultiplier,
                         canCrit, critChance, _dotCritMultiplier);
                     break;

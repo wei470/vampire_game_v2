@@ -36,4 +36,15 @@ public static class GameReferences
         MainCamera = null;
         TestMode = false;
     }
+
+    /// <summary>
+    /// 完全重置所有引用（返回菜单时调用，防止残留）
+    /// </summary>
+    public static void Reset()
+    {
+        Player = null;
+        SpawnManager = null;
+        MainCamera = null;
+        TestMode = false;
+    }
 }

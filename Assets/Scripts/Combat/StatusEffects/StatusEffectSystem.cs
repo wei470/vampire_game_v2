@@ -74,6 +74,7 @@ public class StatusEffectManager : MonoBehaviour
     private Color _originalColor;
     private float _lastTickTime;
     private const float TICK_INTERVAL = 0.5f;
+    private int _erosionDotHitCount; // 侵蚀：DOT 生效计数器
 
     // 全局属性（由 MagePassive 等设置）
     public float DotDurationMultiplier { get; set; } = 1f;
@@ -110,6 +111,7 @@ public class StatusEffectManager : MonoBehaviour
     {
         _activeEffects.Clear();
         _lastTickTime = Time.time;
+        _erosionDotHitCount = 0;
         if (_sr != null) _originalColor = _sr.color;
 
         // 诅咒：注册死亡事件，在敌人死亡时自动传播DOT
@@ -242,6 +244,18 @@ public class StatusEffectManager : MonoBehaviour
         {
             // 凋零禁回血检查在 Damageable.Heal() 中处理
             _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(totalTickDamage)));
+
+            // 侵蚀：每 N 次 DOT 生效触发额外冲击
+            if (ErosionDamagePercent > 0)
+            {
+                _erosionDotHitCount++;
+                if (_erosionDotHitCount >= ErosionTriggerCount)
+                {
+                    _erosionDotHitCount = 0;
+                    int erosionDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamage * ErosionDamagePercent));
+                    _damageable.TakeDamage(erosionDmg, new Color(0.7f, 0.8f, 0.2f));
+                }
+            }
         }
 
         // 风蚀击退
@@ -340,16 +354,16 @@ public class StatusEffectManager : MonoBehaviour
     /// </summary>
     public void OnEnemyDeath_SpreadContaminate()
     {
-        // 获取 MagePassive 的诅咒目标数
+        // 获取 MagePassive — 必须拥有诅咒升级才触发传播
         var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
-        int spreadTargets = 1;
-        if (magePassive != null)
-        {
-            spreadTargets = magePassive.CurseSpreadTargets;
-            ContaminateRange = ContaminateRange > 0 ? ContaminateRange : 5f; // 默认传播范围5格
-        }
+        if (magePassive == null) return;
+        int spreadTargets = magePassive.CurseSpreadTargets;
 
-        if (ContaminateRange <= 0) return;
+        // 没有诅咒升级（默认1个目标=未升级），不传播
+        if (spreadTargets <= 1) return;
+
+        // 传播范围
+        float range = ContaminateRange > 0 ? ContaminateRange : 5f;
 
         // 检查是否有任何DOT效果可以传播（StatusEffectManager + 独立DOT组件）
         bool hasAnyDot = _activeEffects.Count > 0;
@@ -360,7 +374,7 @@ public class StatusEffectManager : MonoBehaviour
         if (!hasAnyDot && !hasBleed && !hasBurn && !hasPoison && !hasFrost) return;
 
         // 找到最近的 N 个敌人
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, ContaminateRange);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, range);
         var validTargets = new System.Collections.Generic.List<Collider2D>();
         foreach (var hit in hits)
         {
@@ -369,7 +383,7 @@ public class StatusEffectManager : MonoBehaviour
             validTargets.Add(hit);
         }
 
-        // 传递给范围内所有敌人（不受 spreadTargets 数量限制）
+        // 传递给范围内所有敌人
         int spreadCount = validTargets.Count;
         for (int i = 0; i < spreadCount; i++)
         {
@@ -424,8 +438,17 @@ public class StatusEffectManager : MonoBehaviour
             }
         }
 
+        // 传播视觉特效：灰色锁链连线
         if (spreadCount > 0)
+        {
+            for (int i = 0; i < spreadCount; i++)
+            {
+                var target = validTargets[i];
+                if (target == null) continue;
+                CreateSpreadLine(transform.position, target.transform.position);
+            }
             DebugHelper.Log($"[StatusEffectManager] Curse spread to {spreadCount} enemies");
+        }
     }
 
     /// <summary>
@@ -442,6 +465,26 @@ public class StatusEffectManager : MonoBehaviour
     public bool IsWithered()
     {
         return WitherActive;
+    }
+
+    /// <summary>
+    /// 创建诅咒传播连线特效（灰色粒子线）
+    /// </summary>
+    private void CreateSpreadLine(Vector3 from, Vector3 to)
+    {
+        var lineObj = new GameObject("CurseLine");
+        lineObj.transform.position = from;
+        var lr = lineObj.AddComponent<LineRenderer>();
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.startColor = new Color(0.5f, 0.5f, 0.5f, 0.8f);
+        lr.endColor = new Color(0.5f, 0.5f, 0.5f, 0f);
+        lr.startWidth = 0.12f;
+        lr.endWidth = 0.04f;
+        lr.positionCount = 2;
+        lr.SetPosition(0, from);
+        lr.SetPosition(1, to);
+        lr.sortingOrder = 20;
+        Destroy(lineObj, 0.5f); // 0.5秒后自动销毁
     }
 
     private void UpdateVisual()

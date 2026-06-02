@@ -37,8 +37,28 @@ public class PauseMenuUI : MonoBehaviour
     {
         _isPaused = false;
         Time.timeScale = 1f;
+
+        // 清除所有事件和静态状态
         EventManager.ClearAll();
         LevelUpUI.ResetMagnetMultiplier();
+
+        // 重置全局引用缓存（防止旧玩家引用残留）
+        GameReferences.Reset();
+
+        // 重置角色选择静态数据
+        GameSceneBootstrap.ResetCharacter();
+
+        // 销毁所有 DontDestroyOnLoad 单例，确保下次进入干净重建
+        if (GameManager.Instance != null) Destroy(GameManager.Instance.gameObject);
+        if (ObjectPool.Instance != null) Destroy(ObjectPool.Instance.gameObject);
+        if (CombatManager.Instance != null) Destroy(CombatManager.Instance.gameObject);
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.Save();
+            Destroy(SaveManager.Instance.gameObject);
+        }
+        if (OffScreenCuller.Instance != null) Destroy(OffScreenCuller.Instance.gameObject);
+
         SceneManager.LoadScene("MenuScene");
     }
 

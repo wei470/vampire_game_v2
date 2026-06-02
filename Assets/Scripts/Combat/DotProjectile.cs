@@ -10,6 +10,25 @@ using UnityEngine;
 /// </summary>
 
 // ═══════════════════════════════════════════════════════════════
+// 通用工具方法
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// DOT 子弹通用工具类
+/// </summary>
+public static class DotBulletHelper
+{
+    /// <summary>
+    /// 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+    /// </summary>
+    public static void EnsureStatusEffectManager(GameObject enemy)
+    {
+        if (enemy.GetComponent<StatusEffectManager>() == null)
+            enemy.AddComponent<StatusEffectManager>();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 通用 DOT 子弹基类
 // ═══════════════════════════════════════════════════════════════
 
@@ -50,6 +69,8 @@ public class BleedBullet : MonoBehaviour
         if (dmg != null && dmg.CurrentHp > 0)
         {
             dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             // 附加流血被动效果
             var bleed = other.GetComponent<BleedEffect>();
             if (bleed == null) bleed = other.gameObject.AddComponent<BleedEffect>();
@@ -181,6 +202,8 @@ public class PoisonBullet : MonoBehaviour
     {
         if (_exploded) return;
         if (!other.CompareTag("Enemy")) return;
+        // 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+        DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
         // 命中毒液范围生成毒液池
         LeavePuddle(transform.position);
     }
@@ -516,6 +539,8 @@ public class BurnBullet : MonoBehaviour
         if (dmg != null && dmg.CurrentHp > 0)
         {
             dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             // 叠加燃烧
             var burn = other.GetComponent<BurnStackEffect>();
             if (burn == null) burn = other.gameObject.AddComponent<BurnStackEffect>();
@@ -650,6 +675,8 @@ public class FrostBullet : MonoBehaviour
         if (dmg != null && dmg.CurrentHp > 0)
         {
             dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             // 冰冻效果
             var frost = other.GetComponent<FrostEffect>();
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();

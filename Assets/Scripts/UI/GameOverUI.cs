@@ -90,7 +90,11 @@ public class GameOverUI : MonoBehaviour
         CreateButton(_gameOverPanel.transform, "RestartButton", "Restart",
             new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.38f), new Vector2(250, 55),
             UIColorTheme.AccentCyan,
-            () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
+            () =>
+            {
+                ResetGameState();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            });
 
         CreateButton(_gameOverPanel.transform, "ShopButton", "Upgrade Shop",
             new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), new Vector2(250, 55),
@@ -106,8 +110,8 @@ public class GameOverUI : MonoBehaviour
             UIColorTheme.PanelBackground,
             () =>
             {
-                if (SaveManager.Instance != null) SaveManager.Instance.Save();
-                SceneManager.LoadScene(0);
+                ResetGameState();
+                SceneManager.LoadScene("MenuScene");
             });
     }
 
@@ -128,6 +132,22 @@ public class GameOverUI : MonoBehaviour
         rect.sizeDelta = sizeDelta;
         rect.anchoredPosition = Vector2.zero;
         return text;
+    }
+
+    /// <summary>
+    /// 重置所有游戏静态状态（返回菜单/重启时调用）
+    /// </summary>
+    private void ResetGameState()
+    {
+        EventManager.ClearAll();
+        LevelUpUI.ResetMagnetMultiplier();
+        GameReferences.Reset();
+        GameSceneBootstrap.ResetCharacter();
+
+        if (ObjectPool.Instance != null) Destroy(ObjectPool.Instance.gameObject);
+        if (CombatManager.Instance != null) Destroy(CombatManager.Instance.gameObject);
+        if (SaveManager.Instance != null) { SaveManager.Instance.Save(); Destroy(SaveManager.Instance.gameObject); }
+        if (OffScreenCuller.Instance != null) Destroy(OffScreenCuller.Instance.gameObject);
     }
 
     private void CreateButton(Transform parent, string name, string label,

@@ -49,10 +49,12 @@ Assets/Editor/      ← 编辑器工具（场景创建器）
 - **`Singleton<T>`** — MonoBehaviour 单例基类，`Awake()` 中设置 `Instance`
 - 继承自它的：`GameManager`, `ObjectPool`, `CombatManager`, `ComboManager`, `SaveManager`, `OffScreenCuller`
 - 应用退出时 `_applicationIsQuitting` 静默返回 null，不打印警告
+- ⚠️ **使用 `DontDestroyOnLoad`，返回菜单时必须手动销毁所有单例**
 
 ### 3.2 全局引用缓存
 - **`GameReferences`** — 静态类，缓存 `Player`, `MainCamera`, `SpawnManager`, `HUDManager` 等
 - **严禁使用 `FindFirstObjectByType`**，所有全局引用必须通过 `GameReferences` 获取
+- **返回菜单时必须调用 `GameReferences.Reset()` 清空所有引用**
 
 ### 3.3 事件系统
 - **`EventManager`** — 纯静态类，基于 `System.Action` 委托
@@ -159,17 +161,19 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 - DOT 可暴击（暴击率 5%+，暴击倍率 2x）
 - E 键引爆（12秒冷却）
 - 默认自带毒子弹（1.5秒射速）
+- 子弹速度受 `GetBulletSpeedMultiplier()` 影响（急速升级生效）
+- 攻速受 `GetAttackSpeedMultiplier()` 影响（急速升级缩短射击间隔）
 
 ---
 
-## 6. 角色专属升级系统（16个）
+## 6. 角色专属升级系统（15个，共振已删除）
 
 ### 6.1 DOT 子弹解锁（4种）
 - 🔴 流血、🟢 中毒、🟠 燃烧、🔵 霜冻
 
 ### 6.2 DOT 增强（4种）
 - **腐蚀** — 拥有DOT的敌人护甲-10%（可叠加）
-- **诅咒** — DOT敌人死亡时扩散DOT给附近敌人（每层+1目标）
+- **诅咒** — DOT敌人死亡时扩散DOT给附近敌人（每层+1目标），**必须拥有诅咒升级才触发传播**
 - **痛苦** — DOT触发间隔-10%（可叠加）
 - **凋零** — DOT生效时10%几率双倍伤害
 
@@ -178,13 +182,12 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 - **污染** — 引爆冷却-30%
 
 ### 6.4 DOT 时间增强（1种）
-- **侵蚀** — 每5次DOT生效额外冲击（风蚀已移除）
+- **侵蚀** — 每5次DOT生效额外冲击，造成当次DOT总伤50%的额外伤害（默认不生效，选了升级才触发）
 
-### 6.5 子弹增强（4种）
+### 6.5 子弹增强（3种）
 - **急速** — 攻速+15%，子弹速度+10%
 - **弹幕** — 子弹数量+1（散射发射）
 - **反弹** — 30%几率反弹
-- **共振** — 子弹体积+20%，击退+15%
 
 ---
 
@@ -204,9 +207,17 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 
 ### 7.3 诅咒传播机制
 - `StatusEffectManager.OnEnable()` 注册 `BaseEntity.OnDeath` 事件
+- **必须拥有诅咒升级才触发传播**（`CurseSpreadTargets > 1` 才生效）
+- DOT 子弹命中敌人时自动添加 `StatusEffectManager`（通过 `DotBulletHelper.EnsureStatusEffectManager()`）
 - 敌人死亡时自动调用 `OnEnemyDeath_SpreadContaminate()`
 - 传播给范围内**所有敌人**，继承 **10%** 的原 DOT 层数/伤害/持续时间
 - 中毒/燃烧按 `StackCount × 0.1` 继承层数（最少 1 层）
+- 传播时显示**灰色锁链连线**特效（LineRenderer，0.5秒自动消失）
+
+### 7.4 侵蚀机制
+- 每 N 次 DOT 生效触发额外冲击伤害（初始 N=5，升级后减少，最低 2）
+- 冲击伤害 = 当次 DOT 总伤 × ErosionDamagePercent（默认 0，选了侵蚀升级后 +0.5）
+- `StatusEffectManager._erosionDotHitCount` 在 `OnEnable()` 中重置为 0
 
 ---
 
@@ -288,7 +299,8 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | PlayerController | Player/PlayerController.cs | 玩家移动 |
 | MagePassive | Player/MagePassive.cs | DOT 枪系统 |
 | DotProjectile | Combat/DotProjectile.cs | 4种DOT子弹 + 效果组件 |
-| StatusEffectSystem | Combat/StatusEffects/StatusEffectSystem.cs | DOT 管理 + 诅咒传播 |
+| DotBulletHelper | Combat/DotProjectile.cs | DOT子弹通用工具（EnsureStatusEffectManager） |
+| StatusEffectSystem | Combat/StatusEffects/StatusEffectSystem.cs | DOT 管理 + 诅咒传播 + 侵蚀 |
 | LevelUpUI | UI/LevelUpUI.cs | 升级界面 + DOT 枪过滤 |
 | Damageable | Entities/Damageable.cs | 可伤害实体 |
 | EnemyHealthBar | UI/EnemyHealthBar.cs | 敌人血条 + DOT 指示器 |
@@ -296,7 +308,9 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | SpriteFactory | Core/SpriteFactory.cs | 运行时几何图形生成 |
 | KillRewarder | Entities/KillRewarder.cs | 掉落物生成 |
 | PlayerHealthBarHUD | UI/PlayerHealthBarHUD.cs | 左上 HUD (HP/XP/金币) |
-| SkillHUD | UI/SkillHUD.cs | 左下技能冷却条 |
+| SkillHUD | UI/SkillHUD.cs | 左下技能冷却条 + Mage引爆CD条 |
+| PauseMenuUI | UI/PauseMenuUI.cs | 暂停菜单（含游戏状态重置） |
+| GameOverUI | UI/GameOverUI.cs | 游戏结束界面（含游戏状态重置） |
 | Coin | Entities/Coin.cs | 金币拾取逻辑 |
 | GameConfig | ScriptableObjects/Config/GameConfig.cs | 游戏配置 |
 | PoolHelper | Core/PoolHelper.cs | 对象池辅助 |
@@ -336,10 +350,22 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 - [ ] 新增敌人形状 → `SpriteFactory` 中添加对应的 `Create*()` 方法 + `ClearCache()` 中注册清理
 - [ ] 新增掉落物 → `KillRewarder.SpawnDefault*()` + `GameSceneBootstrap` 对象池预热模板同步更新
 
+### 场景重置规范（返回菜单/重启必须遵守）
+- `PauseMenuUI.ReturnToMenu()` 和 `GameOverUI.ResetGameState()` 必须：
+  1. `EventManager.ClearAll()` — 清除所有事件
+  2. `LevelUpUI.ResetMagnetMultiplier()` — 重置磁铁倍率
+  3. `GameReferences.Reset()` — 清空全局引用缓存
+  4. `GameSceneBootstrap.ResetCharacter()` — 清空静态角色数据
+  5. 销毁所有 DontDestroyOnLoad 单例（GameManager, ObjectPool, CombatManager, SaveManager, OffScreenCuller）
+- ⚠️ Singleton 使用 DontDestroyOnLoad，不手动销毁会导致下一局复用旧状态
+
 ### 关键 Bug 注意事项
 - **PoisonBullet/FrostBullet 超时清理**：必须添加 `_lifetime` + `Update()` 超时 `Destroy(gameObject)`
 - **FrostEffect 对象池重置**：必须在 `OnEnable()` 中调用 `RestoreSpeed()` + 重置 `_frozen/_freezeEndTime/_speedCaptured`
 - **DOT 子弹枪去重**：`LevelUpUI.GenerateOptions()` 中 `IsDotGunUpgrade()` 检查 `MagePassive.DotGuns` 已拥有则跳过
 - **攻速公式**：`GetAttackSpeedMultiplier()` 使用 `1f - bonus` 而非 `1/(1+bonus)`，最低 0.2
+- **子弹速度**：`SpawnDotBullet()` 中必须应用 `GetBulletSpeedMultiplier()` 到所有子弹速度
+- **DOT 子弹命中敌人**：必须调用 `DotBulletHelper.EnsureStatusEffectManager()` 确保诅咒传播的死亡事件注册
 - **敌人血条左对齐**：填充条使用左 pivot Sprite 或居中与背景重叠，避免每帧动态计算位置
 - **金币对象池模板**：`GameSceneBootstrap` 中 Coin 模板 Sprite 必须与 `KillRewarder.SpawnDefaultCoin()` 一致（圆形+缩放）
+- **技能CD条**：`SkillHUD` 左下角额外显示 Mage 引爆(E技能)CD条（紫色系，仅 Mage 角色可见）

@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 技能操作提示和冷却显示 — 左下角 IMGUI 绘制。
+/// Mage 角色额外显示引爆(E技能)冷却条。
 /// </summary>
 public class SkillHUD : MonoBehaviour
 {
@@ -10,17 +11,30 @@ public class SkillHUD : MonoBehaviour
     [SerializeField] private float _barHeight = 14f;
     [SerializeField] private float _marginLeft = 24f;
     [SerializeField] private float _marginBottom = 40f;
+    [SerializeField] private float _detonateBarGap = 6f;  // 引爆条与技能条之间的间距
 
     private PlayerSkillManager _skillManager;
+    private MagePassive _magePassive;
+    private bool _isMage;
     private Texture2D _bgTex;
     private Texture2D _cdTex;
     private Texture2D _readyTex;
+    private Texture2D _detonateCdTex;
+    private Texture2D _detonateReadyTex;
 
     private void Start()
     {
         _skillManager = GameReferences.Player?.GetComponent<PlayerSkillManager>();
         _bgTex = UIColorTheme.MakeTexture(UIColorTheme.DarkBackground);
         _readyTex = UIColorTheme.MakeTexture(UIColorTheme.AccentCyan);
+
+        // 检测是否是 Mage 角色
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            _magePassive = player.GetComponent<MagePassive>();
+            _isMage = _magePassive != null;
+        }
     }
 
     private void OnGUI()
@@ -38,7 +52,6 @@ public class SkillHUD : MonoBehaviour
             normal = { textColor = UIColorTheme.TextSecondary }
         };
         GUI.color = UIColorTheme.TextSecondary;
-        GUI.Label(new Rect(x, y - 72, _barWidth, 24), "[E] 使用技能   [Q] 切换技能", hintStyle);
 
         if (_skillManager != null)
         {
@@ -102,6 +115,12 @@ public class SkillHUD : MonoBehaviour
                 GUI.DrawTexture(new Rect(x - 1, y - 11, _barWidth + 2, 1), _bgTex);
                 GUI.DrawTexture(new Rect(x - 1, y - 25, 1, _barHeight + 2), _bgTex);
                 GUI.DrawTexture(new Rect(x + _barWidth, y - 25, 1, _barHeight + 2), _bgTex);
+
+                // ── Mage 引爆 CD 条（仅 Mage 角色显示，在技能条下方）──
+                if (_isMage && _magePassive != null)
+                {
+                    DrawDetonateBar(x, y - 24 + _barHeight + _detonateBarGap);
+                }
             }
             else
             {
@@ -117,5 +136,72 @@ public class SkillHUD : MonoBehaviour
 
         GUI.color = Color.white;
         GUIScaleHelper.EndScale();
+    }
+
+    /// <summary>
+    /// 绘制 Mage 引爆(E技能)冷却条。
+    /// </summary>
+    /// <param name="x">左上角 x 坐标</param>
+    /// <param name="barY">条顶部 y 坐标</param>
+    private void DrawDetonateBar(float x, float barY)
+    {
+        // 延迟创建纹理
+        if (_detonateCdTex == null)
+            _detonateCdTex = UIColorTheme.MakeTexture(new Color(0.8f, 0.2f, 1f)); // 紫色
+        if (_detonateReadyTex == null)
+            _detonateReadyTex = UIColorTheme.MakeTexture(new Color(0.6f, 0.1f, 0.8f)); // 深紫色
+
+        // 标签 "[E] 引爆"
+        var labelStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 12,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft,
+            normal = { textColor = new Color(0.9f, 0.5f, 1f) }
+        };
+        GUI.Label(new Rect(x, barY, _barWidth, _barHeight), "[E] 引爆", labelStyle);
+
+        // 背景
+        GUI.color = UIColorTheme.DarkBackground;
+        GUI.DrawTexture(new Rect(x, barY, _barWidth, _barHeight), _bgTex);
+
+        if (_magePassive.DetonateReady)
+        {
+            // 就绪状态 — 深紫色满条
+            GUI.color = new Color(0.6f, 0.1f, 0.8f);
+            GUI.DrawTexture(new Rect(x, barY, _barWidth, _barHeight), _detonateReadyTex);
+
+            var readyStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+            GUI.Label(new Rect(x, barY, _barWidth, _barHeight), "DETONATE READY [E]", readyStyle);
+        }
+        else
+        {
+            // 冷却中 — 紫色进度条从左填充
+            float cdPercent = 1f - Mathf.Clamp01(_magePassive.DetonateCooldownRemaining / _magePassive.DetonateCooldown);
+            GUI.color = new Color(0.8f, 0.2f, 1f);
+            GUI.DrawTexture(new Rect(x, barY, _barWidth * cdPercent, _barHeight), _detonateCdTex);
+
+            var cdStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = UIColorTheme.TextPrimary }
+            };
+            GUI.Label(new Rect(x, barY, _barWidth, _barHeight),
+                $"[E] {_magePassive.DetonateCooldownRemaining:F1}s", cdStyle);
+        }
+
+        // 边框
+        GUI.color = UIColorTheme.PanelBackground;
+        GUI.DrawTexture(new Rect(x - 1, barY - 1, _barWidth + 2, 1), _bgTex);
+        GUI.DrawTexture(new Rect(x - 1, barY + _barHeight, _barWidth + 2, 1), _bgTex);
+        GUI.DrawTexture(new Rect(x - 1, barY - 1, 1, _barHeight + 2), _bgTex);
+        GUI.DrawTexture(new Rect(x + _barWidth, barY - 1, 1, _barHeight + 2), _bgTex);
     }
 }

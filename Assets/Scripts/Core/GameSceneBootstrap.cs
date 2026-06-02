@@ -37,6 +37,14 @@ public class GameSceneBootstrap : MonoBehaviour
     /// </summary>
     public static CharacterData CurrentCharacter { get; private set; }
 
+    /// <summary>
+    /// 重置角色选择数据（返回菜单时调用，防止残留）
+    /// </summary>
+    public static void ResetCharacter()
+    {
+        CurrentCharacter = null;
+    }
+
     // ── 数据 ──
     private CharacterData[] _characters;
     private WeaponData[] _weapons;
@@ -309,7 +317,7 @@ public class GameSceneBootstrap : MonoBehaviour
                 "DOT每生效5次额外冲击\n造成单跳总伤50%瞬间伤害\n每层触发次数-1（最低2次）",
                 CharacterUpgradeOption.UpgradeCategory.DotTrigger, 1f, 0.50f, 0f),
 
-            // ═══ 子弹增强（4 种）═══
+            // ═══ 子弹增强（3 种，共振已删除）═══
             MakeUpgrade("haste", "急速 (Haste)",
                 "攻速+15% 子弹速度+10%\n速度超100%获得穿透+1",
                 CharacterUpgradeOption.UpgradeCategory.AttackSpeed, 0.15f, 0.10f, 0f),
@@ -319,9 +327,6 @@ public class GameSceneBootstrap : MonoBehaviour
             MakeUpgrade("ricochet", "反弹 (Ricochet)",
                 "子弹30%几率反弹\n超100%增加反弹次数并移除衰减",
                 CharacterUpgradeOption.UpgradeCategory.Ricochet, 0.30f, 0f, 0f),
-            MakeUpgrade("resonance", "共振 (Resonance)",
-                "子弹体积+20% 击退+15%\n可无限叠加，更容易群伤",
-                CharacterUpgradeOption.UpgradeCategory.BulletSize, 0.20f, 0.15f, 0f),
         };
     }
 
