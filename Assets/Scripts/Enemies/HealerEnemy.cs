@@ -19,6 +19,7 @@ public class HealerEnemy : EnemyBase
     private Rigidbody2D _rb;
     private SpriteRenderer _sr;
     private Color _originalColor;
+    private GameObject _healAuraGo; // 绿色治疗光环
 
     protected override void Awake()
     {
@@ -32,6 +33,14 @@ public class HealerEnemy : EnemyBase
     {
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
+    }
+
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+        _healAuraGo = EnemyEffectHelper.UpdateCircleAura(
+            transform, _healAuraGo, "HealAura",
+            _healColor, _healRadius, alpha: 0.15f, sortingOrder: 4);
     }
 
     private void FixedUpdate()
@@ -50,6 +59,12 @@ public class HealerEnemy : EnemyBase
             HealNearby();
             _lastHealTime = Time.time;
         }
+    }
+
+    protected override void OnDisable()
+    {
+        if (_healAuraGo != null) { Destroy(_healAuraGo); _healAuraGo = null; }
+        base.OnDisable();
     }
 
     private void HealNearby()
@@ -73,7 +88,8 @@ public class HealerEnemy : EnemyBase
         if (healedCount > 0)
         {
             DebugHelper.Log($"[HealerEnemy] {gameObject.name} healed {healedCount} allies");
-            // 视觉反馈
+            // 视觉反馈 — 脉冲特效
+            EnemyEffectHelper.CreatePulseEffect(transform.position, _healColor, _healRadius * 0.5f, 0.5f);
             if (_sr != null)
             {
                 _sr.color = _healColor;

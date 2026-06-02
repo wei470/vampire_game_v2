@@ -57,24 +57,26 @@ public class SkillHUD : MonoBehaviour
                     : "";
                 GUI.Label(new Rect(x, y - 50, _barWidth, 26), $"{skill.Data.skillName}{keyHint}", nameStyle);
 
-                // ── 冷却条 ──
+                // ── 冷却条（使用后清空，随时间填充至满表示就绪）──
                 GUI.color = UIColorTheme.DarkBackground;
                 GUI.DrawTexture(new Rect(x, y - 24, _barWidth, _barHeight), _bgTex);
 
-                float cdPercent = 1f - skill.CooldownPercent;
-                cdPercent = Mathf.Clamp01(cdPercent);
+                // 冷却进度 = 已冷却比例（刚用时=0，冷却完=1）
+                float cdProgress = 1f - Mathf.Clamp01(skill.CooldownPercent);
+                cdProgress = Mathf.Clamp01(cdProgress);
 
-                if (cdPercent < 1f)
+                if (skill.IsOnCooldown)
                 {
                     GUI.color = UIColorTheme.AccentMagenta;
                     if (_cdTex == null) _cdTex = UIColorTheme.MakeTexture(UIColorTheme.AccentMagenta);
-                    GUI.DrawTexture(new Rect(x, y - 24, _barWidth * cdPercent, _barHeight), _cdTex);
+                    // 冷却条从左侧开始填充（刚用时空，逐渐填满）
+                    GUI.DrawTexture(new Rect(x, y - 24, _barWidth * cdProgress, _barHeight), _cdTex);
 
                     var cdStyle = new GUIStyle(GUI.skin.label)
                     {
                         fontSize = 13,
                         alignment = TextAnchor.MiddleCenter,
-                        normal = { textColor = UIColorTheme.AccentMagenta }
+                        normal = { textColor = UIColorTheme.TextPrimary }
                     };
                     GUI.Label(new Rect(x, y - 24, _barWidth, _barHeight),
                         $"CD {skill.CooldownRemaining:F1}s", cdStyle);

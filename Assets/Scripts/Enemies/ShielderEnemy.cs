@@ -17,6 +17,7 @@ public class ShielderEnemy : EnemyBase
     private Rigidbody2D _rb;
     private SpriteRenderer _sr;
     private float _shieldPulse;
+    private GameObject _shieldAuraGo; // 蓝色护盾光环
 
     protected override void Awake()
     {
@@ -31,6 +32,15 @@ public class ShielderEnemy : EnemyBase
         if (player != null) _target = player.transform;
     }
 
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+        // 创建/更新护盾光环
+        _shieldAuraGo = EnemyEffectHelper.UpdateCircleAura(
+            transform, _shieldAuraGo, "ShieldAura",
+            _shieldColor, _shieldRadius, alpha: 0.2f, sortingOrder: 4);
+    }
+
     private void FixedUpdate()
     {
         if (!Alive || _target == null) return;
@@ -42,7 +52,7 @@ public class ShielderEnemy : EnemyBase
     {
         if (!Alive) return;
 
-        // 自身护盾视觉
+        // 自身护盾视觉 — 呼吸式脉冲
         _shieldPulse += Time.deltaTime * 3f;
         if (_sr != null)
         {
@@ -50,8 +60,22 @@ public class ShielderEnemy : EnemyBase
             _sr.color = new Color(_shieldColor.r, _shieldColor.g, _shieldColor.b, alpha);
         }
 
+        // 护盾光环呼吸动画
+        if (_shieldAuraGo != null)
+        {
+            float pulse = Mathf.Sin(_shieldPulse) * 0.15f + 1f;
+            _shieldAuraGo.transform.localScale = Vector3.one * _shieldRadius * 2f * pulse;
+        }
+
         // 为范围内友军提供护盾（通过修改 Damageable 的护甲来实现）
         ApplyShieldToNearby();
+    }
+
+    protected override void OnDisable()
+    {
+        // 清理光环
+        if (_shieldAuraGo != null) { Destroy(_shieldAuraGo); _shieldAuraGo = null; }
+        base.OnDisable();
     }
 
     private void ApplyShieldToNearby()

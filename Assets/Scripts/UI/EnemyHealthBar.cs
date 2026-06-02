@@ -28,12 +28,12 @@ public class EnemyHealthBar : MonoBehaviour
 
     private static Sprite _whiteSprite;
 
-    // DOT 效果指示器容器
+    // DOT 效果指示器容器（与血条同等大小）
     private Transform _dotContainer;
-    private const float DOT_INDICATOR_HEIGHT = 0.04f;
-    private const float DOT_INDICATOR_WIDTH = 0.5f;
-    private const float DOT_GAP = 0.05f;
-    private const float DOT_OFFSET_ABOVE_BAR = 0.06f;
+    private const float DOT_INDICATOR_HEIGHT = 0.22f;  // 与血条同高
+    private const float DOT_INDICATOR_WIDTH = 2.2f;    // 与血条同宽
+    private const float DOT_GAP = 0.04f;
+    private const float DOT_OFFSET_ABOVE_BAR = 0.04f;
 
     // 独立 DOT 组件指示器
     private SpriteRenderer _poisonStackIndicator;
@@ -60,6 +60,8 @@ public class EnemyHealthBar : MonoBehaviour
         UpdateFill();
     }
 
+    private static Sprite _leftPivotWhiteSprite;
+
     private static Sprite GetWhiteSprite()
     {
         if (_whiteSprite == null)
@@ -75,6 +77,24 @@ public class EnemyHealthBar : MonoBehaviour
         return _whiteSprite;
     }
 
+    /// <summary>
+    /// 左对齐 Sprite（pivot 在左边缘），用于填充条 scale 缩放时不偏移位置。
+    /// </summary>
+    private static Sprite GetLeftPivotWhiteSprite()
+    {
+        if (_leftPivotWhiteSprite == null)
+        {
+            int size = 4;
+            var tex = new Texture2D(size, size);
+            for (int x = 0; x < size; x++)
+                for (int y = 0; y < size; y++)
+                    tex.SetPixel(x, y, Color.white);
+            tex.Apply();
+            _leftPivotWhiteSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0f, 0.5f), 10f);
+        }
+        return _leftPivotWhiteSprite;
+    }
+
     private void CreateBarVisuals()
     {
         // 父容器（跟随敌人位置）
@@ -83,24 +103,24 @@ public class EnemyHealthBar : MonoBehaviour
         _barTransform.localPosition = new Vector3(0f, _offsetY, 0f);
         _barTransform.localRotation = Quaternion.identity;
 
-        // 背景（深色）
+        // 背景（深色）— 居中，固定不动
         var bgObj = new GameObject("HP_BG");
         bgObj.transform.SetParent(_barTransform);
         bgObj.transform.localPosition = Vector3.zero;
         bgObj.transform.localScale = new Vector3(_barWidth, _barHeight, 1f);
         _backgroundRenderer = bgObj.AddComponent<SpriteRenderer>();
         _backgroundRenderer.sprite = GetWhiteSprite();
-        _backgroundRenderer.color = UIColorTheme.DarkBackground; // #012326 深色背景
+        _backgroundRenderer.color = UIColorTheme.DarkBackground;
         _backgroundRenderer.sortingOrder = 10;
 
-        // 填充条
+        // 填充条 — 与背景同位置同 pivot，覆盖在背景上方缩放
         var fillObj = new GameObject("HP_Fill");
         fillObj.transform.SetParent(_barTransform);
         fillObj.transform.localPosition = Vector3.zero;
         fillObj.transform.localScale = new Vector3(_barWidth, _barHeight, 1f);
         _fillRenderer = fillObj.AddComponent<SpriteRenderer>();
         _fillRenderer.sprite = GetWhiteSprite();
-        _fillRenderer.color = UIColorTheme.AccentCyan; // 初始满血荧光青
+        _fillRenderer.color = UIColorTheme.AccentCyan;
         _fillRenderer.sortingOrder = 11;
     }
 
@@ -201,15 +221,10 @@ public class EnemyHealthBar : MonoBehaviour
         float percent = _damageable.HpPercent;
         percent = Mathf.Clamp01(percent);
 
-        // 缩放填充条宽度
+        // 中心 pivot：填充条始终与背景条对齐居中，scale.x 控制宽度
         var fillScale = _fillRenderer.transform.localScale;
         fillScale.x = _barWidth * percent;
         _fillRenderer.transform.localScale = fillScale;
-
-        // 偏移填充条使其左对齐（而非居中）
-        var fillPos = _fillRenderer.transform.localPosition;
-        fillPos.x = -_barWidth * (1f - percent) * 0.5f;
-        _fillRenderer.transform.localPosition = fillPos;
 
         // 颜色渐变：荧光青 → 洋红 → 亮粉
         if (percent > 0.6f)

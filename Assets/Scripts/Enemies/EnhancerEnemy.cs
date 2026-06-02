@@ -22,6 +22,7 @@ public class EnhancerEnemy : EnemyBase
     private Rigidbody2D _rb;
     private SpriteRenderer _sr;
     private Color _originalColor;
+    private GameObject _enhanceAuraGo; // 橙色增强光环
 
     protected override void Awake()
     {
@@ -35,6 +36,14 @@ public class EnhancerEnemy : EnemyBase
     {
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
+    }
+
+    protected override void OnEnable()
+    {
+        base.OnEnable();
+        _enhanceAuraGo = EnemyEffectHelper.UpdateCircleAura(
+            transform, _enhanceAuraGo, "EnhanceAura",
+            _enhanceColor, _enhanceRadius, alpha: 0.12f, sortingOrder: 4);
     }
 
     private void FixedUpdate()
@@ -53,6 +62,12 @@ public class EnhancerEnemy : EnemyBase
             EnhanceNearby();
             _lastEnhanceTime = Time.time;
         }
+    }
+
+    protected override void OnDisable()
+    {
+        if (_enhanceAuraGo != null) { Destroy(_enhanceAuraGo); _enhanceAuraGo = null; }
+        base.OnDisable();
     }
 
     private void EnhanceNearby()
@@ -87,6 +102,8 @@ public class EnhancerEnemy : EnemyBase
         if (enhancedCount > 0)
         {
             DebugHelper.Log($"[EnhancerEnemy] {gameObject.name} enhanced {enhancedCount} allies");
+            // 橙色脉冲特效
+            EnemyEffectHelper.CreatePulseEffect(transform.position, _enhanceColor, _enhanceRadius * 0.4f, 0.5f);
             if (_sr != null)
             {
                 _sr.color = _enhanceColor;

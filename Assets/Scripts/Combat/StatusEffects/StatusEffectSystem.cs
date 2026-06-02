@@ -369,15 +369,8 @@ public class StatusEffectManager : MonoBehaviour
             validTargets.Add(hit);
         }
 
-        // 按距离排序，取最近的 spreadTargets 个
-        validTargets.Sort((a, b) =>
-        {
-            float distA = Vector2.Distance(transform.position, a.transform.position);
-            float distB = Vector2.Distance(transform.position, b.transform.position);
-            return distA.CompareTo(distB);
-        });
-
-        int spreadCount = Mathf.Min(spreadTargets, validTargets.Count);
+        // 传递给范围内所有敌人（不受 spreadTargets 数量限制）
+        int spreadCount = validTargets.Count;
         for (int i = 0; i < spreadCount; i++)
         {
             var hit = validTargets[i];
@@ -385,20 +378,20 @@ public class StatusEffectManager : MonoBehaviour
             if (otherManager == null)
                 otherManager = hit.gameObject.AddComponent<StatusEffectManager>();
 
-            // 传播 StatusEffectManager 中的 DOT（持续时间减半）
+            // 传播 StatusEffectManager 中的 DOT（继承 10% 层数/伤害）
             foreach (var effect in _activeEffects)
             {
-                otherManager.ApplyEffect(effect.type, effect.damagePerSecond, effect.remainingDuration * 0.5f,
+                otherManager.ApplyEffect(effect.type, effect.damagePerSecond * 0.1f, effect.remainingDuration * 0.1f,
                     effect.canCrit, effect.critChance, effect.critMultiplier);
             }
 
-            // 传播独立 DOT 组件（BleedEffect, BurnStackEffect, PoisonStackEffect, FrostEffect）
+            // 传播独立 DOT 组件（继承 10% 的层数/伤害）
             var bleed = GetComponent<BleedEffect>();
             if (bleed != null)
             {
                 var otherBleed = hit.GetComponent<BleedEffect>();
                 if (otherBleed == null) otherBleed = hit.gameObject.AddComponent<BleedEffect>();
-                otherBleed.Refresh(bleed._dps, bleed._duration * 0.5f, bleed._canCrit, bleed._critChance, bleed._critMult);
+                otherBleed.Refresh(bleed._dps * 0.1f, bleed._duration * 0.1f, bleed._canCrit, bleed._critChance, bleed._critMult);
             }
 
             var burn = GetComponent<BurnStackEffect>();
@@ -406,7 +399,10 @@ public class StatusEffectManager : MonoBehaviour
             {
                 var otherBurn = hit.GetComponent<BurnStackEffect>();
                 if (otherBurn == null) otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
-                otherBurn.AddStack(burn._baseDps, burn._duration * 0.5f, burn._canCrit, burn._critChance, burn._critMult);
+                // 10%层数
+                int burnStacks = Mathf.Max(1, Mathf.RoundToInt(burn.StackCount * 0.1f));
+                for (int s = 0; s < burnStacks; s++)
+                    otherBurn.AddStack(burn._baseDps * 0.1f, burn._duration * 0.1f, burn._canCrit, burn._critChance, burn._critMult);
             }
 
             var poison = GetComponent<PoisonStackEffect>();
@@ -414,7 +410,9 @@ public class StatusEffectManager : MonoBehaviour
             {
                 var otherPoison = hit.GetComponent<PoisonStackEffect>();
                 if (otherPoison == null) otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
-                otherPoison.AddStack(2f, 0f, poison._canCrit, poison._critChance, poison._critMult);
+                int poisonStacks = Mathf.Max(1, Mathf.RoundToInt(poison.StackCount * 0.1f));
+                for (int s = 0; s < poisonStacks; s++)
+                    otherPoison.AddStack(2f, 0f, poison._canCrit, poison._critChance, poison._critMult);
             }
 
             var frost = GetComponent<FrostEffect>();
@@ -422,7 +420,7 @@ public class StatusEffectManager : MonoBehaviour
             {
                 var otherFrost = hit.GetComponent<FrostEffect>();
                 if (otherFrost == null) otherFrost = hit.gameObject.AddComponent<FrostEffect>();
-                otherFrost.ApplyFreeze(0.5f, frost._slowPercent, frost._frostDps, frost._canCrit, frost._critChance, frost._critMult);
+                otherFrost.ApplyFreeze(0.3f, frost._slowPercent * 0.1f, frost._frostDps * 0.1f, frost._canCrit, frost._critChance, frost._critMult);
             }
         }
 

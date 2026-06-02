@@ -66,8 +66,10 @@ public class ThrowerEnemy : EnemyBase
         var go = new GameObject("ThrowBomb");
         go.transform.position = transform.position;
 
+        go.transform.localScale = Vector3.one * 0.5f;
+
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = CreateBombSprite();
+        sr.sprite = SpriteFactory.Circle;
         sr.color = new Color(0.8f, 0.4f, 0.1f);
         sr.sortingOrder = 12;
 
@@ -77,27 +79,11 @@ public class ThrowerEnemy : EnemyBase
 
         var col = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.radius = 0.3f;
+        col.radius = 0.5f;
 
         var bullet = go.AddComponent<EnemyBullet>();
         bullet.Setup(_throwDamage, 4f);
 
         DebugHelper.Log($"[ThrowerEnemy] {gameObject.name} threw a bomb");
-    }
-
-    private static Sprite _cachedBombSprite;
-    private static Sprite CreateBombSprite()
-    {
-        if (_cachedBombSprite != null) return _cachedBombSprite;
-        var tex = new Texture2D(8, 8);
-        for (int x = 0; x < 8; x++)
-            for (int y = 0; y < 8; y++)
-            {
-                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(3.5f, 3.5f)) / 3.5f;
-                tex.SetPixel(x, y, dist <= 1f ? Color.white : new Color(0, 0, 0, 0));
-            }
-        tex.Apply();
-        _cachedBombSprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
-        return _cachedBombSprite;
     }
 }

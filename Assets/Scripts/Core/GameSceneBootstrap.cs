@@ -304,13 +304,10 @@ public class GameSceneBootstrap : MonoBehaviour
                 "引爆冷却 -30%，可无限叠加",
                 CharacterUpgradeOption.UpgradeCategory.DetonateAbility, 0.30f, 0f, 0f),
 
-            // ═══ DOT 时间增强（2 种）═══
+            // ═══ DOT 时间增强（1 种）═══
             MakeUpgrade("erosion", "侵蚀 (Erosion)",
                 "DOT每生效5次额外冲击\n造成单跳总伤50%瞬间伤害\n每层触发次数-1（最低2次）",
                 CharacterUpgradeOption.UpgradeCategory.DotTrigger, 1f, 0.50f, 0f),
-            MakeUpgrade("wind_erosion", "风蚀 (Wind Erosion)",
-                "DOT敌人移动时生成漩涡\n每秒对周围造成微量伤害\n20%几率拉扯敌人",
-                CharacterUpgradeOption.UpgradeCategory.WindVortex, 0.20f, 0f, 0f),
 
             // ═══ 子弹增强（4 种）═══
             MakeUpgrade("haste", "急速 (Haste)",
@@ -507,9 +504,9 @@ public class GameSceneBootstrap : MonoBehaviour
         if (gameObject.GetComponent<SkillHUD>() == null)
             gameObject.AddComponent<SkillHUD>();
 
-        // 右下角 - Mage引爆冷却显示
-        if (gameObject.GetComponent<DetonateHUD>() == null)
-            gameObject.AddComponent<DetonateHUD>();
+        // 右下角 - Mage引爆冷却显示（已移除，不显示）
+        // if (gameObject.GetComponent<DetonateHUD>() == null)
+        //     gameObject.AddComponent<DetonateHUD>();
 
         DebugHelper.Log("[GameSceneBootstrap] Game started! WASD=Move, Mouse=Aim/Shoot, E=Skill, R=Restart");
     }
@@ -532,8 +529,9 @@ public class GameSceneBootstrap : MonoBehaviour
             var go = new GameObject("XPGem_Template");
             go.tag = "Untagged";
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square;
-            sr.color = new Color(0.5f, 1f, 0.5f);
+            sr.sprite = SpriteFactory.Circle;
+            sr.color = new Color(0.1f, 0.9f, 0.2f);
+            go.transform.localScale = Vector3.one * 0.6f;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             var col = go.AddComponent<BoxCollider2D>();
@@ -548,13 +546,14 @@ public class GameSceneBootstrap : MonoBehaviour
             var go = new GameObject("Coin_Template");
             go.tag = "Untagged";
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square;
+            sr.sprite = SpriteFactory.Circle;
             sr.color = new Color(1f, 0.85f, 0f);
+            go.transform.localScale = Vector3.one * 0.5f;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
-            var col = go.AddComponent<BoxCollider2D>();
+            var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
-            col.size = new Vector2(0.3f, 0.3f);
+            col.radius = 0.3f;
             go.AddComponent<Coin>();
             return go;
         }, 30);

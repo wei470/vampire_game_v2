@@ -148,33 +148,33 @@ public class SpawnManager : MonoBehaviour
     private void EnsureEnemyPrefabs()
     {
         if (_basicEnemyPrefab == null)
-            _basicEnemyPrefab = CreateEnemyPrefab("BasicEnemy", Color.red, 30, 5f, 10, 5);
+            _basicEnemyPrefab = CreateEnemyPrefab("BasicEnemy", new Color(0.85f, 0.2f, 0.2f), 20, 5f, 10, 5, SpriteFactory.Square);
         if (_rangedEnemyPrefab == null)
-            _rangedEnemyPrefab = CreateRangedEnemyPrefab();
+            _rangedEnemyPrefab = CreateRangedEnemyPrefab("RangedEnemy", new Color(0.8f, 0.4f, 0.4f), sprite: SpriteFactory.Triangle);
         if (_tankEnemyPrefab == null)
-            _tankEnemyPrefab = CreateEnemyPrefab("TankEnemy", new Color(0.5f, 0.2f, 0.2f), 80, 3f, 15, 10);
+            _tankEnemyPrefab = CreateEnemyPrefab("TankEnemy", new Color(0.5f, 0.5f, 0.5f), 80, 2.5f, 15, 10, SpriteFactory.Hexagon);
         if (_fastEnemyPrefab == null)
-            _fastEnemyPrefab = CreateEnemyPrefab("FastEnemy", Color.yellow, 15, 10f, 8, 5);
+            _fastEnemyPrefab = CreateEnemyPrefab("FastEnemy", new Color(0.6f, 0.2f, 0.8f), 10, 9f, 8, 5, SpriteFactory.Triangle);
         if (_throwerEnemyPrefab == null)
-            _throwerEnemyPrefab = CreateRangedEnemyPrefab("ThrowerEnemy", new Color(0.8f, 0.4f, 0f), 25, 4f, 12, 8);
+            _throwerEnemyPrefab = CreateEnemyPrefab("ThrowerEnemy", new Color(1f, 0.5f, 0f), 18, 4f, 12, 8, SpriteFactory.Diamond);
         if (_healerEnemyPrefab == null)
-            _healerEnemyPrefab = CreateEnemyPrefab("HealerEnemy", Color.green, 25, 5f, 5, 8);
+            _healerEnemyPrefab = CreateEnemyPrefab("HealerEnemy", new Color(0.2f, 0.8f, 0.2f), 25, 4f, 5, 10, SpriteFactory.Cross);
         if (_enhancerEnemyPrefab == null)
-            _enhancerEnemyPrefab = CreateEnemyPrefab("EnhancerEnemy", new Color(1f, 0.5f, 1f), 20, 6f, 5, 6);
+            _enhancerEnemyPrefab = CreateEnemyPrefab("EnhancerEnemy", new Color(0.8f, 0.8f, 0.2f), 30, 4f, 8, 10, SpriteFactory.Pentagon);
         if (_splitterEnemyPrefab == null)
-            _splitterEnemyPrefab = CreateEnemyPrefab("SplitterEnemy", new Color(0.6f, 0.4f, 0.8f), 25, 5f, 10, 8);
+            _splitterEnemyPrefab = CreateEnemyPrefab("SplitterEnemy", new Color(0.6f, 0.2f, 0.4f), 35, 4f, 10, 8, SpriteFactory.Diamond);
         if (_summonerEnemyPrefab == null)
-            _summonerEnemyPrefab = CreateEnemyPrefab("SummonerEnemy", new Color(0.4f, 0.2f, 0.6f), 30, 4f, 8, 12);
+            _summonerEnemyPrefab = CreateEnemyPrefab("SummonerEnemy", new Color(0.4f, 0.1f, 0.6f), 30, 4f, 8, 12, SpriteFactory.Pentagon);
         if (_chargerEnemyPrefab == null)
-            _chargerEnemyPrefab = CreateEnemyPrefab("ChargerEnemy", new Color(1f, 0.3f, 0.3f), 35, 6f, 15, 8);
+            _chargerEnemyPrefab = CreateEnemyPrefab("ChargerEnemy", new Color(0.8f, 0.3f, 0.1f), 35, 5f, 15, 10, SpriteFactory.Triangle);
         if (_shielderEnemyPrefab == null)
-            _shielderEnemyPrefab = CreateEnemyPrefab("ShielderEnemy", new Color(0.3f, 0.5f, 1f), 40, 4f, 5, 10);
+            _shielderEnemyPrefab = CreateEnemyPrefab("ShielderEnemy", new Color(0.3f, 0.5f, 1f), 40, 4f, 5, 10, SpriteFactory.Hexagon);
         if (_stealthEnemyPrefab == null)
-            _stealthEnemyPrefab = CreateEnemyPrefab("StealthEnemy", new Color(0.4f, 0.4f, 0.4f), 20, 7f, 12, 8);
+            _stealthEnemyPrefab = CreateEnemyPrefab("StealthEnemy", new Color(0.4f, 0.4f, 0.4f), 20, 7f, 12, 8, SpriteFactory.Diamond);
         if (_burstEnemyPrefab == null)
-            _burstEnemyPrefab = CreateEnemyPrefab("BurstEnemy", new Color(1f, 0.6f, 0f), 25, 5f, 10, 8);
+            _burstEnemyPrefab = CreateEnemyPrefab("BurstEnemy", new Color(1f, 0.6f, 0f), 25, 5f, 10, 8, SpriteFactory.Star);
         if (_chainHealerEnemyPrefab == null)
-            _chainHealerEnemyPrefab = CreateEnemyPrefab("ChainHealerEnemy", new Color(0.2f, 0.8f, 0.6f), 25, 4f, 5, 10);
+            _chainHealerEnemyPrefab = CreateEnemyPrefab("ChainHealerEnemy", new Color(0.2f, 0.8f, 0.6f), 25, 4f, 5, 10, SpriteFactory.Cross);
 
         DebugHelper.Log($"[SpawnManager] Enemy prefabs ensured (basic={_basicEnemyPrefab != null})");
     }
@@ -182,14 +182,14 @@ public class SpawnManager : MonoBehaviour
     /// <summary>
     /// 创建默认近战敌人预制体（运行时生成）
     /// </summary>
-    private GameObject CreateEnemyPrefab(string name, Color color, int hp, float speed, int damage, int xpReward)
+    private GameObject CreateEnemyPrefab(string name, Color color, int hp, float speed, int damage, int xpReward, Sprite sprite = null)
     {
         var go = new GameObject(name);
         go.tag = "Enemy";
         go.layer = gameObject.layer;
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SpriteFactory.Square;
+        sr.sprite = sprite != null ? sprite : SpriteFactory.Square;
         sr.color = color;
 
         var rb = go.AddComponent<Rigidbody2D>();
@@ -217,7 +217,7 @@ public class SpawnManager : MonoBehaviour
     /// <summary>
     /// 创建默认远程敌人预制体（运行时生成）
     /// </summary>
-    private GameObject CreateRangedEnemyPrefab(string name = "RangedEnemy", Color color = default, int hp = 20, float speed = 4f, int damage = 8, int xpReward = 8)
+    private GameObject CreateRangedEnemyPrefab(string name = "RangedEnemy", Color color = default, int hp = 20, float speed = 4f, int damage = 8, int xpReward = 8, Sprite sprite = null)
     {
         if (color == default) color = new Color(0.8f, 0.4f, 0.4f);
         // 远程敌人使用 RangedEnemy 组件
@@ -226,7 +226,7 @@ public class SpawnManager : MonoBehaviour
         go.layer = gameObject.layer;
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SpriteFactory.Square;
+        sr.sprite = sprite != null ? sprite : SpriteFactory.Square;
         sr.color = color;
 
         var rb = go.AddComponent<Rigidbody2D>();

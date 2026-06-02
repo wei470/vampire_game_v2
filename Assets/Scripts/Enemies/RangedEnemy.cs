@@ -100,9 +100,11 @@ public class RangedEnemy : EnemyBase
         bulletGo.transform.position = transform.position;
         bulletGo.tag = "Untagged";
 
+        bulletGo.transform.localScale = Vector3.one * 0.4f;
+
         var sr = bulletGo.AddComponent<SpriteRenderer>();
-        sr.sprite = CreateBulletSprite();
-        sr.color = new Color(1f, 0.3f, 0.3f); // 红色子弹
+        sr.sprite = SpriteFactory.Circle;
+        sr.color = new Color(1f, 0.3f, 0.3f); // 红色圆形子弹
 
         var rb = bulletGo.AddComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
@@ -110,27 +112,13 @@ public class RangedEnemy : EnemyBase
 
         var col = bulletGo.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.radius = 0.2f;
+        col.radius = 0.5f;
 
         // 添加敌人子弹组件
         var bullet = bulletGo.AddComponent<EnemyBullet>();
         bullet.Setup(_bulletDamage, _bulletLifetime);
 
         DebugHelper.Log($"[RangedEnemy] {gameObject.name} shot a bullet towards player");
-    }
-
-    private static Sprite _cachedBulletSprite;
-    private static Sprite CreateBulletSprite()
-    {
-        if (_cachedBulletSprite != null) return _cachedBulletSprite;
-
-        var tex = new Texture2D(4, 4);
-        for (int x = 0; x < 4; x++)
-            for (int y = 0; y < 4; y++)
-                tex.SetPixel(x, y, Color.white);
-        tex.Apply();
-        _cachedBulletSprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
-        return _cachedBulletSprite;
     }
 
     private new void OnDrawGizmosSelected()

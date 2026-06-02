@@ -27,7 +27,6 @@ public class KillRewarder : MonoBehaviour, IRewardable
 
     private void OnEnable()
     {
-        // 懒加载 BaseEntity — 在 SpawnCodeEnemy 中 KillRewarder 可能先于 EnemyBase 添加
         TrySubscribe();
     }
 
@@ -40,9 +39,6 @@ public class KillRewarder : MonoBehaviour, IRewardable
         }
     }
 
-    /// <summary>
-    /// 尝试订阅死亡事件（延迟到 BaseEntity 可用时）
-    /// </summary>
     private void TrySubscribe()
     {
         if (_subscribed) return;
@@ -59,14 +55,10 @@ public class KillRewarder : MonoBehaviour, IRewardable
     [SerializeField] private GameObject _coinPrefab;
 
     [Header("特殊掉落")]
-    [SerializeField] private float _specialDropChance = 0.05f; // 5% 概率掉落特殊物品
+    [SerializeField] private float _specialDropChance = 0.05f;
 
-    /// <summary>
-    /// 实体死亡时触发奖励
-    /// </summary>
     private void Start()
     {
-        // Start 时再次尝试订阅（确保 EnemyBase 已添加）
         TrySubscribe();
     }
 
@@ -74,34 +66,22 @@ public class KillRewarder : MonoBehaviour, IRewardable
     {
         DebugHelper.Log($"[KillRewarder] {gameObject.name} killed at {deathPosition}, XP: {_xpReward}, Coin: {_coinReward}");
 
-        // 通过 EventManager 广播敌人击杀事件
         EventManager.TriggerEnemyKilled(deathPosition, _xpReward, _coinReward);
 
-        // 生成掉落物
         SpawnLoot(deathPosition);
 
-        // 特殊掉落（概率触发）
         if (_specialDropChance > 0f && Random.value < _specialDropChance)
         {
             SpawnSpecialDrop(deathPosition);
         }
     }
 
-    /// <summary>
-    /// 在死亡位置生成掉落物（优先使用对象池）
-    /// </summary>
     private void SpawnLoot(Vector3 position)
     {
-        // 生成经验宝石（对象池优先）
         SpawnXPGemPooled(position);
-
-        // 生成金币（对象池优先）
         SpawnCoinPooled(position);
     }
 
-    /// <summary>
-    /// 通过对象池生成经验宝石
-    /// </summary>
     private void SpawnXPGemPooled(Vector3 position)
     {
         GameObject xpGem;
@@ -121,9 +101,6 @@ public class KillRewarder : MonoBehaviour, IRewardable
         }
     }
 
-    /// <summary>
-    /// 通过对象池生成金币
-    /// </summary>
     private void SpawnCoinPooled(Vector3 position)
     {
         GameObject coin;
@@ -145,6 +122,7 @@ public class KillRewarder : MonoBehaviour, IRewardable
 
     /// <summary>
     /// 用代码创建默认经验宝石（无预制体时的备用方案）
+    /// 无碰撞体积，纯视觉绿色小圆球
     /// </summary>
     private GameObject SpawnDefaultXPGem(Vector3 position, int xpAmount)
     {
@@ -153,17 +131,14 @@ public class KillRewarder : MonoBehaviour, IRewardable
         go.tag = "Untagged";
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SpriteFactory.Square;
-        sr.color = xpAmount >= 50 ? new Color(0.3f, 0.5f, 1f) 
-                 : xpAmount >= 25 ? new Color(0.2f, 0.8f, 0.2f) 
-                 : new Color(0.5f, 1f, 0.5f);
+        sr.sprite = SpriteFactory.Circle;
+        sr.color = new Color(0.1f, 0.9f, 0.2f);
+        go.transform.localScale = Vector3.one * 0.6f;
 
-        var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
-
-        var col = go.AddComponent<BoxCollider2D>();
+        // 碰撞体仅用于触发器检测（自动吸取），isTrigger = true 不阻碍移动
+        var col = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.size = new Vector2(0.4f, 0.4f);
+        col.radius = 0.3f;
 
         var gem = go.AddComponent<XPGem>();
         gem.Setup(xpAmount);
@@ -180,24 +155,20 @@ public class KillRewarder : MonoBehaviour, IRewardable
         go.tag = "Untagged";
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SpriteFactory.Square;
+        sr.sprite = SpriteFactory.Circle;
         sr.color = new Color(1f, 0.85f, 0f);
+        go.transform.localScale = Vector3.one * 0.5f;
 
-        var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
-
-        var col = go.AddComponent<BoxCollider2D>();
+        // 碰撞体仅用于触发器检测，isTrigger = true 不阻碍移动
+        var col = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.size = new Vector2(0.3f, 0.3f);
+        col.radius = 0.3f;
 
         var coin = go.AddComponent<Coin>();
         coin.Setup(amount);
         return go;
     }
 
-    /// <summary>
-    /// 生成特殊掉落物（随机类型）
-    /// </summary>
     private void SpawnSpecialDrop(Vector3 position)
     {
         var types = System.Enum.GetValues(typeof(SpecialDrop.DropType));
@@ -212,9 +183,6 @@ public class KillRewarder : MonoBehaviour, IRewardable
         DebugHelper.Log($"[KillRewarder] Special drop: {randomType} at {position}");
     }
 
-    /// <summary>
-    /// 设置奖励值（用于动态调整，如 Boss 等级越高奖励越多）
-    /// </summary>
     public void SetRewards(int xp, int coin)
     {
         _xpReward = xp;

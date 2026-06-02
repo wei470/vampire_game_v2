@@ -68,12 +68,102 @@ public class LevelUpUI : MonoBehaviour
     /// </summary>
     private Dictionary<string, int> _customUpgradeStacks = new Dictionary<string, int>();
 
+    private bool _buttonsLayoutAdjusted = false;
+
     private void Awake()
     {
+        // 先调整布局（此时 panel 还在激活态），再隐藏
+        ApplyThemeColors();
+        AdjustButtonLayout();
+
         if (_panel != null)
             _panel.SetActive(false);
+    }
 
-        ApplyThemeColors();
+    /// <summary>
+    /// 调整三个按钮和标题的布局：按钮屏幕居中横向排列，宽度+20 高度+15，实色背景荧光边框
+    /// </summary>
+    private void AdjustButtonLayout()
+    {
+        if (_buttonsLayoutAdjusted) return;
+        _buttonsLayoutAdjusted = true;
+
+        var buttons = new[] { _option1Button, _option2Button, _option3Button };
+        var texts = new[] { _option1Text, _option2Text, _option3Text };
+
+        // 三个按钮横向并排分布在屏幕中央，间距 50px（按钮宽 400，中心距 450）
+        float[] buttonXOffsets = { -450f, 0f, 450f };
+
+        for (int i = 0; i < 3; i++)
+        {
+            if (buttons[i] == null) continue;
+
+            var rt = buttons[i].GetComponent<RectTransform>();
+            if (rt == null) continue;
+
+            // 锚点屏幕正中央，横向排列
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(buttonXOffsets[i], 0f);
+
+            // 宽度设为 400px
+            var size = rt.sizeDelta;
+            size.x = 400f;
+            size.y += 15f;
+            rt.sizeDelta = size;
+
+            // ── 按钮内文字 10px margin ──
+            if (texts[i] != null)
+            {
+                var textRt = texts[i].GetComponent<RectTransform>();
+                if (textRt != null)
+                {
+                    textRt.anchorMin = Vector2.zero;
+                    textRt.anchorMax = Vector2.one;
+                    textRt.offsetMin = new Vector2(10f, 10f);
+                    textRt.offsetMax = new Vector2(-10f, -10f);
+                }
+            }
+
+            // ── 实色背景（不要透明）──
+            var img = buttons[i].GetComponent<Image>();
+            if (img != null)
+            {
+                img.color = UIColorTheme.PanelBackground; // 深蓝青实色
+                img.raycastTarget = true;
+            }
+
+            // ── 荧光边框（Outline 组件）──
+            var outline = buttons[i].GetComponent<Outline>();
+            if (outline == null)
+                outline = buttons[i].gameObject.AddComponent<Outline>();
+            outline.effectColor = UIColorTheme.AccentCyan;
+            outline.effectDistance = new Vector2(2f, 2f);
+        }
+
+        // ── 标题 "Level Up"：屏幕顶部居中，大尺寸确保可见 ──
+        if (_titleText != null)
+        {
+            _titleText.gameObject.SetActive(true);
+            _titleText.raycastTarget = false;
+            _titleText.text = "LEVEL UP";
+            _titleText.fontSize += 14;
+            _titleText.fontStyle = FontStyle.Bold;
+            _titleText.alignment = TextAnchor.MiddleCenter;
+            _titleText.color = UIColorTheme.AccentCyan;
+
+            var titleRt = _titleText.GetComponent<RectTransform>();
+            if (titleRt != null)
+            {
+                // 锚定到顶部居中
+                titleRt.anchorMin = new Vector2(0.5f, 1f);
+                titleRt.anchorMax = new Vector2(0.5f, 1f);
+                titleRt.pivot = new Vector2(0.5f, 0.5f);
+                titleRt.anchoredPosition = new Vector2(0f, -60f);
+                // 确保宽度足够显示
+                titleRt.sizeDelta = new Vector2(600f, 80f);
+            }
+        }
     }
 
     private void OnEnable()
@@ -200,7 +290,7 @@ public class LevelUpUI : MonoBehaviour
         if (_titleText != null)
         {
             int level = _levelSystem != null ? _levelSystem.Level : 0;
-            _titleText.text = $"Level Up! (Lv.{level})";
+            _titleText.text = $"LEVEL UP - Lv.{level}";
         }
 
         SetupSlotButton(_option1Button, _option1Text, 0);
@@ -248,6 +338,30 @@ public class LevelUpUI : MonoBehaviour
                     int currentStacks = 0;
                     _customUpgradeStacks.TryGetValue(upgrade.upgradeId, out currentStacks);
                     if (currentStacks >= upgrade.maxStacks) continue;
+                }
+
+                // ═══ 关键修复：跳过已拥有的 DOT 子弹枪 ═══
+                // 4 种 DOT 子弹解锁后应从牌库移除，防止重复拾取
+                if (_magePassive == null)
+                    _magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+                if (IsDotGunUpgrade(upgrade.upgradeId) && _magePassive != null)
+                {
+                    // 检查 MagePassive 是否已拥有该子弹
+                    bool alreadyOwned = false;
+                    var dotGuns = _magePassive.DotGuns;
+                    var dotGunConfig = GetDotGunForUpgrade(upgrade.upgradeId);
+                    if (dotGunConfig.HasValue)
+                    {
+                        foreach (var gun in dotGuns)
+                        {
+                            if (gun.effectType == dotGunConfig.Value.type)
+                            {
+                                alreadyOwned = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (alreadyOwned) continue;
                 }
 
                 allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade });
@@ -555,15 +669,6 @@ public class LevelUpUI : MonoBehaviour
                 }
                 break;
 
-            // ═══ 风蚀 — DOT敌人移动时生成漩涡 ═══
-            case CharacterUpgradeOption.UpgradeCategory.WindVortex:
-                if (_magePassive != null)
-                {
-                    _magePassive.WindVortexChance += option.value1;
-                    DebugHelper.Log($"[LevelUpUI] Wind vortex chance +{option.value1 * 100}%");
-                }
-                break;
-
             // ═══ 急速 — 攻速+15%, 子弹速度+10% ═══
             case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
                 if (_magePassive != null)
@@ -610,6 +715,23 @@ public class LevelUpUI : MonoBehaviour
             default:
                 DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName} ({option.category})");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 判断 upgradeId 是否属于 DOT 子弹枪类型
+    /// </summary>
+    private bool IsDotGunUpgrade(string upgradeId)
+    {
+        switch (upgradeId)
+        {
+            case "bleed":
+            case "poison":
+            case "burn":
+            case "frostbite":
+                return true;
+            default:
+                return false;
         }
     }
 

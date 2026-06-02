@@ -48,7 +48,6 @@ public class CharacterUpgradeOption
         DotFrequency,       // 痛苦 — DOT触发间隔缩短
         DotCritBurst,       // 凋零 — DOT有几率造成双倍伤害
         DotTrigger,         // 侵蚀 — 每N次DOT生效额外冲击
-        WindVortex,         // 风蚀 — DOT敌人移动时生成漩涡
         AttackSpeed,        // 急速 — 攻速+子弹速度
         BulletCount,        // 弹幕 — 子弹数量增加
         Ricochet,           // 反弹 — 子弹反弹几率

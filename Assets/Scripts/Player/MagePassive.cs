@@ -30,8 +30,6 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _dotCritBurstChance = 0f;           // 凋零：DOT 双倍伤害几率
     [SerializeField] private int _erosionTriggerCount = 5;             // 侵蚀：每N次DOT生效触发冲击
     [SerializeField] private float _erosionDamagePercent = 0.5f;       // 侵蚀：冲击伤害比例
-    [SerializeField] private float _windVortexChance = 0.2f;           // 风蚀：漩涡触发几率
-
     [Header("子弹增强属性")]
     [SerializeField] private float _attackSpeedBonus = 0f;             // 急速：攻速加成
     [SerializeField] private float _bulletSpeedBonus = 0f;             // 急速：子弹速度加成
@@ -61,8 +59,6 @@ public class MagePassive : MonoBehaviour
     public float DotCritBurstChance { get => _dotCritBurstChance; set => _dotCritBurstChance = value; }
     public int ErosionTriggerCount { get => _erosionTriggerCount; set => _erosionTriggerCount = Mathf.Max(2, value); }
     public float ErosionDamagePercent { get => _erosionDamagePercent; set => _erosionDamagePercent = value; }
-    public float WindVortexChance { get => _windVortexChance; set => _windVortexChance = value; }
-
     // ── 子弹增强属性访问器 ──
     public float AttackSpeedBonus { get => _attackSpeedBonus; set => _attackSpeedBonus = value; }
     public float BulletSpeedBonus { get => _bulletSpeedBonus; set => _bulletSpeedBonus = value; }
@@ -90,9 +86,9 @@ public class MagePassive : MonoBehaviour
     }
 
     /// <summary>
-    /// 获取攻速倍率（急速加成后）
+    /// 获取攻速倍率（急速加成后）— 25% 急速 = 冷却缩短至 80%
     /// </summary>
-    public float GetAttackSpeedMultiplier() => 1f / (1f + _attackSpeedBonus);
+    public float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus);
 
     /// <summary>
     /// 获取子弹速度倍率

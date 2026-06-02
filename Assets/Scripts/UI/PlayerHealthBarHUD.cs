@@ -14,6 +14,7 @@ public class PlayerHealthBarHUD : MonoBehaviour
     private PlayerController _player;
     private Texture2D _bgTex;
     private Texture2D _fillTex;
+    private Texture2D _xpFillTex;
 
     private void Start()
     {
@@ -69,19 +70,54 @@ public class PlayerHealthBarHUD : MonoBehaviour
         string hpText = dmg != null ? $"{dmg.CurrentHp} / {dmg.MaxHp}" : "";
         GUI.Label(new Rect(x, y - 2, _barWidth, _barHeight), hpText, style);
 
-        // ── 等级文字 ──
+        // ── 经验条（白色，生命条上方，与 Lv. 字条同高，与生命条同宽）──
         var lvSystem = _player.GetComponent<PlayerLevelSystem>();
         if (lvSystem != null)
         {
+            float xpBarY = y - 26f;
+            float xpBarH = 24f;
+            float xpPercent = lvSystem.ExpProgress;
+            xpPercent = Mathf.Clamp01(xpPercent);
+
+            // 经验条背景
+            GUI.color = new Color(0.25f, 0.25f, 0.25f, 0.8f);
+            GUI.DrawTexture(new Rect(x, xpBarY, _barWidth, xpBarH), _bgTex);
+
+            // 经验条填充（白色）
+            GUI.color = Color.white;
+            if (_xpFillTex == null) _xpFillTex = UIColorTheme.MakeTexture(Color.white);
+            GUI.DrawTexture(new Rect(x, xpBarY, _barWidth * xpPercent, xpBarH), _xpFillTex);
+
+            // 经验条边框
+            GUI.color = UIColorTheme.PanelBackground;
+            GUI.DrawTexture(new Rect(x - 1, xpBarY - 1, _barWidth + 2, 1), _bgTex);
+            GUI.DrawTexture(new Rect(x - 1, xpBarY + xpBarH, _barWidth + 2, 1), _bgTex);
+            GUI.DrawTexture(new Rect(x - 1, xpBarY - 1, 1, xpBarH + 2), _bgTex);
+            GUI.DrawTexture(new Rect(x + _barWidth, xpBarY - 1, 1, xpBarH + 2), _bgTex);
+
+            // ── 等级文字（叠加在经验条上方）──
             GUI.color = UIColorTheme.AccentCyan;
             var lvStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 20,
                 fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = UIColorTheme.AccentCyan }
             };
-            GUI.Label(new Rect(x, y - 26, _barWidth, 24), $"Lv.{lvSystem.Level}", lvStyle);
+            GUI.Label(new Rect(x, xpBarY, _barWidth, xpBarH), $"Lv.{lvSystem.Level}", lvStyle);
         }
+
+        // ── 金币计数（生命值下方）──
+        GUI.color = UIColorTheme.GoldText;
+        var coinStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 16,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft,
+            normal = { textColor = UIColorTheme.GoldText }
+        };
+        int totalCoins = Coin.TotalCoins;
+        GUI.Label(new Rect(x, y + _barHeight + 4, _barWidth, 20), $"🪙 {totalCoins}", coinStyle);
 
         GUI.color = Color.white;
         GUIScaleHelper.EndScale();

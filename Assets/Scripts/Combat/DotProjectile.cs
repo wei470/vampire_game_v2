@@ -149,6 +149,8 @@ public class PoisonBullet : MonoBehaviour
     private bool _canCrit; private float _critChance, _critMult;
     private Vector2 _direction;
     private bool _exploded;
+    private float _spawnTime;
+    private float _lifetime = 5f; // 最长存活时间，未命中自动销毁
 
     public void Setup(float speed, float poisonDps, float poisonDuration, float explosionRadius,
         float dmgMult, bool canCrit, float critChance, float critMult)
@@ -159,6 +161,15 @@ public class PoisonBullet : MonoBehaviour
     }
 
     public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+
+    private void Start() { _spawnTime = Time.time; }
+
+    private void Update()
+    {
+        // 超时未命中，自动销毁（防止 Hierarchy 残留）
+        if (!_exploded && Time.time - _spawnTime > _lifetime)
+            Destroy(gameObject);
+    }
 
     private void FixedUpdate()
     {
@@ -192,14 +203,12 @@ public class PoisonBullet : MonoBehaviour
                 _canCrit, _critChance, _critMult);
         }
 
-    // 留下一滩毒液，持续2秒
+        // 留下一滩毒液，持续2秒
         PoisonPuddle.Create(center, 0.5f, 2f,
             _poisonDps * _damageMultiplier, _canCrit, _critChance, _critMult);
 
-        // 隐藏子弹本体（毒液池会自行处理视觉和销毁）
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.enabled = false;
-        GetComponent<Collider2D>().enabled = false;
+        // 立即销毁子弹本体（旧代码只隐藏不销毁，导致Hierarchy残留）
+        Destroy(gameObject);
     }
 
     public static PoisonBullet Create(Vector2 pos, Vector2 dir, float speed,
@@ -683,6 +692,7 @@ public class FrostEffect : MonoBehaviour
     private float _lastFrostTick;
     private SpriteRenderer _sr;
     private Color _originalColor;
+    private bool _speedCaptured; // 防止重复捕获原始速度
 
     public void ApplyFreeze(float freezeDuration, float slowPercent, float frostDps,
         bool canCrit, float critChance, float critMult)
@@ -693,17 +703,35 @@ public class FrostEffect : MonoBehaviour
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
         _frozen = true;
 
-        // 冻住敌人
+        // 缓存敌人引用并冻住
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null)
         {
-            _originalSpeed = _enemyBase.MoveSpeed;
+            if (!_speedCaptured)
+            {
+                _originalSpeed = _enemyBase.MoveSpeed;
+                _speedCaptured = true;
+            }
             _enemyBase.MoveSpeed = 0f;
         }
     }
 
+    /// <summary>
+    /// 对象池回收时重置状态（关键修复：防止跨局残留）
+    /// </summary>
+    private void OnEnable()
+    {
+        // 重置为初始状态，确保对象池恢复的敌人不被永久减速
+        RestoreSpeed();
+        _frozen = false;
+        _freezeEndTime = 0f;
+        _speedCaptured = false;
+        _slowPercent = 0f;
+    }
+
     private void Start()
     {
-        _enemyBase = GetComponent<EnemyBase>();
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         _damageable = GetComponent<Damageable>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
@@ -737,18 +765,38 @@ public class FrostEffect : MonoBehaviour
             _lastFrostTick = Time.time;
             float dmg = _frostDps * 2f;
             if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(0.4f, 0.7f, 1f)); // 霜冻冰蓝色
+            if (_damageable != null && _damageable.CurrentHp > 0)
+                _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(0.4f, 0.7f, 1f)); // 霜冻冰蓝色
         }
     }
 
     private void Cleanup()
     {
+        RestoreSpeed();
         if (_sr != null) _sr.color = _originalColor;
         Destroy(this);
     }
 
+    /// <summary>
+    /// 恢复敌人原始速度（防止永久减速残留）
+    /// </summary>
+    private void RestoreSpeed()
+    {
+        if (_enemyBase != null && _speedCaptured)
+        {
+            _enemyBase.MoveSpeed = _originalSpeed;
+            _speedCaptured = false;
+        }
+    }
+
+    private void OnDisable()
+    {
+        RestoreSpeed();
+    }
+
     private void OnDestroy()
     {
+        RestoreSpeed();
         if (_sr != null) _sr.color = _originalColor;
     }
 }
