@@ -43,6 +43,12 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _lastDetonateTime = -999f;
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
+    private WeaponController _weaponController; // 缓存引用，避免每帧 GetComponent
+
+    // ── #26 里程碑系统 ──
+    private bool _elementMasterTriggered = false;  // 集齐4种DOT子弹
+    private float _chainDetonateEndTime = 0f;       // 连锁引爆结束时间
+    private int _lastDetonateEnemyCount = 0;        // 上次引爆命中敌人数量
 
     // ── 公共属性 ──
     public float DetonateCooldown => _detonateCooldown;
@@ -70,10 +76,74 @@ public class MagePassive : MonoBehaviour
 
     public float GetDotDurationMultiplier() => 1f + _dotDurationBonus;
 
+    /// <summary>
+    /// #26 获取 DOT 伤害倍率（含里程碑加成）
+    /// 元素大师：集齐4种DOT子弹 → 全DOT伤害 +20%
+    /// 连锁引爆：引爆命中>10敌人后3秒内 → DOT伤害翻倍
+    /// </summary>
+    public float GetDotDamageMultiplier()
+    {
+        float mult = 1f;
+        // 元素大师：全 DOT 伤害 +20%
+        if (_elementMasterTriggered)
+            mult += 0.2f;
+        // 连锁引爆：引爆后 3 秒内 DOT 伤害翻倍
+        if (Time.time < _chainDetonateEndTime)
+            mult *= 2f;
+        return mult;
+    }
+
+    /// <summary>
+    /// #26 连锁引爆是否激活（供 StatusEffectManager 查询）
+    /// </summary>
+    public bool IsChainDetonateActive => Time.time < _chainDetonateEndTime;
+
+    /// <summary>
+    /// #26 检查里程碑触发
+    /// </summary>
+    private void CheckMilestones()
+    {
+        // 元素大师：集齐 4 种不同 DOT 子弹类型
+        if (!_elementMasterTriggered && _dotGuns.Count >= 4)
+        {
+            _elementMasterTriggered = true;
+            DebugHelper.Log("[MagePassive] ★ MILESTONE: Element Master! All DOT damage +20%");
+
+            // 显示里程碑弹字
+            var player = GameReferences.Player;
+            if (player != null)
+                DamagePopup.Create(player.transform.position + Vector3.up * 2f,
+                    0, new Color(1f, 0.85f, 0f), false, "★ ELEMENT MASTER");
+
+            // 通知 StatusEffectManager 更新伤害倍率
+            SyncDotDamageMultiplierToAll();
+        }
+    }
+
+    /// <summary>
+    /// #26 同步 DOT 伤害倍率到所有活跃敌人的 StatusEffectManager
+    /// </summary>
+    private void SyncDotDamageMultiplierToAll()
+    {
+        var spawnMgr = GameReferences.SpawnManager;
+        if (spawnMgr == null) return;
+        var enemies = spawnMgr.ActiveEnemies;
+        if (enemies == null) return;
+        float dmgMult = GetDotDamageMultiplier();
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var sem = enemies[i]?.GetComponent<StatusEffectManager>();
+            if (sem != null)
+                sem.DotDamageMultiplier = dmgMult;
+        }
+    }
+
     public float GetDotCritChance()
     {
         float baseCrit = 0.05f;
         baseCrit += SaveManager.Instance?.GetPermanentBonus("crit_chance") ?? 0f;
+        // #23 每解锁一种 DOT 子弹类型，暴击率 +2%
+        baseCrit += _dotGuns.Count * 0.02f;
         return baseCrit;
     }
 
@@ -100,13 +170,16 @@ public class MagePassive : MonoBehaviour
     /// </summary>
     public void UnlockDotGun(StatusEffectType type, Color color, float cooldown, int impactDmg, float dotDps, float dotDuration)
     {
-        foreach (var gun in _dotGuns)
+        for (int i = 0; i < _dotGuns.Count; i++)
         {
-            if (gun.effectType == type)
+            if (_dotGuns[i].effectType == type)
             {
+                var gun = _dotGuns[i];
                 gun.dotDps *= 1.15f;
                 gun.impactDamage = Mathf.RoundToInt(gun.impactDamage * 1.1f);
-                DebugHelper.Log($"[MagePassive] Upgraded {type} DOT gun");
+                gun.upgradeLevel++; // #20 升级等级+1
+                _dotGuns[i] = gun; // struct 需要重新赋值回 List
+                DebugHelper.Log($"[MagePassive] Upgraded {type} DOT gun to Lv{gun.upgradeLevel}");
                 return;
             }
         }
@@ -115,19 +188,30 @@ public class MagePassive : MonoBehaviour
         {
             effectType = type, color = color, cooldown = cooldown,
             impactDamage = impactDmg, dotDps = dotDps, dotDuration = dotDuration,
-            lastFireTime = -999f
+            lastFireTime = -999f,
+            upgradeLevel = 1 // #20 初始等级 1
         });
         DebugHelper.Log($"[MagePassive] Unlocked {type} DOT gun! (color={color})");
+
+        // #26 解锁新子弹后检查里程碑
+        CheckMilestones();
     }
 
     public void EnhanceAllDotGuns(float dpsMultiplier)
     {
-        foreach (var gun in _dotGuns)
+        for (int i = 0; i < _dotGuns.Count; i++)
+        {
+            var gun = _dotGuns[i];
             gun.dotDps *= (1f + dpsMultiplier);
+            _dotGuns[i] = gun; // struct 需要重新赋值回 List
+        }
     }
 
     private void Awake()
     {
+        // 缓存 WeaponController 引用，避免 Update 中每帧 GetComponent
+        _weaponController = GetComponent<WeaponController>();
+
         // Mage 默认自带毒子弹（可叠加中毒，2 DPS）
         UnlockDotGun(StatusEffectType.Poison, new Color(0.1f, 0.8f, 0.2f), 1.5f, 0, 2f, 5f);
     }
@@ -148,8 +232,7 @@ public class MagePassive : MonoBehaviour
         if (fireDir.sqrMagnitude < 0.01f) return;
 
         float dmgMult = 1f;
-        var wc = GetComponent<WeaponController>();
-        if (wc != null) dmgMult = wc.DamageMultiplier;
+        if (_weaponController != null) dmgMult = _weaponController.DamageMultiplier;
 
         // 应用攻速加成
         float attackSpeedMult = GetAttackSpeedMultiplier();
@@ -185,13 +268,18 @@ public class MagePassive : MonoBehaviour
         int bulletCount = 1 + _bulletCountBonus;
         float spreadAngle = 15f; // 每发子弹散射角度
 
-        for (int b = 0; b < bulletCount; b++)
+        // #15 弹幕>5时，前5发为普通散射，超出部分转为追踪弹
+        const int MAX_NORMAL = 5;
+        int normalCount = Mathf.Min(bulletCount, MAX_NORMAL);
+        int homingCount = bulletCount - normalCount;
+
+        // ── 普通散射子弹 ──
+        for (int b = 0; b < normalCount; b++)
         {
-            // 计算散射方向
             Vector2 fireDir = direction;
-            if (bulletCount > 1)
+            if (normalCount > 1)
             {
-                float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
+                float angle = (b - (normalCount - 1) / 2f) * spreadAngle;
                 float rad = angle * Mathf.Deg2Rad;
                 fireDir = new Vector2(
                     direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad),
@@ -199,37 +287,113 @@ public class MagePassive : MonoBehaviour
                 ).normalized;
             }
 
-            switch (gun.effectType)
+            // #7 使用 DotBulletFactory 工厂创建子弹，解耦新增类型与 MagePassive
+            GameObject bullet = DotBulletFactory.Create(gun.effectType,
+                transform.position, fireDir, gun, bulletSpeedMult, durMult, dmgMultiplier,
+                canCrit, critChance, _dotCritMultiplier);
+
+            // #13 共振(Resonance)：子弹碰撞体积
+            ApplyBulletSizeBonus(bullet);
+
+            // #20 DOT子弹升级视觉变化
+            ApplyUpgradeVisual(bullet, gun);
+        }
+
+        // ── #15 追踪弹（弹幕>5时超出部分）──
+        if (homingCount > 0)
+        {
+            float homingSpeed = 10f * bulletSpeedMult; // 略慢于普通子弹
+            int homingDmg = Mathf.Max(1, gun.impactDamage);
+            float homingSpread = 30f; // 追踪弹散射角度更大
+
+            for (int h = 0; h < homingCount; h++)
             {
-                case StatusEffectType.Bleed:
-                    BleedBullet.Create(transform.position, fireDir, 14f * bulletSpeedMult, gun.impactDamage,
-                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
-                        canCrit, critChance, _dotCritMultiplier);
-                    break;
+                Vector2 hDir = direction;
+                if (homingCount > 1)
+                {
+                    float angle = (h - (homingCount - 1) / 2f) * homingSpread;
+                    float rad = angle * Mathf.Deg2Rad;
+                    hDir = new Vector2(
+                        direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad),
+                        direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)
+                    ).normalized;
+                }
 
-                case StatusEffectType.Poison:
-                    PoisonBullet.Create(transform.position, fireDir, 14f * bulletSpeedMult,
-                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
-                        canCrit, critChance, _dotCritMultiplier);
-                    break;
+                var homing = HomingProjectile.CreateDefault(
+                    transform.position, hDir, homingDmg, homingSpeed, 5f, 6f);
+                homing.SetDamageMultiplier(dmgMultiplier);
+                homing.SetKnockback(_knockbackBonus > 0f ? 3f : 0f);
 
-                case StatusEffectType.Burn:
-                    BurnBullet.Create(transform.position, fireDir, 12f * bulletSpeedMult, gun.impactDamage,
-                        gun.dotDps, gun.dotDuration * durMult, dmgMultiplier,
-                        canCrit, critChance, _dotCritMultiplier);
-                    break;
+                // 为追踪弹附加 DOT 效果（通过 DotHomingBullet 桥接组件）
+                var dotHoming = homing.gameObject.AddComponent<DotHomingBullet>();
+                dotHoming.Init(gun, durMult, dmgMultiplier, canCrit, critChance, _dotCritMultiplier);
 
-                case StatusEffectType.Frostbite:
-                    FrostBullet.Create(transform.position, fireDir, 20f * bulletSpeedMult, gun.impactDamage,
-                        gun.dotDps, 1f, 0.3f, dmgMultiplier,
-                        canCrit, critChance, _dotCritMultiplier);
-                    break;
+                // #13 共振：追踪弹也受体积加成
+                ApplyBulletSizeBonus(homing.gameObject);
             }
         }
     }
 
     /// <summary>
+    /// #20 DOT子弹升级视觉变化：每次升级子弹增大10%，颜色更亮，3级+添加尾迹
+    /// </summary>
+    private void ApplyUpgradeVisual(GameObject bullet, DotGunState gun)
+    {
+        if (bullet == null || gun.upgradeLevel <= 1) return;
+
+        // 每级增大10%
+        float scaleBonus = 1f + (gun.upgradeLevel - 1) * 0.1f;
+        bullet.transform.localScale *= scaleBonus;
+
+        // 颜色更亮（level 2+ 亮度递增）
+        var sr = bullet.GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            // 提高亮度：向白色靠近
+            float brightness = Mathf.Min(0.3f, (gun.upgradeLevel - 1) * 0.1f);
+            sr.color = Color.Lerp(sr.color, Color.white, brightness);
+        }
+
+        // 3级+添加简单发光子物体
+        if (gun.upgradeLevel >= 3)
+        {
+            var glow = new GameObject("Glow");
+            glow.transform.SetParent(bullet.transform);
+            glow.transform.localPosition = Vector3.zero;
+            glow.transform.localScale = Vector3.one * 1.8f;
+
+            var glowSr = glow.AddComponent<SpriteRenderer>();
+            glowSr.sprite = sr?.sprite;
+            glowSr.color = new Color(gun.color.r, gun.color.g, gun.color.b, 0.25f);
+            glowSr.sortingOrder = 14; // 子弹下方
+        }
+
+        // 缩放碰撞体
+        var col = bullet.GetComponent<Collider2D>();
+        if (col != null && col is BoxCollider2D box)
+            box.size *= scaleBonus;
+        else if (col != null && col is CircleCollider2D circle)
+            circle.radius *= scaleBonus;
+    }
+
+    /// <summary>
+    /// #13 共振(Resonance)：应用子弹碰撞体积加成
+    /// </summary>
+    private void ApplyBulletSizeBonus(GameObject bullet)
+    {
+        if (bullet == null || _bulletSizeBonus <= 0f) return;
+        bullet.transform.localScale *= (1f + _bulletSizeBonus);
+        var col = bullet.GetComponent<Collider2D>();
+        if (col != null && col is BoxCollider2D box)
+            box.size *= (1f + _bulletSizeBonus);
+        else if (col != null && col is CircleCollider2D circle)
+            circle.radius *= (1f + _bulletSizeBonus);
+    }
+
+    /// <summary>
     /// 引爆技能 + 屏幕抖动
+    /// 优化：直接遍历 SpawnManager.ActiveEnemies，避免 Physics2D.OverlapCircleAll 全图扫描
+    /// #22 增强：燃烧余烬 + 霜冻碎裂 + 层数联动
     /// </summary>
     public bool Detonate()
     {
@@ -244,69 +408,222 @@ public class MagePassive : MonoBehaviour
         float critMult = GetDotCritMultiplier();
         int totalDamage = 0;
         int enemiesHit = 0;
+        float radiusSqr = _detonateRadius * _detonateRadius;
 
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _detonateRadius);
-        foreach (var hit in hits)
+        // #22 收集全局引爆信息
+        bool anyBurn = false, anyFrost = false;
+        int maxBurnStacks = 0, maxFrostStacks = 0;
+
+        // 直接遍历 SpawnManager 的活跃敌人列表，无需物理查询
+        var spawnMgr = GameReferences.SpawnManager;
+        IReadOnlyList<GameObject> enemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
+        if (enemies == null || enemies.Count == 0) return false;
+
+        for (int i = 0; i < enemies.Count; i++)
         {
-            if (!hit.CompareTag("Enemy")) continue;
-            var d = hit.GetComponent<Damageable>();
+            var enemy = enemies[i];
+            if (enemy == null || !enemy.activeInHierarchy) continue;
+
+            // 距离粗筛（平方距离，避免开方）
+            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+            if (delta.sqrMagnitude > radiusSqr) continue;
+
+            var d = enemy.GetComponent<Damageable>();
             if (d == null || d.CurrentHp <= 0) continue;
 
             bool hadEffect = false;
+            int enemyDmg = 0;
 
-            // 引爆 StatusEffectManager DOT
-            var sem = hit.GetComponent<StatusEffectManager>();
+            // 引爆 StatusEffectManager DOT（#22 使用 DetonateResult）
+            var sem = enemy.GetComponent<StatusEffectManager>();
             if (sem != null && sem.HasAnyDot)
             {
-                int dmg = sem.Detonate(_detonateMultiplier, critChance, critMult);
-                if (dmg > 0) { totalDamage += dmg; hadEffect = true; }
+                StatusEffectManager.DetonateResult detResult;
+                int dmg = sem.Detonate(_detonateMultiplier, critChance, critMult, out detResult);
+                if (dmg > 0) { totalDamage += dmg; enemyDmg += dmg; hadEffect = true; }
+
+                // #22 收集全局燃烧/霜冻信息
+                if (detResult.hadBurn)
+                {
+                    anyBurn = true;
+                    maxBurnStacks = Mathf.Max(maxBurnStacks, detResult.burnStacks);
+                }
+                if (detResult.hadFrost)
+                {
+                    anyFrost = true;
+                    maxFrostStacks = Mathf.Max(maxFrostStacks, detResult.frostStacks);
+                }
             }
 
             // 引爆 Bleed
-            var bleed = hit.GetComponent<BleedEffect>();
+            var bleed = enemy.GetComponent<BleedEffect>();
             if (bleed != null)
             {
                 int extra = Mathf.RoundToInt(d.MaxHp * 0.2f * _detonateMultiplier);
-                d.TakeDamage(extra); totalDamage += extra; hadEffect = true;
+                d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true;
             }
 
             // 引爆 Burn
-            var burn = hit.GetComponent<BurnStackEffect>();
+            var burn = enemy.GetComponent<BurnStackEffect>();
             if (burn != null)
             {
                 int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier);
-                d.TakeDamage(extra); totalDamage += extra; hadEffect = true;
+                d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true;
+                anyBurn = true;
+                maxBurnStacks = Mathf.Max(maxBurnStacks, burn.StackCount);
             }
 
             // 引爆 Poison
-            var poison = hit.GetComponent<PoisonStackEffect>();
+            var poison = enemy.GetComponent<PoisonStackEffect>();
             if (poison != null)
             {
                 int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier);
-                d.TakeDamage(extra); totalDamage += extra; hadEffect = true;
+                d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true;
             }
 
             if (hadEffect)
             {
                 enemiesHit++;
-                CombatManager.CreateExplosionEffect(hit.transform.position, 2f, new Color(1f, 0.3f, 0.8f), 0.5f);
+                CombatManager.CreateExplosionEffect(enemy.transform.position, 3f, new Color(1f, 0.3f, 0.8f), 0.6f);
+
+                // #17 每个被引爆的敌人头顶显示紫色伤害弹字
+                DamagePopup.Create(enemy.transform.position, enemyDmg,
+                    new Color(1f, 0.3f, 0.8f), false);
             }
         }
 
-        // 屏幕抖动
+        // #22 燃烧余烬效果：燃烧层数>10时，爆炸后在敌人位置留下火焰区域
+        if (anyBurn && maxBurnStacks > 10)
+        {
+            SpawnEmberFireZones(enemies, radiusSqr, maxBurnStacks);
+        }
+
+        // #22 霜冻碎裂效果：霜冻引爆时，对周围敌人造成冰冻AOE
+        if (anyFrost && maxFrostStacks > 0)
+        {
+            TriggerFrostShatter(enemies, radiusSqr, maxFrostStacks, critChance, critMult);
+        }
+
+        // #17 引爆视觉反馈：闪白 + 巨大伤害弹字
+        if (enemiesHit > 0 && totalDamage > 0)
+        {
+            DetonateFlashEffect.Show(0.15f);
+            DamagePopup.CreateDetonateTotal(transform.position, totalDamage, enemiesHit);
+        }
+
+        // 屏幕抖动（根据命中数调整强度）
         var cam = Camera.main;
         if (cam != null)
         {
             var shake = cam.GetComponent<ScreenShake>();
             if (shake != null)
-                shake.Shake(1.5f, 0.5f);
+            {
+                float intensity = Mathf.Clamp(1.5f + enemiesHit * 0.2f, 1.5f, 4f);
+                float duration = Mathf.Clamp(0.5f + enemiesHit * 0.05f, 0.5f, 1.2f);
+                shake.Shake(intensity, duration);
+            }
         }
 
-        DebugHelper.Log($"[MagePassive] DETONATE! Hit {enemiesHit} enemies for {totalDamage} total damage!");
+        // 播放引爆音效
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.PlayDetonate();
+
+        // 记录引爆伤害到 DamageMeter
+        if (DamageMeter.Instance != null)
+            DamageMeter.Instance.RecordDetonate(totalDamage, enemiesHit);
+
+        // #26 连锁引爆里程碑：引爆命中 >10 个敌人 → 3秒内 DOT 伤害翻倍
+        if (enemiesHit > 10)
+        {
+            _chainDetonateEndTime = Time.time + 3f;
+            _lastDetonateEnemyCount = enemiesHit;
+            SyncDotDamageMultiplierToAll();
+            DebugHelper.Log($"[MagePassive] ★ MILESTONE: Chain Detonate! DOT damage x2 for 3s!");
+        }
+
+        DebugHelper.Log($"[MagePassive] DETONATE! Hit {enemiesHit} enemies for {totalDamage} total damage!" +
+            (anyBurn && maxBurnStacks > 10 ? $" [EMBER x{maxBurnStacks}]" : "") +
+            (anyFrost ? $" [FROST SHATTER x{maxFrostStacks}]" : "") +
+            (enemiesHit > 10 ? " [CHAIN DETONATE x2 DOT for 3s]" : ""));
         return enemiesHit > 0;
     }
 
-    public class DotGunState
+    /// <summary>
+    /// #22 燃烧余烬：燃烧层数>10时引爆后在敌人位置留下火焰区域
+    /// 每层燃烧造成 1 点/0.5秒的地面持续伤害，持续 3 秒
+    /// </summary>
+    private void SpawnEmberFireZones(IReadOnlyList<GameObject> enemies, float radiusSqr, int burnStacks)
+    {
+        int emberDmg = Mathf.Max(1, burnStacks); // 每层 1 点伤害
+        int zonesCreated = 0;
+        const int MAX_ZONES = 5; // 最多创建 5 个余烬区域，避免性能问题
+
+        for (int i = 0; i < enemies.Count && zonesCreated < MAX_ZONES; i++)
+        {
+            var enemy = enemies[i];
+            if (enemy == null || !enemy.activeInHierarchy) continue;
+
+            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+            if (delta.sqrMagnitude > radiusSqr) continue;
+
+            // 在敌人位置创建余烬火焰区域
+            FireZone.CreateDefault(enemy.transform.position, emberDmg, 3f, 1.5f, 0.5f);
+            zonesCreated++;
+        }
+
+        if (zonesCreated > 0)
+            DebugHelper.Log($"[MagePassive] EMBER! Created {zonesCreated} fire zones, {emberDmg} dmg each");
+    }
+
+    /// <summary>
+    /// #22 霜冻碎裂：霜冻引爆时对周围敌人造成冰冻 AOE 伤害 + 减速
+    /// 伤害基于霜冻层数：每层 5 点 AOE 伤害
+    /// </summary>
+    private void TriggerFrostShatter(IReadOnlyList<GameObject> enemies, float radiusSqr, int frostStacks,
+        float critChance, float critMult)
+    {
+        float shatterRadius = 4f; // 碎裂范围
+        float shatterRadiusSqr = shatterRadius * shatterRadius;
+        int shatterDmg = Mathf.Max(1, frostStacks * 5); // 每层 5 点碎裂伤害
+        int targetsHit = 0;
+
+        // 对范围内的所有敌人造成冰冻 AOE
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var enemy = enemies[i];
+            if (enemy == null || !enemy.activeInHierarchy) continue;
+
+            // 使用碎裂半径（可能比引爆半径小）
+            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+            if (delta.sqrMagnitude > shatterRadiusSqr) continue;
+
+            var d = enemy.GetComponent<Damageable>();
+            if (d == null || d.CurrentHp <= 0) continue;
+
+            // 碎裂伤害（可暴击）
+            int finalDmg = shatterDmg;
+            if (Random.value < critChance)
+                finalDmg = Mathf.RoundToInt(finalDmg * critMult);
+
+            d.TakeDamage(finalDmg);
+            targetsHit++;
+
+            // 对被碎裂命中的敌人施加霜冻减速
+            var sem = enemy.GetComponent<StatusEffectManager>();
+            if (sem == null) sem = enemy.gameObject.AddComponent<StatusEffectManager>();
+            sem.ApplyEffect(StatusEffectType.Frostbite, 1f, 2f);
+        }
+
+        // 碎裂视觉效果：冰蓝色爆炸
+        if (targetsHit > 0)
+        {
+            CombatManager.CreateExplosionEffect(transform.position, shatterRadius,
+                new Color(0.4f, 0.7f, 1f), 0.5f);
+            DebugHelper.Log($"[MagePassive] FROST SHATTER! {targetsHit} targets, {shatterDmg} dmg each");
+        }
+    }
+
+    public struct DotGunState
     {
         public StatusEffectType effectType;
         public Color color;
@@ -315,5 +632,132 @@ public class MagePassive : MonoBehaviour
         public float dotDps;
         public float dotDuration;
         public float lastFireTime;
+        public int upgradeLevel; // #20 升级等级（每次重复选择+1）
+    }
+
+    // ═══ #38 统一升级应用接口 ═══
+
+    private MageUpgradeConfig _upgradeConfig;
+
+    /// <summary>
+    /// 设置升级配置（由 GameSceneBootstrap 在初始化时注入）
+    /// </summary>
+    public void SetUpgradeConfig(MageUpgradeConfig config)
+    {
+        _upgradeConfig = config;
+    }
+
+    /// <summary>
+    /// 获取当前升级配置（供 LevelUpUI 等外部访问）
+    /// </summary>
+    public MageUpgradeConfig GetUpgradeConfig()
+    {
+        return _upgradeConfig;
+    }
+
+    /// <summary>
+    /// 统一升级应用接口 — 根据 upgradeId 应用对应的升级效果。
+    /// 配置数据从 MageUpgradeConfig 读取，不再硬编码在代码中。
+    ///
+    /// 返回 true 表示成功应用，false 表示未找到对应升级。
+    /// </summary>
+    public bool ApplyUpgrade(string upgradeId)
+    {
+        if (_upgradeConfig == null)
+        {
+            DebugHelper.LogError("[MagePassive] ApplyUpgrade: MageUpgradeConfig not set!");
+            return false;
+        }
+
+        // ── 检查是否是 DOT 子弹枪 ──
+        var dotGunEntry = _upgradeConfig.GetDotGunEntry(upgradeId);
+        if (dotGunEntry.HasValue)
+        {
+            var dg = dotGunEntry.Value;
+            UnlockDotGun(dg.effectType, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
+            DebugHelper.Log($"[MagePassive] Unlocked DOT gun: {dg.displayName}");
+            return true;
+        }
+
+        // ── 检查是否是增强升级 ──
+        var upgradeEntry = _upgradeConfig.GetUpgradeEntry(upgradeId);
+        if (!upgradeEntry.HasValue)
+        {
+            DebugHelper.LogWarning($"[MagePassive] ApplyUpgrade: unknown upgradeId '{upgradeId}'");
+            return false;
+        }
+
+        var ue = upgradeEntry.Value;
+        switch (ue.category)
+        {
+            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction:
+                _corrosionArmorReduction += ue.value1;
+                DebugHelper.Log($"[MagePassive] Corrosion armor reduction +{ue.value1 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DotSpread:
+                _curseSpreadTargets += (int)ue.value1;
+                DebugHelper.Log($"[MagePassive] Curse spread targets +{(int)ue.value1}");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DotFrequency:
+                _dotFrequencyBonus += ue.value1;
+                DebugHelper.Log($"[MagePassive] DOT frequency bonus +{ue.value1 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
+                _dotCritBurstChance += ue.value1;
+                DebugHelper.Log($"[MagePassive] DOT crit burst chance +{ue.value1 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:
+                _detonateMultiplier += ue.value1;
+                DebugHelper.Log($"[MagePassive] Detonate multiplier +{ue.value1}");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DetonateAbility:
+                _detonateCooldown *= (1f - ue.value1);
+                DebugHelper.Log($"[MagePassive] Detonate cooldown -{ue.value1 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.DotTrigger:
+                _erosionTriggerCount = Mathf.Max(2, _erosionTriggerCount - (int)ue.value1);
+                _erosionDamagePercent += ue.value2;
+                DebugHelper.Log($"[MagePassive] Erosion trigger count -> {_erosionTriggerCount}, dmg +{ue.value2 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
+                _attackSpeedBonus += ue.value1;
+                _bulletSpeedBonus += ue.value2;
+                DebugHelper.Log($"[MagePassive] Attack speed +{ue.value1 * 100}%, bullet speed +{ue.value2 * 100}%");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.BulletCount:
+                _bulletCountBonus += (int)ue.value1;
+                DebugHelper.Log($"[MagePassive] Bullet count +{(int)ue.value1}");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.Ricochet:
+                _ricochetChance += ue.value1;
+                if (_ricochetChance > 1f)
+                {
+                    _ricochetMaxBounces += 1;
+                    _ricochetChance -= 1f;
+                }
+                DebugHelper.Log($"[MagePassive] Ricochet chance +{ue.value1 * 100}%, max bounces: {_ricochetMaxBounces}");
+                break;
+
+            case CharacterUpgradeOption.UpgradeCategory.BulletSize:
+                _bulletSizeBonus += ue.value1;
+                _knockbackBonus += ue.value2;
+                DebugHelper.Log($"[MagePassive] Bullet size +{ue.value1 * 100}%, knockback +{ue.value2 * 100}%");
+                break;
+
+            default:
+                DebugHelper.Log($"[MagePassive] Applied upgrade: {ue.upgradeName} ({ue.category})");
+                break;
+        }
+
+        return true;
     }
 }

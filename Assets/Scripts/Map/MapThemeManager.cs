@@ -30,9 +30,20 @@ public class MapThemeManager : Singleton<MapThemeManager>
     [Tooltip("每多少波切换一次主题")]
     [SerializeField] private int _wavesPerTheme = 5;
 
+    [Header("随机种子")]
+    [Tooltip("地图随机种子。0 = 每局随机，>0 = 固定种子（可复现）")]
+    [SerializeField] private int _mapSeed = 0;
+
+    [Tooltip("是否随机打乱主题顺序")]
+    [SerializeField] private bool _shuffleThemeOrder = true;
+
     [Header("运行时状态")]
     [SerializeField] private int _currentThemeIndex = -1;
     [SerializeField] private string _currentThemeName = "None";
+
+    // #12 随机化后的主题顺序映射（原始索引 → 随机化索引）
+    private int[] _themeOrderMap = null;
+    private System.Random _rng;
 
     /// <summary>
     /// 当前主题数据（只读）
@@ -64,6 +75,52 @@ public class MapThemeManager : Singleton<MapThemeManager>
     protected override void Awake()
     {
         base.Awake();
+        InitializeRandomSeed();
+    }
+
+    /// <summary>
+    /// #12 初始化随机种子和主题顺序
+    /// </summary>
+    private void InitializeRandomSeed()
+    {
+        int seed = _mapSeed > 0 ? _mapSeed : (int)(Time.realtimeSinceStartup * 1000) ^ System.Environment.TickCount;
+        _rng = new System.Random(seed);
+        DebugHelper.Log($"[MapThemeManager] Initialized with seed: {seed}");
+
+        if (_shuffleThemeOrder && _themes.Count > 1)
+        {
+            ShuffleThemeOrder();
+        }
+    }
+
+    /// <summary>
+    /// #12 Fisher-Yates 洗牌打乱主题顺序
+    /// </summary>
+    private void ShuffleThemeOrder()
+    {
+        int count = _themes.Count;
+        _themeOrderMap = new int[count];
+        for (int i = 0; i < count; i++)
+            _themeOrderMap[i] = i;
+
+        // Fisher-Yates 洗牌
+        for (int i = count - 1; i > 0; i--)
+        {
+            int j = _rng.Next(i + 1);
+            int temp = _themeOrderMap[i];
+            _themeOrderMap[i] = _themeOrderMap[j];
+            _themeOrderMap[j] = temp;
+        }
+
+        // 记录随机化后的顺序
+        var orderNames = new System.Text.StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            if (i > 0) orderNames.Append(" → ");
+            int idx = _themeOrderMap[i];
+            orderNames.Append(idx < _themes.Count ? _themes[idx].themeName : "?");
+        }
+        DebugHelper.Log($"[MapThemeManager] Theme order shuffled: {orderNames}");
     }
 
     private void OnEnable()
@@ -98,16 +155,41 @@ public class MapThemeManager : Singleton<MapThemeManager>
     {
         if (_themes.Count == 0) return -1;
 
-        // 波次 1-2 使用默认主题（索引 0 = Forest）
+        // 波次 1-2 使用默认主题（第一个主题）
         if (waveNumber < _themeStartWave)
-            return 0;
+            return MapThemeOrderIndex(0);
 
         // 从 _themeStartWave 开始，每 _wavesPerTheme 波切换
         int adjustedWave = waveNumber - _themeStartWave;
-        int themeIndex = (adjustedWave / _wavesPerTheme) % _themes.Count;
+        int logicalIndex = (adjustedWave / _wavesPerTheme) % _themes.Count;
 
-        return themeIndex;
+        // #12 通过随机化映射表转换索引
+        return MapThemeOrderIndex(logicalIndex);
     }
+
+    /// <summary>
+    /// #12 将逻辑主题索引映射到随机化后的实际索引
+    /// </summary>
+    private int MapThemeOrderIndex(int logicalIndex)
+    {
+        if (_themeOrderMap != null && logicalIndex >= 0 && logicalIndex < _themeOrderMap.Length)
+            return _themeOrderMap[logicalIndex];
+        return logicalIndex;
+    }
+
+    /// <summary>
+    /// #12 设置随机种子（运行时调用）
+    /// </summary>
+    public void SetSeed(int seed)
+    {
+        _mapSeed = seed;
+        InitializeRandomSeed();
+    }
+
+    /// <summary>
+    /// #12 获取当前使用的随机种子
+    /// </summary>
+    public int CurrentSeed => _mapSeed;
 
     /// <summary>
     /// 切换到指定主题

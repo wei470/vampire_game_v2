@@ -67,38 +67,59 @@ public class SpawnManager : MonoBehaviour
     private List<GameObject> _activeEnemies = new List<GameObject>();
 
     /// <summary>
-    /// 伤害倍率（S 曲线递增：前 10 波缓慢，中期加速，后期平稳）
+    /// 获取当前活跃敌人列表（只读，供引爆等全局效果遍历）
     /// </summary>
-    public float DamageMultiplier => CalculateSCurveMultiplier(_currentWave, 0.08f);
+    public IReadOnlyList<GameObject> ActiveEnemies => _activeEnemies;
 
     /// <summary>
-    /// HP 倍率（S 曲线递增：前 10 波缓慢，中期加速，后期平稳）
+    /// 当前波次配置（从 ConfigLoader 或 EnemyWaveConfig 加载）
     /// </summary>
-    public float HpMultiplier => CalculateSCurveMultiplier(_currentWave, 0.12f);
+    private EnemyWaveConfig _waveConfig;
 
     /// <summary>
-    /// S 曲线成长公式 — 前 10 波缓慢增长，中期加速，后期给玩家喘息空间
+    /// 当前特殊波次类型（None 表示普通波次）
     /// </summary>
-    private static float CalculateSCurveMultiplier(int wave, float baseRate)
+    private EnemyWaveConfig.SpecialWaveType _currentSpecialWave = EnemyWaveConfig.SpecialWaveType.None;
+
+    /// <summary>
+    /// 伤害倍率 — 优先使用 EnemyWaveConfig 的可配置 S 曲线
+    /// </summary>
+    public float DamageMultiplier
+    {
+        get
+        {
+            if (_waveConfig != null)
+                return _waveConfig.GetDamageMultiplier(_currentWave);
+            return CalculateSCurveFallback(_currentWave, 0.08f);
+        }
+    }
+
+    /// <summary>
+    /// HP 倍率 — 优先使用 EnemyWaveConfig 的可配置 S 曲线
+    /// </summary>
+    public float HpMultiplier
+    {
+        get
+        {
+            if (_waveConfig != null)
+                return _waveConfig.GetHpMultiplier(_currentWave);
+            return CalculateSCurveFallback(_currentWave, 0.12f);
+        }
+    }
+
+    /// <summary>
+    /// 回退 S 曲线（无 EnemyWaveConfig 时使用，保持向后兼容）
+    /// </summary>
+    private static float CalculateSCurveFallback(int wave, float baseRate)
     {
         if (wave <= 1) return 1f;
-
-        // S 曲线参数
         float w = wave - 1;
-        float midpoint = 15f;   // 曲线中点（第 16 波左右）
-        float steepness = 0.2f; // 曲线陡峭程度
-
-        // 标准 S 曲线：1 / (1 + e^(-k*(x-midpoint)))
-        // 归一化到 [0, 1] 范围后乘以最大倍率
+        float midpoint = 15f;
+        float steepness = 0.2f;
         float sCurve = 1f / (1f + Mathf.Exp(-steepness * (w - midpoint)));
-        float sCurveMin = 1f / (1f + Mathf.Exp(steepness * midpoint));     // wave=0 时的 S 值
-        float sCurveMax = 1f / (1f + Mathf.Exp(-steepness * (50f - midpoint))); // wave=50 时的 S 值
-
-        // 归一化到 [0, 1]
-        float normalized = (sCurve - sCurveMin) / (sCurveMax - sCurveMin);
-        normalized = Mathf.Clamp01(normalized);
-
-        // 最大倍率 = 1 + 50波 * baseRate ≈ 5x
+        float sCurveMin = 1f / (1f + Mathf.Exp(steepness * midpoint));
+        float sCurveMax = 1f / (1f + Mathf.Exp(-steepness * (50f - midpoint)));
+        float normalized = Mathf.Clamp01((sCurve - sCurveMin) / (sCurveMax - sCurveMin));
         float maxMult = 1f + 50f * baseRate * 1.5f;
         return 1f + (maxMult - 1f) * normalized;
     }
@@ -137,6 +158,17 @@ public class SpawnManager : MonoBehaviour
         // 从配置读取生成距离
         if (ConfigLoader.Game != null)
             _spawnRadius = ConfigLoader.Game.spawnRadius;
+
+        // #32 加载波次配置（如果存在）
+        if (ConfigLoader.Wave != null)
+        {
+            _waveConfig = ConfigLoader.Wave;
+            _baseEnemyCount = _waveConfig.baseEnemyCount;
+            _enemiesPerWave = _waveConfig.enemiesPerWave;
+            _spawnInterval = _waveConfig.spawnInterval;
+            _spawnRadius = _waveConfig.spawnRadius;
+            DebugHelper.Log("[SpawnManager] Wave config loaded from EnemyWaveConfig");
+        }
 
         // 如果预制体未在 Inspector 中赋值，运行时创建默认敌人预制体
         EnsureEnemyPrefabs();
@@ -322,31 +354,157 @@ public class SpawnManager : MonoBehaviour
 
     /// <summary>
     /// 开始下一波
+    /// #32 支持可配置难度曲线 + 特殊波次事件
     /// </summary>
     public void StartNextWave()
     {
         _currentWave++;
         int enemyCount = _baseEnemyCount + (_currentWave - 1) * _enemiesPerWave;
 
-        DebugHelper.Log($"[SpawnManager] Starting wave {_currentWave} with {enemyCount} enemies");
-        EventManager.TriggerWaveStart(_currentWave);
+        // #32 使用 EnemyWaveConfig 的敌人数量计算（如果有配置）
+        if (_waveConfig != null)
+            enemyCount = _waveConfig.GetEnemyCountForWave(_currentWave);
 
+        EventManager.TriggerWaveStart(_currentWave);
         _waveInProgress = true;
 
-        // 每 5 波生成 Boss
-        if (_currentWave % 5 == 0)
+        // #32 检测特殊波次
+        _currentSpecialWave = _waveConfig != null
+            ? _waveConfig.GetSpecialWaveType(_currentWave)
+            : EnemyWaveConfig.SpecialWaveType.None;
+
+        // Boss 波检测（优先于特殊波次）
+        bool isBossWave = (_waveConfig != null)
+            ? _waveConfig.IsBossWave(_currentWave)
+            : (_currentWave % 5 == 0);
+
+        if (isBossWave)
         {
-            // Boss HP 使用 S 曲线：前期温和，中期挑战，后期可控
-            int bossHp = Mathf.RoundToInt((300 + _currentWave * 60) * HpMultiplier);
+            int bossHp = _waveConfig != null
+                ? _waveConfig.GetBossHP(_currentWave)
+                : Mathf.RoundToInt((300 + _currentWave * 60) * HpMultiplier);
+            int bossMinions = _waveConfig != null
+                ? Mathf.Min(enemyCount, _waveConfig.bossMinionsPerWave)
+                : Mathf.Min(enemyCount, 3);
+
             DebugHelper.Log($"[SpawnManager] ⚔️ BOSS WAVE {_currentWave}! Boss HP={bossHp}");
             SpawnBoss(bossHp);
-            // Boss 波同时生成少量小怪
-            StartCoroutine(SpawnWave(Mathf.Min(enemyCount, 3)));
+            StartCoroutine(SpawnWave(bossMinions));
+        }
+        else if (_currentSpecialWave != EnemyWaveConfig.SpecialWaveType.None)
+        {
+            // #32 特殊波次事件
+            int specialCount = _waveConfig.GetSpecialWaveEnemyCount(enemyCount, _currentSpecialWave);
+            DebugHelper.Log($"[SpawnManager] ★ SPECIAL WAVE {_currentWave}: {_currentSpecialWave} ({specialCount} enemies)");
+            StartCoroutine(SpawnSpecialWave(specialCount, _currentSpecialWave));
         }
         else
         {
+            DebugHelper.Log($"[SpawnManager] Starting wave {_currentWave} with {enemyCount} enemies");
             StartCoroutine(SpawnWave(enemyCount));
         }
+    }
+
+    /// <summary>
+    /// #32 生成特殊波次 — 根据特殊波次类型选择敌人和属性修正
+    /// </summary>
+    private IEnumerator SpawnSpecialWave(int count, EnemyWaveConfig.SpecialWaveType type)
+    {
+        _isSpawning = true;
+
+        for (int i = 0; i < count; i++)
+        {
+            GameObject prefab = ChooseSpecialWaveEnemy(type);
+            if (prefab != null)
+                SpawnSpecificEnemy(prefab);
+            else
+                SpawnRandomEnemy();
+            yield return new WaitForSeconds(_spawnInterval);
+        }
+
+        _isSpawning = false;
+    }
+
+    /// <summary>
+    /// #32 根据特殊波次类型选择敌人预制体
+    /// </summary>
+    private GameObject ChooseSpecialWaveEnemy(EnemyWaveConfig.SpecialWaveType type)
+    {
+        switch (type)
+        {
+            case EnemyWaveConfig.SpecialWaveType.TankRush:
+                return _tankEnemyPrefab ?? _basicEnemyPrefab;
+            case EnemyWaveConfig.SpecialWaveType.SpeedSurge:
+                return _fastEnemyPrefab ?? _basicEnemyPrefab;
+            case EnemyWaveConfig.SpecialWaveType.SwarmWave:
+                return _basicEnemyPrefab; // 大量弱敌
+            case EnemyWaveConfig.SpecialWaveType.EliteWave:
+                // 随机选择非 Basic 的精英敌人
+                return ChooseEliteEnemy() ?? _basicEnemyPrefab;
+            case EnemyWaveConfig.SpecialWaveType.HealerArmy:
+                // 混合治疗敌人
+                return Random.value < 0.5f
+                    ? (_healerEnemyPrefab ?? _basicEnemyPrefab)
+                    : (_chainHealerEnemyPrefab ?? _basicEnemyPrefab);
+            case EnemyWaveConfig.SpecialWaveType.BossRush:
+                return ChooseEliteEnemy() ?? _tankEnemyPrefab ?? _basicEnemyPrefab;
+            default:
+                return _basicEnemyPrefab;
+        }
+    }
+
+    /// <summary>
+    /// 选择精英敌人（排除 Basic）
+    /// </summary>
+    private GameObject ChooseEliteEnemy()
+    {
+        GameObject[] elites = {
+            _tankEnemyPrefab, _chargerEnemyPrefab, _burstEnemyPrefab,
+            _shielderEnemyPrefab, _stealthEnemyPrefab, _splitterEnemyPrefab
+        };
+        // 过滤 null 并随机选择
+        List<GameObject> valid = new List<GameObject>();
+        foreach (var e in elites)
+            if (e != null) valid.Add(e);
+        return valid.Count > 0 ? valid[Random.Range(0, valid.Count)] : null;
+    }
+
+    /// <summary>
+    /// 生成指定预制体的敌人（用于特殊波次）
+    /// </summary>
+    private void SpawnSpecificEnemy(GameObject prefab)
+    {
+        if (_playerTransform == null || prefab == null) return;
+
+        Vector2 spawnPos = GetRandomSpawnPosition();
+        string poolKey = GetPoolKeyForPrefab(prefab);
+        var enemy = PoolHelper.SpawnOrInstantiate(poolKey, prefab, spawnPos, Quaternion.identity);
+        if (enemy == null) return;
+
+        var enemyBase = enemy.GetComponent<EnemyBase>();
+        if (enemyBase != null)
+        {
+            var dmg = enemy.GetComponent<Damageable>();
+            if (dmg != null)
+            {
+                int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * HpMultiplier * WeakenMultiplier);
+                dmg.SetMaxHp(scaledMaxHp);
+            }
+
+            // 特殊波次属性修正
+            float weaken = WeakenMultiplier;
+            float speedMult = weaken * 0.5f;
+
+            // 速度提升波：敌人速度 ×2
+            if (_currentSpecialWave == EnemyWaveConfig.SpecialWaveType.SpeedSurge)
+                speedMult *= 2f;
+
+            enemyBase.MoveSpeed *= speedMult;
+            enemyBase.SetTarget(_playerTransform);
+        }
+
+        _activeEnemies.Add(enemy);
+        _enemiesAlive = _activeEnemies.Count;
     }
 
     /// <summary>

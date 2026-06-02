@@ -32,6 +32,8 @@ public class DamagePopup : MonoBehaviour
 
         var popup = go.AddComponent<DamagePopup>();
         popup._color = color;
+        popup._lifetime = 0.8f;
+        popup._moveSpeed = 2f;
 
         // 使用 TextMesh（无需 Canvas）
         popup._textMesh = go.AddComponent<TextMesh>();
@@ -52,6 +54,37 @@ public class DamagePopup : MonoBehaviour
         {
             mr.sortingOrder = 100;
         }
+
+        popup._timer = 0f;
+    }
+
+    /// <summary>
+    /// #17 创建屏幕中央的引爆总伤害数字（巨大字体，带"DETONATE!"前缀）
+    /// </summary>
+    public static void CreateDetonateTotal(Vector3 worldPos, int totalDamage, int enemyCount)
+    {
+        // 世界坐标弹字 — 在玩家位置附近
+        var go = new GameObject("DetonateTotalPopup");
+        go.transform.position = worldPos + new Vector3(0f, 1.5f, 0);
+
+        var popup = go.AddComponent<DamagePopup>();
+        popup._color = new Color(1f, 0.2f, 0.6f); // 品红色
+        popup._lifetime = 1.5f; // 更长持续时间
+        popup._moveSpeed = 1f;  // 缓慢上升
+
+        popup._textMesh = go.AddComponent<TextMesh>();
+        popup._textMesh.text = $"DETONATE!\n-{totalDamage}";
+        popup._textMesh.color = new Color(1f, 0.2f, 0.6f);
+        popup._textMesh.fontSize = 120; // 巨大字体
+        popup._textMesh.fontStyle = FontStyle.Bold;
+        popup._textMesh.alignment = TextAlignment.Center;
+        popup._textMesh.anchor = TextAnchor.MiddleCenter;
+        popup._textMesh.characterSize = 0.2f;
+
+        popup._textMesh.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        var mr = go.GetComponent<MeshRenderer>();
+        if (mr != null) mr.sortingOrder = 110;
 
         popup._timer = 0f;
     }

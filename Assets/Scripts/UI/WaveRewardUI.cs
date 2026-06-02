@@ -23,6 +23,22 @@ public class WaveRewardUI : MonoBehaviour
 
     private void OnWaveComplete(int wave)
     {
+        // #34 金币利息系统：每波结束根据当前金币获得利息
+        if (SaveManager.Instance != null)
+        {
+            float interestRate = SaveManager.Instance.GetPermanentBonus("gold_interest");
+            if (interestRate > 0f)
+            {
+                int currentCoins = SaveManager.Instance.GetCoins();
+                int interest = Mathf.Max(1, Mathf.RoundToInt(currentCoins * interestRate));
+                if (interest > 0)
+                {
+                    SaveManager.Instance.AddCoins(interest);
+                    DebugHelper.Log($"[WaveRewardUI] Gold interest: +{interest} coins ({interestRate * 100}% of {currentCoins})");
+                }
+            }
+        }
+
         if (wave % 5 == 0 || wave % 2 != 0) return;
         GenerateRewardOptions(wave);
         _showing = true;

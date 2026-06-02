@@ -31,14 +31,16 @@ Assets/Scripts/
 ├── Skills/         ← 8 种主动技能 + 被动技能
 ├── UI/             ← 所有 UI 组件（含 EnemyHealthBar）
 ├── Map/            ← 地图主题、边界、装饰、环境区域
-├── Audio/          ← BGM 管理
+├── Audio/          ← BGM 管理 + SFXManager 音效系统
 ├── Data/           ← 配置加载器
 ├── ScriptableObjects/
-│   ├── Config/     ← GameConfig, EnemyWaveConfig, MapThemeData
+│   ├── Config/     ← GameConfig, EnemyWaveConfig, MapThemeData, MageUpgradeConfig
 │   ├── Characters/ ← CharacterData, CharacterUpgradeData
 │   └── Skills/     ← SkillData
 └── Gameplay.asmdef
 Assets/Editor/      ← 编辑器工具（场景创建器）
+Assets/Tests/
+└── Editor/         ← 单元测试（CoreSystemTests，Unity Test Framework）
 ```
 
 ---
@@ -241,9 +243,13 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | 12 | SplitterEnemy | ◆ 菱形 | 🍷 暗红 | 死亡分裂 |
 | 13 | SummonerEnemy | ⬠ 五边形 | 🟣 深紫 | 召唤小兵 |
 | 14 | ChargerEnemy | ▲ 三角 | 🟤 橙棕 | 蓄力冲锋 |
-| 15 | BossEnemy | █ 方形 | 动态 | 5阶段Boss（每5波） |
+| 15a | BossEnemy (Juggernaut) | █ 方形 | 深红 | 高HP、冲锋+毒区 |
+| 15b | BossEnemy (Sorcerer) | █ 方形 | 深紫 | 弹幕+召唤+震波 |
+| 15c | BossEnemy (Phantom) | █ 方形 | 暗青 | 隐身闪现+环形弹幕 |
+| 15d | BossEnemy (Berserker) | █ 方形 | 橙红 | 高速冲锋+分裂弹幕 |
 
 > ⚠️ 所有敌人默认速度已调整为原来的50%
+> Boss 类型由 `BossEnemy.SelectBossTypeForWave()` 根据波次自动选择
 > 形状由 SpriteFactory 运行时生成（Triangle/Diamond/Pentagon/Hexagon/Star/Cross）
 > 光环特效由 EnemyEffectHelper 统一管理
 
@@ -314,6 +320,14 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | Coin | Entities/Coin.cs | 金币拾取逻辑 |
 | GameConfig | ScriptableObjects/Config/GameConfig.cs | 游戏配置 |
 | PoolHelper | Core/PoolHelper.cs | 对象池辅助 |
+| MageUpgradeConfig | ScriptableObjects/Config/MageUpgradeConfig.cs | Mage 升级数据集中管理 |
+| SFXManager | Audio/SFXManager.cs | 音效系统（对象池+防轰炸） |
+| DamageMeter | UI/DamageMeter.cs | 伤害统计/DPS 面板 |
+| GameStateResetter | Core/GameStateResetter.cs | 场景重置统一入口 |
+| DetonateFlashEffect | UI/DetonateFlashEffect.cs | 引爆全屏闪白 |
+| DotParticleVFX | Combat/DotParticleVFX.cs | DOT 粒子特效（4种） |
+| AchievementUI | UI/AchievementUI.cs | 成就系统（24个成就） |
+| BossSplitBullet | Enemies/BossSplitBullet.cs | 狂战Boss分裂弹幕 |
 
 ### 不应轻易修改
 | 文件 | 原因 |

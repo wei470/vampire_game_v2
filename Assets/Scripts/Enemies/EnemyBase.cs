@@ -32,6 +32,13 @@ public class EnemyBase : BaseEntity
         _rb.gravityScale = 0f;
         _rb.freezeRotation = true;
         _rb.mass = 1f; // 敌人质量小，玩家可以轻松推开
+
+        // 在 Awake 中一次性获取或创建 EnemyHealthBar，避免 OnEnable 中重复 AddComponent
+        _healthBar = GetComponent<EnemyHealthBar>();
+        if (_healthBar == null)
+        {
+            _healthBar = gameObject.AddComponent<EnemyHealthBar>();
+        }
     }
 
     /// <summary>
@@ -42,14 +49,13 @@ public class EnemyBase : BaseEntity
         base.OnEnable(); // 重置 _alive = true
         RegisterDeathEvent();
 
-        // 创建头顶血条
-        if (_healthBar == null)
-        {
-            _healthBar = gameObject.AddComponent<EnemyHealthBar>();
-        }
+        // 对象池回收时重置血条状态（组件已在 Awake 中创建）
         if (_damageable == null)
             _damageable = GetComponent<Damageable>();
-        _healthBar.Setup(_damageable);
+        if (_healthBar == null)
+            _healthBar = GetComponent<EnemyHealthBar>();
+        if (_healthBar != null)
+            _healthBar.Setup(_damageable);
     }
 
     /// <summary>

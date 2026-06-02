@@ -50,6 +50,9 @@ public class GameSceneBootstrap : MonoBehaviour
     private WeaponData[] _weapons;
     private SkillData[] _skills;
 
+    // ── #38 Mage 升级配置 ──
+    private MageUpgradeConfig _mageUpgradeConfig;
+
     private void Start()
     {
         // 加载数据
@@ -94,6 +97,21 @@ public class GameSceneBootstrap : MonoBehaviour
             var bgmObj = new GameObject("BGMManager");
             _bgmManager = bgmObj.AddComponent<BGMManager>();
             DebugHelper.Log("[GameSceneBootstrap] Created BGMManager");
+        }
+
+        // 确保 SFXManager 存在
+        if (SFXManager.Instance == null)
+        {
+            var sfxObj = new GameObject("SFXManager");
+            sfxObj.AddComponent<SFXManager>();
+            DebugHelper.Log("[GameSceneBootstrap] Created SFXManager");
+        }
+
+        // 创建 DamageMeter 伤害统计
+        if (DamageMeter.Instance == null)
+        {
+            gameObject.AddComponent<DamageMeter>();
+            DebugHelper.Log("[GameSceneBootstrap] Created DamageMeter");
         }
 
         // 创建并初始化 GameInputHandler
@@ -160,22 +178,31 @@ public class GameSceneBootstrap : MonoBehaviour
         }
         _skills = skillList.Count > 0 ? skillList.ToArray() : new SkillData[0];
 
-        // ── 为 Mage 角色运行时注入专属升级和描述（.asset 无法在代码中编辑）──
+        // ── #38 加载 MageUpgradeConfig ──
+        _mageUpgradeConfig = LoadAsset<MageUpgradeConfig>("Assets/ScriptableObjects/Config/MageUpgradeConfig.asset");
+        if (_mageUpgradeConfig == null)
+        {
+            // 运行时创建默认配置（与编辑器中的 .asset 一致）
+            _mageUpgradeConfig = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+            DebugHelper.Log("[GameSceneBootstrap] MageUpgradeConfig: runtime default created");
+        }
+
+        // ── 为 Mage 角色运行时注入专属升级和描述 ──
         foreach (var c in _characters)
         {
             if (c != null && (c.characterId == "mage" || c.characterName.ToLower().Contains("mage")))
             {
-                // 覆盖描述
-                c.description = "DOT 大师 — 所有持续伤害时间延长 20%，DOT 可暴击，拥有专属引爆技能。升级时获得独特的 DOT 强化选项。";
-                c.passiveDescription = "DOT 持续时间 +20%，DOT 可暴击，按 Q 引爆所有 DOT 造成巨额伤害（冷却 12s）";
-                c.characterColor = new Color(0.6f, 0.2f, 0.9f); // 紫色
+                // 从配置读取描述和颜色
+                c.description = _mageUpgradeConfig.description;
+                c.passiveDescription = _mageUpgradeConfig.passiveDescription;
+                c.characterColor = _mageUpgradeConfig.characterColor;
 
-                // 注入专属升级
+                // 使用配置生成升级选项（替代硬编码的 CreateMageUpgrades）
                 if (c.customUpgrades == null || c.customUpgrades.Length == 0)
                 {
-                    c.customUpgrades = CreateMageUpgrades();
+                    c.customUpgrades = _mageUpgradeConfig.BuildCustomUpgrades();
                     c.useGenericUpgrades = false; // Mage 只用专属升级
-                    DebugHelper.Log("[GameSceneBootstrap] Injected 16 Mage custom upgrades");
+                    DebugHelper.Log($"[GameSceneBootstrap] Injected {c.customUpgrades.Length} Mage custom upgrades from config");
                 }
             }
         }
@@ -464,11 +491,15 @@ public class GameSceneBootstrap : MonoBehaviour
             // Mage 角色专属：DOT 增强 + 暴击 + 引爆
             if (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage"))
             {
-                if (_player.GetComponent<MagePassive>() == null)
+                var magePassive = _player.GetComponent<MagePassive>();
+                if (magePassive == null)
                 {
-                    _player.gameObject.AddComponent<MagePassive>();
+                    magePassive = _player.gameObject.AddComponent<MagePassive>();
                     DebugHelper.Log("[GameSceneBootstrap] MagePassive component added");
                 }
+                // #38 注入升级配置到 MagePassive
+                magePassive.SetUpgradeConfig(_mageUpgradeConfig);
+                DebugHelper.Log("[GameSceneBootstrap] MageUpgradeConfig injected into MagePassive");
             }
         }
 

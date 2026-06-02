@@ -136,6 +136,10 @@ public class SaveManager : Singleton<SaveManager>
         new ShopUpgradeDef("Magnet +20%", "Pickup range +20% per lvl",     "magnet_radius",   0f,   1.20f, 8),
         new ShopUpgradeDef("Pierce +1",   "Attacks pierce 1 more enemy",   "pierce",          1f,   1.0f,  15),
         new ShopUpgradeDef("Dodge +2%",   "2% chance to dodge attacks",    "dodge_chance",    0.02f, 1.0f, 12),
+        // #34 新增商店商品
+        new ShopUpgradeDef("Gold Interest", "+2% gold interest/wave",       "gold_interest",   0.02f, 1.0f, 8),
+        new ShopUpgradeDef("Revive +1",    "Extra revive per game",         "revive_count",    1f,   1.0f, 3, 2),
+        new ShopUpgradeDef("Skill CD -5%","Reduce skill cooldowns by 5%",   "skill_cooldown",  0.05f, 1.0f, 10),
     };
 
     public static readonly MilestoneDef[] MILESTONES = new MilestoneDef[]

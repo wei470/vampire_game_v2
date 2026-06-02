@@ -144,6 +144,13 @@ using System.Collections.Generic;
                     }
                 }
 
+                // #15 DOT 追踪弹桥接：命中时附加 DOT 效果
+                var dotHoming = GetComponent<DotHomingBullet>();
+                if (dotHoming != null)
+                {
+                    dotHoming.OnHitEnemy(other.gameObject);
+                }
+
                 DespawnSelf();
             }
         }

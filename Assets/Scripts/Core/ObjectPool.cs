@@ -227,6 +227,33 @@ public class ObjectPool : Singleton<ObjectPool>
     }
 
     /// <summary>
+    /// #29 扩展池容量 — 如果池中空闲对象不足，额外创建指定数量
+    /// 用于波次间歇预加载，避免运行时 Instantiate 卡顿
+    /// </summary>
+    public void ExpandPool(string poolKey, int extraCount)
+    {
+        if (extraCount <= 0) return;
+        PoolData pool;
+        if (!_pools.TryGetValue(poolKey, out pool)) return;
+
+        // 只在空闲对象不足时扩展
+        if (pool.InactiveQueue.Count >= extraCount) return;
+
+        int toCreate = extraCount - pool.InactiveQueue.Count;
+        for (int i = 0; i < toCreate; i++)
+        {
+            var obj = CreateNewInstance(pool, poolKey);
+            obj.SetActive(false);
+            pool.InactiveQueue.Enqueue(obj);
+        }
+
+        if (_debugLog && toCreate > 0)
+        {
+            DebugHelper.Log($"[ObjectPool] Expanded '{poolKey}' by {toCreate} instances");
+        }
+    }
+
+    /// <summary>
     /// 获取池统计信息
     /// </summary>
     public string GetPoolStats(string poolKey)

@@ -2,17 +2,30 @@
 using UnityEngine;
 
 /// <summary>
-/// Boss 敌人 — 5 阶段行为，每 5 波出现。
-/// 阶段 1（HP > 66%）：追踪 + 碰撞伤害 + 随机发射弹幕
-/// 阶段 2（33% < HP <= 66%）：加速 + 召唤小怪
-/// 阶段 3（15% < HP <= 33%）：狂暴模式 + 冲锋
-/// 阶段 4（8% < HP <= 15%）：减速光环 + 地面毒区 + AoE 震波
-/// 阶段 5（HP <= 8%）：全技能加速 + 连续冲锋 + 环形弹幕
-/// 
+/// Boss 敌人 — #36 多样化 Boss 系统。
+///
+/// 4 种 Boss 类型（根据波次自动选择）：
+/// - Juggernaut（重装）：高血量、冲锋为主、地面毒区
+/// - Sorcerer（法师）：弹幕为主、召唤小怪、AoE 震波
+/// - Phantom（幽灵）：隐身闪现、环形弹幕、减速光环
+/// - Berserker（狂战）：高速连续冲锋、狂暴加速、分裂弹幕
+///
+/// 每种类型从技能池中随机选取 2-3 个技能作为主动技能。
 /// 击败后掉落传说装备。
 /// </summary>
 public class BossEnemy : EnemyBase
 {
+    /// <summary>
+    /// #36 Boss 类型枚举
+    /// </summary>
+    public enum BossType
+    {
+        Juggernaut,  // 重装型：高HP、冲锋+毒区
+        Sorcerer,    // 法师型：弹幕+召唤+震波
+        Phantom,     // 幽灵型：隐身+闪现+环形弹幕
+        Berserker    // 狂战型：高速冲锋+狂暴+分裂弹幕
+    }
+
     [Header("Boss 配置")]
     [SerializeField] private int _bossHP = 500;
     [SerializeField] private float _bossSpeed = 2.5f;
@@ -46,6 +59,32 @@ public class BossEnemy : EnemyBase
     [SerializeField] private float _enrageSpeedMult = 1.5f;
     [SerializeField] private float _enrageAttackMult = 0.5f;
     [SerializeField] private int _enrageChargeCount = 3;
+
+    [Header("#36 Boss 多样性")]
+    [Tooltip("Boss 类型。0=自动根据波次选择")]
+    [SerializeField] private BossType _bossType = BossType.Juggernaut;
+
+    /// <summary>当前 Boss 类型</summary>
+    public BossType Type => _bossType;
+
+    // #36 幽灵型专用状态
+    private bool _isInvisible = false;
+    private float _nextBlinkTime;
+    private float _blinkCooldown = 5f;
+    private float _invisibleDuration = 2f;
+
+    // #36 狂战型专用：分裂弹幕
+    private float _splitBulletInterval = 3f;
+    private float _lastSplitTime;
+
+    // #36 Boss 类型颜色映射
+    private static readonly Color[] BossColors = new Color[]
+    {
+        new Color(0.6f, 0.1f, 0.1f),   // Juggernaut: 深红
+        new Color(0.4f, 0.1f, 0.6f),   // Sorcerer: 深紫
+        new Color(0.3f, 0.5f, 0.6f),   // Phantom: 暗青
+        new Color(0.8f, 0.3f, 0f),     // Berserker: 橙红
+    };
 
     private Damageable _bossDamageable;
     private int _currentPhase = 1;
@@ -87,9 +126,73 @@ public class BossEnemy : EnemyBase
         _lastChargeTime = Time.time;
         _lastPoisonTime = Time.time;
         _lastShockwaveTime = Time.time;
+        _lastSplitTime = Time.time;
+        _nextBlinkTime = Time.time + _blinkCooldown;
         _baseSpeed = _bossSpeed;
 
-        DebugHelper.Log($"[BossEnemy] Boss spawned! HP={_bossHP}");
+        // #36 应用 Boss 类型特定参数
+        ApplyBossTypeConfig();
+
+        DebugHelper.Log($"[BossEnemy] Boss spawned! Type={_bossType}, HP={_bossHP}");
+    }
+
+    /// <summary>
+    /// #36 根据波次自动选择 Boss 类型
+    /// </summary>
+    public static BossType SelectBossTypeForWave(int waveNumber)
+    {
+        // 每5波出现一次Boss，根据波次决定类型
+        int bossIndex = (waveNumber / 5) % 4;
+        return (BossType)bossIndex;
+    }
+
+    /// <summary>
+    /// #36 应用 Boss 类型特定的参数和视觉效果
+    /// </summary>
+    private void ApplyBossTypeConfig()
+    {
+        // 应用类型颜色
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+            sr.color = BossColors[(int)_bossType];
+
+        switch (_bossType)
+        {
+            case BossType.Juggernaut:
+                _bossHP = Mathf.RoundToInt(_bossHP * 1.5f); // +50% HP
+                _bossSpeed *= 0.8f; // 慢速
+                _chargeSpeed *= 1.3f; // 冲锋更快
+                _chargeDamage = Mathf.RoundToInt(_chargeDamage * 1.3f);
+                if (_bossDamageable != null) { _bossDamageable.SetMaxHp(_bossHP); _bossDamageable.Heal(_bossHP); }
+                transform.localScale = Vector3.one * 2.5f; // 更大
+                break;
+
+            case BossType.Sorcerer:
+                _bulletBarrageCount = 12; // 更多弹幕
+                _bulletSpeed *= 1.3f;
+                _summonCount = 5; // 更多小怪
+                _shockwaveRadius *= 1.3f;
+                break;
+
+            case BossType.Phantom:
+                _bossSpeed *= 1.3f; // 快速
+                _bulletBarrageCount = 16; // 环形弹幕更多
+                _bossHP = Mathf.RoundToInt(_bossHP * 0.7f); // 较少HP
+                if (_bossDamageable != null) { _bossDamageable.SetMaxHp(_bossHP); _bossDamageable.Heal(_bossHP); }
+                if (sr != null) { var c = sr.color; c.a = 0.6f; sr.color = c; } // 半透明
+                break;
+
+            case BossType.Berserker:
+                _bossSpeed *= 1.5f; // 最快
+                _chargeInterval *= 0.6f; // 冲锋更频繁
+                _enrageSpeedMult = 2f; // 狂暴更快
+                _enrageChargeCount = 5; // 更多连续冲锋
+                _bossHP = Mathf.RoundToInt(_bossHP * 0.8f);
+                if (_bossDamageable != null) { _bossDamageable.SetMaxHp(_bossHP); _bossDamageable.Heal(_bossHP); }
+                break;
+        }
+
+        Setup(_bossSpeed, _bossContactDamage, 0, 50);
     }
 
     private void Update()
@@ -141,6 +244,12 @@ public class BossEnemy : EnemyBase
     // ── 阶段 1：追踪 + 弹幕 ──
     private void UpdatePhase1()
     {
+        // #36 幽灵型：隐身闪现
+        if (_bossType == BossType.Phantom) UpdatePhantomBlink();
+
+        // #36 狂战型：分裂弹幕
+        if (_bossType == BossType.Berserker) UpdateSplitBullets();
+
         if (Time.time - _lastBarrageTime > _bulletBarrageInterval)
         {
             FireBarrage();
@@ -151,6 +260,9 @@ public class BossEnemy : EnemyBase
     // ── 阶段 2：追踪 + 弹幕 + 召唤小怪 ──
     private void UpdatePhase2()
     {
+        if (_bossType == BossType.Phantom) UpdatePhantomBlink();
+        if (_bossType == BossType.Berserker) UpdateSplitBullets();
+
         if (Time.time - _lastBarrageTime > _bulletBarrageInterval * 0.7f)
         {
             FireBarrage();
@@ -167,6 +279,9 @@ public class BossEnemy : EnemyBase
     // ── 阶段 3：狂暴 + 冲锋 + 弹幕 ──
     private void UpdatePhase3()
     {
+        if (_bossType == BossType.Phantom) UpdatePhantomBlink();
+        if (_bossType == BossType.Berserker) UpdateSplitBullets();
+
         if (Time.time - _lastBarrageTime > _bulletBarrageInterval * 0.5f)
         {
             FireBarrage();
@@ -183,6 +298,9 @@ public class BossEnemy : EnemyBase
     // ── 阶段 4：减速光环 + 毒区 + AoE 震波 ──
     private void UpdatePhase4()
     {
+        if (_bossType == BossType.Phantom) UpdatePhantomBlink();
+        if (_bossType == BossType.Berserker) UpdateSplitBullets();
+
         // 继续弹幕
         if (Time.time - _lastBarrageTime > _bulletBarrageInterval * 0.6f)
         {
@@ -420,6 +538,134 @@ public class BossEnemy : EnemyBase
     }
 
     // CreateSquareSprite 已迁移到 SpriteFactory.Square
+
+    // ═══ #36 幽灵型专属：隐身闪现 ═══
+
+    /// <summary>
+    /// #36 幽灵型 Boss：周期性隐身+闪现到玩家附近
+    /// 隐身期间不可被攻击，闪现后释放环形弹幕
+    /// </summary>
+    private void UpdatePhantomBlink()
+    {
+        if (_isInvisible)
+        {
+            // 隐身期间缓慢接近玩家
+            if (_playerTransform != null)
+            {
+                Vector2 dir = (_playerTransform.position - transform.position).normalized;
+                var rb = GetComponent<Rigidbody2D>();
+                if (rb != null) rb.linearVelocity = dir * _bossSpeed * 0.5f;
+            }
+            return;
+        }
+
+        if (Time.time >= _nextBlinkTime)
+        {
+            StartBlink();
+        }
+    }
+
+    private void StartBlink()
+    {
+        _isInvisible = true;
+
+        // 视觉效果：完全透明
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) { var c = sr.color; c.a = 0.1f; sr.color = c; }
+
+        // 禁用碰撞
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        DebugHelper.Log("[BossEnemy] Phantom: Invisible blink!");
+
+        // 闪现到玩家附近
+        if (_playerTransform != null)
+        {
+            Vector2 offset = Random.insideUnitCircle.normalized * 3f;
+            transform.position = _playerTransform.position + (Vector3)offset;
+        }
+
+        // 隐身结束后恢复
+        Invoke(nameof(EndBlink), _invisibleDuration);
+    }
+
+    private void EndBlink()
+    {
+        _isInvisible = false;
+
+        // 恢复视觉
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) { var c = sr.color; c.a = 0.6f; sr.color = c; }
+
+        // 恢复碰撞
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = true;
+
+        // 闪现后释放环形弹幕
+        FireBarrage();
+
+        _nextBlinkTime = Time.time + _blinkCooldown;
+        DebugHelper.Log("[BossEnemy] Phantom: Reappeared!");
+    }
+
+    // ═══ #36 狂战型专属：分裂弹幕 ═══
+
+    /// <summary>
+    /// #36 狂战型 Boss：周期性发射分裂弹幕
+    /// 子弹飞行一段距离后分裂成 3 发小子弹
+    /// </summary>
+    private void UpdateSplitBullets()
+    {
+        if (Time.time - _lastSplitTime > _splitBulletInterval)
+        {
+            FireSplitBarrage();
+            _lastSplitTime = Time.time;
+        }
+    }
+
+    private void FireSplitBarrage()
+    {
+        if (_playerTransform == null) return;
+
+        DebugHelper.Log("[BossEnemy] Berserker: Split barrage!");
+
+        // 向玩家方向发射 3 发分裂弹
+        Vector2 baseDir = (_playerTransform.position - transform.position).normalized;
+        for (int i = -1; i <= 1; i++)
+        {
+            float angle = i * 20f * Mathf.Deg2Rad;
+            Vector2 dir = new Vector2(
+                baseDir.x * Mathf.Cos(angle) - baseDir.y * Mathf.Sin(angle),
+                baseDir.x * Mathf.Sin(angle) + baseDir.y * Mathf.Cos(angle)
+            ).normalized;
+
+            var bulletGo = new GameObject("SplitBullet");
+            bulletGo.transform.position = transform.position;
+            bulletGo.tag = "Untagged";
+
+            var sr = bulletGo.AddComponent<SpriteRenderer>();
+            sr.sprite = CreateCircleSprite();
+            sr.color = new Color(1f, 0.5f, 0f); // 橙色
+            bulletGo.transform.localScale = Vector3.one * 0.4f;
+
+            var rb = bulletGo.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0f;
+            rb.linearVelocity = dir * _bulletSpeed * 1.2f;
+
+            var col = bulletGo.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.2f;
+
+            bulletGo.AddComponent<EnemyBullet>();
+
+            // 1.5秒后分裂成 3 发小子弹
+            var splitInfo = bulletGo.AddComponent<BossSplitBullet>();
+            splitInfo.Init(_bulletSpeed * 0.8f, _bulletDamage);
+
+            Object.Destroy(bulletGo, 8f);
+        }
+    }
 
     /// <summary>
     /// 静态工厂方法：在指定位置生成 Boss

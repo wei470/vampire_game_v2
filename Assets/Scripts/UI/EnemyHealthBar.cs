@@ -40,6 +40,8 @@ public class EnemyHealthBar : MonoBehaviour
     private SpriteRenderer _burnStackIndicator;
     private SpriteRenderer _bleedComponentIndicator;
     private SpriteRenderer _frostComponentIndicator;
+    // #21 中毒层数文字显示
+    private TextMesh _poisonStackText;
 
     // StatusEffectManager 动态指示器缓存
     private Dictionary<StatusEffectType, SpriteRenderer> _semIndicators
@@ -139,6 +141,23 @@ public class EnemyHealthBar : MonoBehaviour
         _burnStackIndicator = CreateSingleIndicator("BurnStack", new Color(1f, 0.5f, 0f));
         _bleedComponentIndicator = CreateSingleIndicator("BleedComp", new Color(0.9f, 0.1f, 0.1f));
         _frostComponentIndicator = CreateSingleIndicator("FrostComp", new Color(0.3f, 0.6f, 1f));
+
+        // #21 创建中毒层数文字
+        var poisonTextObj = new GameObject("PoisonCount");
+        poisonTextObj.transform.SetParent(_dotContainer);
+        poisonTextObj.transform.localPosition = new Vector3(0f, DOT_INDICATOR_HEIGHT + 0.1f, 0f);
+        _poisonStackText = poisonTextObj.AddComponent<TextMesh>();
+        _poisonStackText.text = "";
+        _poisonStackText.fontSize = 40;
+        _poisonStackText.fontStyle = FontStyle.Bold;
+        _poisonStackText.characterSize = 0.08f;
+        _poisonStackText.alignment = TextAlignment.Center;
+        _poisonStackText.anchor = TextAnchor.MiddleCenter;
+        _poisonStackText.color = new Color(0.2f, 1f, 0.3f);
+        _poisonStackText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var mr = poisonTextObj.GetComponent<MeshRenderer>();
+        if (mr != null) mr.sortingOrder = 13;
+        _poisonStackText.gameObject.SetActive(false);
     }
 
     private SpriteRenderer CreateSingleIndicator(string name, Color color)
@@ -316,6 +335,19 @@ public class EnemyHealthBar : MonoBehaviour
             float widthScale = Mathf.Clamp01(poisonStacks / 10f);
             indicatorEntries.Add(new IndicatorEntry("PoisonStack", true,
                 new Color(0.1f, 0.9f, 0.2f), Mathf.Max(0.3f, widthScale), true, 6f));
+
+            // #21 显示中毒层数文字
+            if (_poisonStackText != null)
+            {
+                _poisonStackText.gameObject.SetActive(true);
+                _poisonStackText.text = "x" + poisonStacks;
+                float intensity = Mathf.Clamp01(poisonStacks / 15f);
+                _poisonStackText.color = Color.Lerp(new Color(0.2f, 1f, 0.3f), new Color(0.8f, 1f, 0.1f), intensity);
+            }
+        }
+        else
+        {
+            if (_poisonStackText != null) _poisonStackText.gameObject.SetActive(false);
         }
         if (hasBleedComponent)
         {

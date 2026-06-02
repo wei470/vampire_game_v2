@@ -40,6 +40,27 @@ public class EnemyWaveConfig : ScriptableObject
         new EnemySpawnEntry { enemyType = "ChainHealer", weight = 3, minWave = 8 },
     };
 
+    [Header("难度曲线（S 曲线参数）")]
+    [Tooltip("S 曲线中点波次 — 难度增长最快的波次")]
+    public float sCurveMidpoint = 15f;
+    [Tooltip("S 曲线陡峭程度 — 值越大过渡越陡")]
+    public float sCurveSteepness = 0.2f;
+    [Tooltip("HP 倍率基础增长率")]
+    public float hpBaseRate = 0.12f;
+    [Tooltip("伤害倍率基础增长率")]
+    public float dmgBaseRate = 0.08f;
+    [Tooltip("最大难度倍率乘数（相对于基础）")]
+    public float maxMultiplierScale = 1.5f;
+
+    [Header("特殊波次事件")]
+    [Tooltip("启用特殊波次事件（如全是 Tank、速度提升等）")]
+    public bool enableSpecialWaves = true;
+    [Tooltip("特殊波次开始的最低波次")]
+    public int specialWaveMinStart = 10;
+    [Tooltip("特殊波次出现概率（每波检测）")]
+    [Range(0f, 1f)]
+    public float specialWaveChance = 0.2f;
+
     [Header("Boss 配置")]
     public int bossWaveInterval = 5;
     public int bossBaseHP = 300;
@@ -94,5 +115,92 @@ public class EnemyWaveConfig : ScriptableObject
     public int GetBossHP(int wave)
     {
         return bossBaseHP + wave * bossHPPerWave;
+    }
+
+    /// <summary>
+    /// S 曲线成长公式 — 前期缓慢增长，中期加速，后期给玩家喘息空间
+    /// 参数全部由 ScriptableObject 配置
+    /// </summary>
+    public float CalculateSCurveMultiplier(int wave, float baseRate)
+    {
+        if (wave <= 1) return 1f;
+
+        float w = wave - 1;
+        // 标准 S 曲线：1 / (1 + e^(-k*(x-midpoint)))
+        float sCurve = 1f / (1f + Mathf.Exp(-sCurveSteepness * (w - sCurveMidpoint)));
+        float sCurveMin = 1f / (1f + Mathf.Exp(sCurveSteepness * sCurveMidpoint));
+        float sCurveMax = 1f / (1f + Mathf.Exp(-sCurveSteepness * (50f - sCurveMidpoint)));
+
+        // 归一化到 [0, 1]
+        float normalized = Mathf.Clamp01((sCurve - sCurveMin) / (sCurveMax - sCurveMin));
+
+        // 最大倍率 = 1 + 50波 * baseRate * scale
+        float maxMult = 1f + 50f * baseRate * maxMultiplierScale;
+        return 1f + (maxMult - 1f) * normalized;
+    }
+
+    /// <summary>
+    /// 获取 HP 倍率
+    /// </summary>
+    public float GetHpMultiplier(int wave) => CalculateSCurveMultiplier(wave, hpBaseRate);
+
+    /// <summary>
+    /// 获取伤害倍率
+    /// </summary>
+    public float GetDamageMultiplier(int wave) => CalculateSCurveMultiplier(wave, dmgBaseRate);
+
+    /// <summary>
+    /// 特殊波次类型枚举
+    /// </summary>
+    public enum SpecialWaveType
+    {
+        None,
+        TankRush,       // 全是 Tank
+        SpeedSurge,     // 速度提升波
+        SwarmWave,      // 大量弱敌
+        EliteWave,      // 少量精英敌
+        HealerArmy,     // 治疗军团
+        BossRush,       // 连续小 Boss
+    }
+
+    /// <summary>
+    /// 判断当前波次是否为特殊波次，返回特殊波次类型
+    /// </summary>
+    public SpecialWaveType GetSpecialWaveType(int wave)
+    {
+        if (!enableSpecialWaves || wave < specialWaveMinStart)
+            return SpecialWaveType.None;
+
+        // Boss 波不触发特殊波次
+        if (IsBossWave(wave))
+            return SpecialWaveType.None;
+
+        // 概率检测
+        if (Random.value > specialWaveChance)
+            return SpecialWaveType.None;
+
+        // 根据波次选择特殊波次类型
+        float roll = Random.value;
+        if (wave >= 30 && roll < 0.15f) return SpecialWaveType.BossRush;
+        if (roll < 0.20f) return SpecialWaveType.TankRush;
+        if (roll < 0.40f) return SpecialWaveType.SpeedSurge;
+        if (roll < 0.55f) return SpecialWaveType.SwarmWave;
+        if (roll < 0.70f) return SpecialWaveType.EliteWave;
+        if (roll < 0.85f) return SpecialWaveType.HealerArmy;
+        return SpecialWaveType.SpeedSurge; // 默认速度提升
+    }
+
+    /// <summary>
+    /// 获取特殊波次的敌人数量修正
+    /// </summary>
+    public int GetSpecialWaveEnemyCount(int baseCount, SpecialWaveType type)
+    {
+        switch (type)
+        {
+            case SpecialWaveType.SwarmWave: return baseCount * 3;   // 3倍数量弱敌
+            case SpecialWaveType.EliteWave: return Mathf.Max(3, baseCount / 3); // 1/3数量精英
+            case SpecialWaveType.TankRush: return Mathf.Max(5, baseCount / 2);
+            default: return baseCount;
+        }
     }
 }

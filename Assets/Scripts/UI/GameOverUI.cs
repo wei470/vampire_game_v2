@@ -135,19 +135,11 @@ public class GameOverUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置所有游戏静态状态（返回菜单/重启时调用）
+    /// #37 使用统一的 GameStateResetter 重置所有游戏状态
     /// </summary>
     private void ResetGameState()
     {
-        EventManager.ClearAll();
-        LevelUpUI.ResetMagnetMultiplier();
-        GameReferences.Reset();
-        GameSceneBootstrap.ResetCharacter();
-
-        if (ObjectPool.Instance != null) Destroy(ObjectPool.Instance.gameObject);
-        if (CombatManager.Instance != null) Destroy(CombatManager.Instance.gameObject);
-        if (SaveManager.Instance != null) { SaveManager.Instance.Save(); Destroy(SaveManager.Instance.gameObject); }
-        if (OffScreenCuller.Instance != null) Destroy(OffScreenCuller.Instance.gameObject);
+        GameStateResetter.FullReset();
     }
 
     private void CreateButton(Transform parent, string name, string label,

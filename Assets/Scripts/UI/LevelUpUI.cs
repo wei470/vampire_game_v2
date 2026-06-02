@@ -27,6 +27,7 @@ public class LevelUpUI : MonoBehaviour
     private PlayerLevelSystem _levelSystem;
     private WeaponController _weaponController;
     private MagePassive _magePassive;
+    private MageUpgradeConfig _mageUpgradeConfig; // #38 升级配置
     private CharacterData _currentCharacter;
     private int _pendingLevelUpCount = 0;
 
@@ -52,13 +53,23 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 当前显示的 3 个升级选项（可能是通用或专属）
+    /// #33 技能升级选项
+    /// </summary>
+    private struct SkillUpgradeSlot
+    {
+        public BaseSkill skill;
+    }
+
+    /// <summary>
+    /// 当前显示的 3 个升级选项（可能是通用或专属或技能升级）
     /// </summary>
     private struct UpgradeSlot
     {
         public bool isCustom;
+        public bool isSkillUpgrade;
         public GenericUpgradeType genericType;
         public CharacterUpgradeOption customOption;
+        public SkillUpgradeSlot skillUpgrade;
     }
 
     private UpgradeSlot[] _currentSlots = new UpgradeSlot[3];
@@ -240,6 +251,17 @@ public class LevelUpUI : MonoBehaviour
 
         // 获取当前角色数据
         _currentCharacter = GameSceneBootstrap.CurrentCharacter;
+
+        // #38 加载 MageUpgradeConfig
+        _mageUpgradeConfig = _magePassive?.GetUpgradeConfig();
+        if (_mageUpgradeConfig == null)
+        {
+            // 尝试从 ScriptableObjects 加载
+#if UNITY_EDITOR
+            _mageUpgradeConfig = UnityEditor.AssetDatabase.LoadAssetAtPath<MageUpgradeConfig>(
+                "Assets/ScriptableObjects/Config/MageUpgradeConfig.asset");
+#endif
+        }
     }
 
     /// <summary>
@@ -368,6 +390,18 @@ public class LevelUpUI : MonoBehaviour
             }
         }
 
+        // #33 添加技能升级选项（已拥有且未满级的主动技能可升级）
+        var skillMgr = GameReferences.Player?.GetComponent<PlayerSkillManager>();
+        if (skillMgr != null)
+        {
+            foreach (var skill in skillMgr.ActiveSkills)
+            {
+                if (skill == null || skill.Data == null) continue;
+                if (skill.CurrentLevel >= skill.Data.maxLevel) continue; // 已满级跳过
+                allSlots.Add(new UpgradeSlot { isSkillUpgrade = true, skillUpgrade = new SkillUpgradeSlot { skill = skill } });
+            }
+        }
+
         // 如果没有可用选项，添加通用默认
         if (allSlots.Count == 0)
         {
@@ -425,6 +459,21 @@ public class LevelUpUI : MonoBehaviour
             return $"{opt.upgradeName}{stackText}\n{opt.description}";
         }
 
+        // #33 技能升级描述
+        if (slot.isSkillUpgrade)
+        {
+            var skill = slot.skillUpgrade.skill;
+            var data = skill.Data;
+            int nextLevel = skill.CurrentLevel + 1;
+            int newDmg = data.GetDamageAtLevel(nextLevel);
+            float newCd = data.GetCooldownAtLevel(nextLevel);
+            float newEff = data.GetEffectAtLevel(nextLevel);
+            string desc = $"⬆ Lv.{nextLevel}\n";
+            if (newDmg > 0) desc += $"DMG: {data.GetDamageAtLevel(skill.CurrentLevel)} → {newDmg}\n";
+            desc += $"CD: {data.GetCooldownAtLevel(skill.CurrentLevel):F1}s → {newCd:F1}s";
+            return $"🔮 {data.skillName} {desc}";
+        }
+
         return GetGenericDescription(slot.genericType);
     }
 
@@ -479,6 +528,16 @@ public class LevelUpUI : MonoBehaviour
                     _customUpgradeStacks[slot.customOption.upgradeId] = 0;
                 _customUpgradeStacks[slot.customOption.upgradeId]++;
             }
+            else if (slot.isSkillUpgrade)
+            {
+                // #33 应用技能升级
+                var skill = slot.skillUpgrade.skill;
+                if (skill != null)
+                {
+                    skill.Upgrade();
+                    DebugHelper.Log($"[LevelUpUI] Skill upgraded: {skill.Data.skillName} → Lv.{skill.CurrentLevel}");
+                }
+            }
             else
             {
                 ApplyGenericUpgrade(slot.genericType);
@@ -486,6 +545,10 @@ public class LevelUpUI : MonoBehaviour
 
             if (_panel != null)
                 _panel.SetActive(false);
+
+            // 播放升级选择音效
+            if (SFXManager.Instance != null)
+                SFXManager.Instance.PlaySelect();
 
             _pendingLevelUpCount--;
             if (_pendingLevelUpCount <= 0)
@@ -565,182 +628,62 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 应用角色专属升级效果
+    /// 应用角色专属升级效果 — 委托给 MagePassive.ApplyUpgrade() 统一处理
     /// </summary>
     private void ApplyCustomUpgrade(CharacterUpgradeOption option)
     {
         if (_magePassive == null)
             _magePassive = GameReferences.Player?.GetComponent<MagePassive>();
 
-        var damageable = _playerController?.Damageable;
-
-        // 根据 upgradeId 解锁对应的 DOT 子弹枪
-        var dotGun = GetDotGunForUpgrade(option.upgradeId);
-        if (dotGun.HasValue && _magePassive != null)
+        if (_magePassive != null)
         {
-            var dg = dotGun.Value;
-            _magePassive.UnlockDotGun(dg.type, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
-            DebugHelper.Log($"[LevelUpUI] Unlocked DOT gun: {option.upgradeName}");
-            return;
+            bool success = _magePassive.ApplyUpgrade(option.upgradeId);
+            if (!success)
+                DebugHelper.LogWarning($"[LevelUpUI] Failed to apply upgrade: {option.upgradeId}");
         }
-
-        // 非 DOT 子弹类型的升级
-        switch (option.category)
+        else
         {
-            case CharacterUpgradeOption.UpgradeCategory.DotDamage:
-                if (_magePassive != null)
-                {
-                    _magePassive.EnhanceAllDotGuns(option.value1);
-                    DebugHelper.Log($"[LevelUpUI] All DOT damage +{option.value1 * 100}%");
-                }
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.DotDuration:
-                if (_magePassive != null)
-                {
-                    _magePassive.AddDotDurationBonus(option.value1);
-                    DebugHelper.Log($"[LevelUpUI] DOT Duration +{option.value1 * 100}%");
-                }
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:
-                if (_magePassive != null)
-                {
-                    _magePassive.DetonateMultiplier += option.value1;
-                    DebugHelper.Log($"[LevelUpUI] Detonate multiplier +{option.value1}");
-                }
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.DetonateAbility:
-                if (_magePassive != null)
-                {
-                    _magePassive.DetonateCooldownValue *= (1f - option.value1);
-                    DebugHelper.Log($"[LevelUpUI] Detonate cooldown -{option.value1 * 100}%");
-                }
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.StatusEffect:
-                DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName}");
-                break;
-
-            // ═══ 腐蚀 — 拥有DOT的敌人护甲降低 ═══
-            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction:
-                if (_magePassive != null)
-                {
-                    _magePassive.CorrosionArmorReduction += option.value1;
-                    DebugHelper.Log($"[LevelUpUI] Corrosion armor reduction +{option.value1 * 100}%");
-                }
-                break;
-
-            // ═══ 诅咒 — DOT敌人死亡时传播DOT ═══
-            case CharacterUpgradeOption.UpgradeCategory.DotSpread:
-                if (_magePassive != null)
-                {
-                    _magePassive.CurseSpreadTargets += (int)option.value1;
-                    DebugHelper.Log($"[LevelUpUI] Curse spread targets +{(int)option.value1}");
-                }
-                break;
-
-            // ═══ 痛苦 — DOT触发间隔缩短 ═══
-            case CharacterUpgradeOption.UpgradeCategory.DotFrequency:
-                if (_magePassive != null)
-                {
-                    _magePassive.DotFrequencyBonus += option.value1;
-                    DebugHelper.Log($"[LevelUpUI] DOT frequency bonus +{option.value1 * 100}%");
-                }
-                break;
-
-            // ═══ 凋零 — DOT有几率造成双倍伤害 ═══
-            case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
-                if (_magePassive != null)
-                {
-                    _magePassive.DotCritBurstChance += option.value1;
-                    DebugHelper.Log($"[LevelUpUI] DOT crit burst chance +{option.value1 * 100}%");
-                }
-                break;
-
-            // ═══ 侵蚀 — 每N次DOT生效额外冲击 ═══
-            case CharacterUpgradeOption.UpgradeCategory.DotTrigger:
-                if (_magePassive != null)
-                {
-                    _magePassive.ErosionTriggerCount -= (int)option.value1;
-                    _magePassive.ErosionDamagePercent += option.value2;
-                    DebugHelper.Log($"[LevelUpUI] Erosion trigger count -> {_magePassive.ErosionTriggerCount}, dmg +{option.value2 * 100}%");
-                }
-                break;
-
-            // ═══ 急速 — 攻速+15%, 子弹速度+10% ═══
-            case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
-                if (_magePassive != null)
-                {
-                    _magePassive.AttackSpeedBonus += option.value1;
-                    _magePassive.BulletSpeedBonus += option.value2;
-                    DebugHelper.Log($"[LevelUpUI] Attack speed +{option.value1 * 100}%, bullet speed +{option.value2 * 100}%");
-                }
-                break;
-
-            // ═══ 弹幕 — 子弹数量+1 ═══
-            case CharacterUpgradeOption.UpgradeCategory.BulletCount:
-                if (_magePassive != null)
-                {
-                    _magePassive.BulletCountBonus += (int)option.value1;
-                    DebugHelper.Log($"[LevelUpUI] Bullet count +{(int)option.value1}");
-                }
-                break;
-
-            // ═══ 反弹 — 30%几率反弹 ═══
-            case CharacterUpgradeOption.UpgradeCategory.Ricochet:
-                if (_magePassive != null)
-                {
-                    _magePassive.RicochetChance += option.value1;
-                    if (_magePassive.RicochetChance > 1f)
-                    {
-                        _magePassive.RicochetMaxBounces += 1;
-                        _magePassive.RicochetChance -= 1f;
-                    }
-                    DebugHelper.Log($"[LevelUpUI] Ricochet chance +{option.value1 * 100}%, max bounces: {_magePassive.RicochetMaxBounces}");
-                }
-                break;
-
-            // ═══ 共振 — 子弹碰撞体积+20%, 击退+15% ═══
-            case CharacterUpgradeOption.UpgradeCategory.BulletSize:
-                if (_magePassive != null)
-                {
-                    _magePassive.BulletSizeBonus += option.value1;
-                    _magePassive.KnockbackBonus += option.value2;
-                    DebugHelper.Log($"[LevelUpUI] Bullet size +{option.value1 * 100}%, knockback +{option.value2 * 100}%");
-                }
-                break;
-
-            default:
-                DebugHelper.Log($"[LevelUpUI] Applied {option.upgradeName} ({option.category})");
-                break;
+            DebugHelper.LogError("[LevelUpUI] MagePassive not found, cannot apply upgrade");
         }
     }
 
     /// <summary>
-    /// 判断 upgradeId 是否属于 DOT 子弹枪类型
+    /// 判断 upgradeId 是否属于 DOT 子弹枪类型 — 通过 MageUpgradeConfig 查询
     /// </summary>
     private bool IsDotGunUpgrade(string upgradeId)
     {
-        switch (upgradeId)
-        {
-            case "bleed":
-            case "poison":
-            case "burn":
-            case "frostbite":
-                return true;
-            default:
-                return false;
-        }
+        // 优先使用配置查询
+        if (_mageUpgradeConfig != null)
+            return _mageUpgradeConfig.IsDotGunUpgrade(upgradeId);
+
+        // Fallback：硬编码检查（兼容无配置情况）
+        return upgradeId == "bleed" || upgradeId == "poison" ||
+               upgradeId == "burn" || upgradeId == "frostbite";
     }
 
     /// <summary>
-    /// 根据 upgradeId 获取 DOT 子弹枪配置
+    /// 根据 upgradeId 获取 DOT 子弹枪配置 — 通过 MageUpgradeConfig 查询
     /// </summary>
     private struct DotGunConfig { public StatusEffectType type; public Color color; public float cooldown; public int impactDmg; public float dotDps; public float dotDuration; }
     private DotGunConfig? GetDotGunForUpgrade(string upgradeId)
     {
+        // 优先使用配置查询
+        if (_mageUpgradeConfig != null)
+        {
+            var entry = _mageUpgradeConfig.GetDotGunEntry(upgradeId);
+            if (entry.HasValue)
+            {
+                var e = entry.Value;
+                return new DotGunConfig
+                {
+                    type = e.effectType, color = e.color, cooldown = e.cooldown,
+                    impactDmg = e.impactDmg, dotDps = e.dotDps, dotDuration = e.dotDuration
+                };
+            }
+            return null;
+        }
+
+        // Fallback：硬编码（兼容无配置情况）
         switch (upgradeId)
         {
             case "bleed":    return new DotGunConfig { type = StatusEffectType.Bleed,    color = new Color(0.9f, 0.1f, 0.1f), cooldown = 1.0f, impactDmg = 3, dotDps = 2f, dotDuration = 4f };

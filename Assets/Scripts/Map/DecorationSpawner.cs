@@ -58,7 +58,9 @@ public class DecorationSpawner : MonoBehaviour
 
     private void Start()
     {
-        _rng = new System.Random(GetInstanceID());
+        // #12 使用 MapThemeManager 的种子初始化，确保装饰物随机性与地图主题一致
+        int seed = MapThemeManager.Instance != null ? MapThemeManager.Instance.CurrentSeed : 0;
+        _rng = seed > 0 ? new System.Random(seed + GetInstanceID()) : new System.Random(GetInstanceID());
 
         var player = GameReferences.Player;
         if (player != null)

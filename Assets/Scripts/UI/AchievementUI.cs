@@ -8,15 +8,39 @@ public class AchievementUI : MonoBehaviour
     {
         public string id; public string name; public string description;
         public bool unlocked; public float unlockTime;
-        public Achievement(string id, string name, string desc) { this.id = id; this.name = name; this.description = desc; this.unlocked = false; }
+        public string bonusKey; public float bonusValue; // #35 永久加成
+        public Achievement(string id, string name, string desc, string bonusKey = "", float bonusValue = 0f)
+        { this.id = id; this.name = name; this.description = desc; this.unlocked = false; this.bonusKey = bonusKey; this.bonusValue = bonusValue; }
     }
 
     private static readonly Achievement[] ALL_ACHIEVEMENTS = new Achievement[]
     {
-        new("first_blood","First Blood","Kill your first enemy"),new("kill_100","Warrior","Kill 100 enemies"),new("kill_500","Genocide","Kill 500 enemies"),
-        new("wave_5","Survivor","Reach wave 5"),new("wave_10","Veteran","Reach wave 10"),new("wave_20","Legendary","Reach wave 20"),new("wave_50","Immortal","Reach wave 50"),
-        new("boss_first","Boss Slayer","Defeat your first Boss"),new("boss_5","Boss Hunter","Defeat 5 Bosses"),new("coin_1000","Rich","Collect 1000 coins"),
-        new("combo_10","Chain Killer","Reach 10x combo"),new("combo_50","Unstoppable","Reach 50x combo"),new("no_hit_wave","Untouchable","Complete a wave without damage"),new("level_max","Max Level","Reach level 20"),
+        // ── 基础成就 ──
+        new("first_blood","First Blood","Kill your first enemy"),
+        new("kill_100","Warrior","Kill 100 enemies"),
+        new("kill_500","Genocide","Kill 500 enemies"),
+        new("kill_2000","Apocalypse","Kill 2000 enemies","max_hp_bonus", 10f),
+        new("wave_5","Survivor","Reach wave 5"),
+        new("wave_10","Veteran","Reach wave 10"),
+        new("wave_20","Legendary","Reach wave 20","crit_chance", 0.01f),
+        new("wave_50","Immortal","Reach wave 50","crit_chance", 0.02f),
+        new("boss_first","Boss Slayer","Defeat your first Boss"),
+        new("boss_5","Boss Hunter","Defeat 5 Bosses","damage_bonus", 0.05f),
+        new("coin_1000","Rich","Collect 1000 coins"),
+        new("coin_5000","Tycoon","Collect 5000 coins","coin_bonus", 0.1f),
+        new("combo_10","Chain Killer","Reach 10x combo"),
+        new("combo_50","Unstoppable","Reach 50x combo","crit_chance", 0.01f),
+        new("no_hit_wave","Untouchable","Complete a wave without damage","max_hp_bonus", 5f),
+        new("level_max","Max Level","Reach level 20"),
+        new("survive_10min","Endurance","Survive 10 minutes","max_hp_bonus", 5f),
+        new("boss_no_hit","Flawless Boss","Defeat a Boss without taking damage","damage_bonus", 0.03f),
+        // ── DOT 专属成就（#35 新增）──
+        new("element_master","Element Master","Collect all 4 DOT bullet types","dot_damage_bonus", 0.05f),
+        new("detonate_20","Cataclysm","Detonate hitting 20+ enemies","detonate_bonus", 0.1f),
+        new("dot_100k","Toxic Cloud","Deal 100k total DOT damage","dot_damage_bonus", 0.03f),
+        new("poison_50","Plague Bearer","Stack 50 poison on a single enemy","dot_damage_bonus", 0.02f),
+        new("combo_3_types","Trinity","Have 3 DOT combo effects active simultaneously","dot_damage_bonus", 0.03f),
+        new("chain_detonate","Chain Reaction","Trigger Chain Detonate milestone","detonate_bonus", 0.05f),
     };
 
     private List<Achievement> _achievements = new List<Achievement>();

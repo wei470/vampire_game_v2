@@ -217,6 +217,38 @@ public static class PoolHelper
     }
 
     /// <summary>
+    /// #29 根据波次动态扩展对象池容量
+    /// 波次越晚，敌人越多，预热数量越大
+    /// </summary>
+    public static void ExpandPoolsForWave(int waveNumber)
+    {
+        var pool = ObjectPool.Instance;
+        if (pool == null) return;
+
+        // 每10波额外扩展一次基础敌人池
+        int expansions = waveNumber / 10;
+        if (expansions <= 0) return;
+
+        int extraBasic = expansions * 5;   // 基础敌人每10波+5
+        int extraRanged = expansions * 3;   // 远程每10波+3
+        int extraFast = expansions * 3;     // 快速每10波+3
+        int extraLoot = expansions * 10;    // 掉落物每10波+10
+
+        pool.ExpandPool(BASIC_ENEMY, extraBasic);
+        pool.ExpandPool(RANGED_ENEMY, extraRanged);
+        pool.ExpandPool(FAST_ENEMY, extraFast);
+        pool.ExpandPool(TANK_ENEMY, expansions * 2);
+        pool.ExpandPool(XP_GEM, extraLoot);
+        pool.ExpandPool(COIN, extraLoot);
+
+        // 子弹池也需要扩展（多把DOT枪同时开火）
+        pool.ExpandPool(BULLET, expansions * 5);
+        pool.ExpandPool(EXPLOSION_VFX, expansions * 3);
+
+        DebugHelper.Log($"[PoolHelper] Pools expanded for wave {waveNumber} (+{extraBasic} basic, +{extraRanged} ranged, +{extraLoot} loot)");
+    }
+
+    /// <summary>
     /// 延迟回收到对象池
     /// </summary>
     public static void DespawnOrDestroy(GameObject obj, string poolKey, float delay)

@@ -213,6 +213,27 @@ public class OffScreenCuller : Singleton<OffScreenCuller>
                $"{_totalCulledLoot} loot | Lookup: O(1)";
     }
 
+    /// <summary>
+    /// #31 判断世界坐标是否在屏幕外（含边距）
+    /// 用于 StatusEffectManager 降低屏幕外敌人 DOT tick 频率
+    /// </summary>
+    public static bool IsOffScreen(Vector2 worldPos)
+    {
+        var inst = Instance;
+        if (inst == null) return false;
+        var cam = Camera.main;
+        if (cam == null) return false;
+
+        float camHeight = cam.orthographicSize * 2f;
+        float camWidth = camHeight * cam.aspect;
+        Vector3 camPos = cam.transform.position;
+        float marginWorld = inst._cullMargin / 100f;
+
+        float dx = Mathf.Abs(worldPos.x - camPos.x);
+        float dy = Mathf.Abs(worldPos.y - camPos.y);
+        return dx > camWidth / 2f + marginWorld || dy > camHeight / 2f + marginWorld;
+    }
+
     // ── 便捷注册组件 ──
 
     /// <summary>

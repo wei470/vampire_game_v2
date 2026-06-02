@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// DOT 子弹系统 — Mage 专属，支持 4 种不同的子弹类型。
@@ -23,8 +24,22 @@ public static class DotBulletHelper
     /// </summary>
     public static void EnsureStatusEffectManager(GameObject enemy)
     {
-        if (enemy.GetComponent<StatusEffectManager>() == null)
-            enemy.AddComponent<StatusEffectManager>();
+        var sem = enemy.GetComponent<StatusEffectManager>();
+        if (sem == null)
+        {
+            sem = enemy.AddComponent<StatusEffectManager>();
+        }
+
+        // 同步 MagePassive 的全局 DOT 属性到 StatusEffectManager
+        var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+        if (magePassive != null)
+        {
+            sem.DotDurationMultiplier = magePassive.GetDotDurationMultiplier();
+            sem.DotFrequencyBonus = magePassive.DotFrequencyBonus;
+            sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
+            sem.WindErosionKnockback = magePassive.KnockbackBonus;
+            // 侵蚀、凋零等属性由 GameSceneBootstrap 在升级时已设置
+        }
     }
 }
 
@@ -76,6 +91,12 @@ public class BleedBullet : MonoBehaviour
             if (bleed == null) bleed = other.gameObject.AddComponent<BleedEffect>();
             bleed.Refresh(_bleedDps * _damageMultiplier, _bleedDuration, _canCrit, _critChance, _critMultiplier);
         }
+        // #45 穿透检测：如果穿透成功则不销毁
+        var penetrate = GetComponent<PenetrateHandler>();
+        if (penetrate != null && penetrate.TryPenetrate(other)) return;
+        // #16 反弹检测：如果反弹成功则不销毁
+        var ricochet = GetComponent<RicochetHandler>();
+        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         Destroy(gameObject);
     }
 
@@ -110,6 +131,12 @@ public class BleedEffect : MonoBehaviour
     private const float MOVE_THRESHOLD = 0.1f; // 移动阈值
     private Damageable _damageable;
 
+    /// <summary>
+    /// #19 脓毒组合加成：中毒+流血时，每层中毒增加流血 DPS
+    /// 由 StatusEffectManager.CheckComboEffects() 设置
+    /// </summary>
+    [System.NonSerialized] public float _comboSepsisBonus = 0f;
+
     public void Refresh(float dps, float duration, bool canCrit, float critChance, float critMult)
     {
         _dps = Mathf.Max(_dps, dps);
@@ -135,7 +162,9 @@ public class BleedEffect : MonoBehaviour
 
         if (moved > MOVE_THRESHOLD && _damageable != null && _damageable.CurrentHp > 0)
         {
-            float dmg = _dps * Time.deltaTime * 3f; // 移动时伤害放大
+            // #19 脓毒：流血 DPS 随中毒层数增加
+            float effectiveDps = _dps * (1f + _comboSepsisBonus);
+            float dmg = effectiveDps * Time.deltaTime * 3f; // 移动时伤害放大
             if (_canCrit && Random.value < _critChance) dmg *= _critMult;
             _damageAccumulator += dmg;
 
@@ -546,6 +575,9 @@ public class BurnBullet : MonoBehaviour
             if (burn == null) burn = other.gameObject.AddComponent<BurnStackEffect>();
             burn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
         }
+        // #16 反弹检测：如果反弹成功则不销毁
+        var ricochet = GetComponent<RicochetHandler>();
+        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         Destroy(gameObject);
     }
 
@@ -682,6 +714,9 @@ public class FrostBullet : MonoBehaviour
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
             frost.ApplyFreeze(_freezeDuration, _slowPercent, _frostDps * _damageMultiplier, _canCrit, _critChance, _critMult);
         }
+        // #16 反弹检测：如果反弹成功则不销毁
+        var ricochet = GetComponent<RicochetHandler>();
+        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         Destroy(gameObject);
     }
 
@@ -831,6 +866,447 @@ public class FrostEffect : MonoBehaviour
 // ═══════════════════════════════════════════════════════════════
 // 共享 Sprite 缓存
 // ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// #14 风蚀漩涡 — DOT 敌人移动时在脚下生成的微型漩涡
+/// 每秒对周围造成微量伤害 + 20% 概率拉扯敌人
+/// </summary>
+public class WindErosionVortex : MonoBehaviour
+{
+    private float _radius;
+    private float _duration;
+    private float _tickDamage;
+    private float _pullChance;
+    private float _spawnTime;
+    private float _lastTick;
+    private SpriteRenderer _sr;
+
+    public void Setup(float radius, float duration, float tickDamage, float pullChance)
+    {
+        _radius = radius;
+        _duration = duration;
+        _tickDamage = tickDamage;
+        _pullChance = pullChance;
+    }
+
+    private void Start()
+    {
+        _spawnTime = Time.time;
+        _lastTick = Time.time;
+        _sr = GetComponent<SpriteRenderer>();
+
+        // 视觉：缩放到漩涡大小
+        transform.localScale = Vector3.one * _radius * 0.5f;
+    }
+
+    private void Update()
+    {
+        // 超时销毁
+        if (Time.time - _spawnTime > _duration)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // 视觉旋转效果
+        transform.Rotate(0, 0, 180f * Time.deltaTime);
+
+        // 渐隐
+        if (_sr != null)
+        {
+            float alpha = 1f - (Time.time - _spawnTime) / _duration;
+            var c = _sr.color;
+            c.a = alpha * 0.5f;
+            _sr.color = c;
+        }
+
+        // 每 0.5 秒 tick 一次
+        if (Time.time - _lastTick < 0.5f) return;
+        _lastTick = Time.time;
+
+        // 对范围内敌人造成伤害 + 拉扯
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _radius);
+        foreach (var hit in hits)
+        {
+            if (!hit.CompareTag("Enemy")) continue;
+            var dmg = hit.GetComponent<Damageable>();
+            if (dmg == null || dmg.CurrentHp <= 0) continue;
+
+            // 造成微量伤害
+            dmg.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(_tickDamage)));
+
+            // 20% 概率拉扯（将敌人拉向漩涡中心）
+            if (Random.value < _pullChance)
+            {
+                var rb = hit.GetComponent<Rigidbody2D>();
+                if (rb != null)
+                {
+                    Vector2 pullDir = ((Vector2)transform.position - (Vector2)hit.transform.position).normalized;
+                    rb.linearVelocity += pullDir * 3f;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 创建风蚀漩涡
+    /// </summary>
+    public static WindErosionVortex Create(Vector2 pos, float radius, float duration, float tickDamage, float pullChance)
+    {
+        var go = new GameObject("WindErosionVortex");
+        go.transform.position = pos;
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = DotSpriteCache.CircleSprite();
+        sr.color = new Color(0.7f, 0.85f, 1f, 0.5f);
+        sr.sortingOrder = 2;
+
+        var col = go.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius = radius;
+
+        var vortex = go.AddComponent<WindErosionVortex>();
+        vortex.Setup(radius, duration, tickDamage, pullChance);
+        return vortex;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// #45 穿透处理器 — 急速>100%时子弹穿透额外敌人
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// #45 穿透处理器 — 挂在 DOT 子弹上，子弹速度加成>100%时穿透额外敌人
+/// 子弹命中敌人后不销毁，继续飞行直到穿透次数用尽
+/// </summary>
+public class PenetrateHandler : MonoBehaviour
+{
+    private int _remaining;
+    private HashSet<int> _hitEnemies = new HashSet<int>();
+
+    /// <summary>
+    /// 设置穿透次数（额外穿透的敌人数量）
+    /// </summary>
+    public void Setup(int penetrateCount)
+    {
+        _remaining = penetrateCount;
+        _hitEnemies.Clear();
+    }
+
+    /// <summary>
+    /// 尝试穿透。返回 true 表示子弹应继续飞行（不销毁）
+    /// </summary>
+    public bool TryPenetrate(Collider2D hitEnemy)
+    {
+        int id = hitEnemy.gameObject.GetInstanceID();
+        // 防止同一敌人被穿透多次
+        if (_hitEnemies.Contains(id)) return false;
+        _hitEnemies.Add(id);
+
+        if (_remaining <= 0) return false;
+        _remaining--;
+        return true;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// #16 反弹处理器 — DOT 子弹命中敌人后弹射到下一个敌人
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// #16 反弹处理器 — 挂在 DOT 子弹上，命中敌人后有概率弹射到最近的另一个敌人
+/// ricochetChance > 1 时，整数部分为保证反弹次数，小数部分为额外概率
+/// 例：1.3 = 保证1次反弹 + 30%概率第2次反弹
+/// </summary>
+public class RicochetHandler : MonoBehaviour
+{
+    private float _chance;
+    private int _maxBounces;
+    private int _bounces;
+    private float _damageDecay = 0.8f; // 每次反弹伤害衰减
+
+    public void Setup(float chance, int extraMaxBounces)
+    {
+        _chance = chance;
+        _maxBounces = Mathf.FloorToInt(chance) + extraMaxBounces;
+        _bounces = 0;
+    }
+
+    /// <summary>
+    /// 尝试反弹。返回 true 表示子弹应继续飞行（不销毁）
+    /// </summary>
+    public bool TryRicochet(Vector2 currentPosition, Collider2D hitEnemy)
+    {
+        if (_bounces >= _maxBounces) return false;
+
+        int guaranteed = Mathf.FloorToInt(_chance);
+        float extra = _chance - guaranteed;
+
+        // 检查是否满足反弹条件
+        if (_bounces >= guaranteed && Random.value >= extra) return false;
+
+        // 寻找最近的另一个敌人
+        Collider2D[] nearby = Physics2D.OverlapCircleAll(currentPosition, 20f);
+        Transform nearest = null;
+        float nearestDist = float.MaxValue;
+
+        foreach (var col in nearby)
+        {
+            if (!col.CompareTag("Enemy") || col == hitEnemy) continue;
+            var d = col.GetComponent<Damageable>();
+            if (d == null || d.CurrentHp <= 0) continue;
+
+            float dist = Vector2.Distance(currentPosition, col.transform.position);
+            if (dist < nearestDist)
+            {
+                nearestDist = dist;
+                nearest = col.transform;
+            }
+        }
+
+        if (nearest == null) return false;
+
+        _bounces++;
+
+        // 重定向子弹
+        Vector2 dir = ((Vector2)nearest.position - currentPosition).normalized;
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            float speed = rb.linearVelocity.magnitude;
+            rb.linearVelocity = dir * speed;
+        }
+
+        // 重置存活时间（防止反弹过程中超时销毁）
+        // 通过 SendMessage 重置 _spawnTime 不可靠，直接延长子弹寿命
+        var bleed = GetComponent<BleedBullet>();
+        var burn = GetComponent<BurnBullet>();
+        var frost = GetComponent<FrostBullet>();
+        var poison = GetComponent<PoisonBullet>();
+        // 各子弹类型已有 _lifetime 保护，反弹通常在 1-2 秒内完成
+
+        // 反弹视觉特效
+        CombatManager.CreateExplosionEffect(currentPosition, 0.5f, Color.white, 0.2f);
+
+        DebugHelper.Log($"[RicochetHandler] Bounce #{_bounces} → {nearest.name}");
+        return true;
+    }
+
+    /// <summary>
+    /// 获取反弹伤害衰减倍率
+    /// </summary>
+    public float GetDamageMultiplier() => Mathf.Pow(_damageDecay, _bounces);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DOT 追踪弹桥接组件 — 弹幕>5时追踪弹附加 DOT 效果
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// #15 DOT 追踪弹桥接组件 — 挂在 HomingProjectile 上，命中敌人时附加 DOT 效果
+/// 当弹幕数量>5时，超出部分转为追踪弹，通过此组件保留 DOT 能力
+/// </summary>
+public class DotHomingBullet : MonoBehaviour
+{
+    private MagePassive.DotGunState _gun;
+    private float _durMult;
+    private float _dmgMult;
+    private bool _canCrit;
+    private float _critChance;
+    private float _critMult;
+    private bool _initialized;
+
+    public void Init(MagePassive.DotGunState gun, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        _gun = gun;
+        _durMult = durMult;
+        _dmgMult = dmgMult;
+        _canCrit = canCrit;
+        _critChance = critChance;
+        _critMult = critMult;
+        _initialized = true;
+
+        // 注册 HomingProjectile 的命中回调
+        var homing = GetComponent<HomingProjectile>();
+        if (homing != null)
+        {
+            // 通过碰撞检测来附加 DOT（HomingProjectile.OnTriggerEnter2D 会销毁自身）
+            // 所以我们需要在 HomingProjectile 命中前检测
+        }
+    }
+
+    /// <summary>
+    /// 当追踪弹命中敌人时，由 HomingProjectile 的 OnTriggerEnter2D 触发前调用
+    /// 注意：需要在 HomingProjectile.OnTriggerEnter2D 中调用此方法
+    /// </summary>
+    public void OnHitEnemy(GameObject enemy)
+    {
+        if (!_initialized || enemy == null) return;
+
+        // 确保敌人有 StatusEffectManager
+        DotBulletHelper.EnsureStatusEffectManager(enemy);
+
+        // 根据 DOT 类型附加效果
+        switch (_gun.effectType)
+        {
+            case StatusEffectType.Bleed:
+                var bleed = enemy.GetComponent<BleedEffect>();
+                if (bleed == null) bleed = enemy.AddComponent<BleedEffect>();
+                bleed.Refresh(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult,
+                    _canCrit, _critChance, _critMult);
+                break;
+
+            case StatusEffectType.Poison:
+                var poison = enemy.GetComponent<PoisonStackEffect>();
+                if (poison == null) poison = enemy.AddComponent<PoisonStackEffect>();
+                poison.AddStack(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult,
+                    _canCrit, _critChance, _critMult);
+                break;
+
+            case StatusEffectType.Burn:
+                var burn = enemy.GetComponent<BurnStackEffect>();
+                if (burn == null) burn = enemy.AddComponent<BurnStackEffect>();
+                burn.AddStack(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult,
+                    _canCrit, _critChance, _critMult);
+                break;
+
+            case StatusEffectType.Frostbite:
+                var frost = enemy.GetComponent<FrostEffect>();
+                if (frost == null) frost = enemy.AddComponent<FrostEffect>();
+                frost.ApplyFreeze(1f, 0.3f, _gun.dotDps * _dmgMult,
+                    _canCrit, _critChance, _critMult);
+                break;
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DOT 子弹工厂 — 消除 MagePassive 中的 switch-case
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// #7 DOT 子弹工厂 — 根据 StatusEffectType 创建对应子弹
+/// 新增子弹类型只需调用 DotBulletFactory.Register() 注册创建委托，无需修改 MagePassive
+/// </summary>
+public static class DotBulletFactory
+{
+    /// <summary>
+    /// 子弹创建委托签名
+    /// </summary>
+    public delegate GameObject BulletSpawner(
+        Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult);
+
+    private static readonly Dictionary<StatusEffectType, BulletSpawner> _spawners
+        = new Dictionary<StatusEffectType, BulletSpawner>();
+
+    /// <summary>
+    /// 静态构造 — 注册 4 种默认子弹类型
+    /// </summary>
+    static DotBulletFactory()
+    {
+        Register(StatusEffectType.Bleed, SpawnBleed);
+        Register(StatusEffectType.Poison, SpawnPoison);
+        Register(StatusEffectType.Burn, SpawnBurn);
+        Register(StatusEffectType.Frostbite, SpawnFrost);
+    }
+
+    /// <summary>
+    /// 注册/覆盖某种 DOT 子弹的创建逻辑
+    /// </summary>
+    public static void Register(StatusEffectType type, BulletSpawner spawner)
+    {
+        _spawners[type] = spawner;
+    }
+
+    /// <summary>
+    /// 创建 DOT 子弹（统一入口）
+    /// </summary>
+    public static GameObject Create(StatusEffectType type, Vector2 pos, Vector2 dir,
+        MagePassive.DotGunState gun, float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        if (_spawners.TryGetValue(type, out var spawner))
+            return spawner(pos, dir, gun, bulletSpeedMult, durMult, dmgMult, canCrit, critChance, critMult);
+
+        DebugHelper.LogWarning($"[DotBulletFactory] 未注册的子弹类型: {type}");
+        return null;
+    }
+
+    // ── 默认创建方法 ──
+
+    private static GameObject SpawnBleed(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = BleedBullet.Create(pos, dir, 14f * bulletSpeedMult, gun.impactDamage,
+            gun.dotDps, gun.dotDuration * durMult, dmgMult,
+            canCrit, critChance, critMult)?.gameObject;
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
+
+    private static GameObject SpawnPoison(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = PoisonBullet.Create(pos, dir, 14f * bulletSpeedMult,
+            gun.dotDps, gun.dotDuration * durMult, dmgMult,
+            canCrit, critChance, critMult)?.gameObject;
+        // PoisonBullet 是范围爆炸，不适用反弹
+        return go;
+    }
+
+    private static GameObject SpawnBurn(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = BurnBullet.Create(pos, dir, 12f * bulletSpeedMult, gun.impactDamage,
+            gun.dotDps, gun.dotDuration * durMult, dmgMult,
+            canCrit, critChance, critMult)?.gameObject;
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
+
+    private static GameObject SpawnFrost(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = FrostBullet.Create(pos, dir, 20f * bulletSpeedMult, gun.impactDamage,
+            gun.dotDps, 1f, 0.3f, dmgMult,
+            canCrit, critChance, critMult)?.gameObject;
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
+
+    /// <summary>
+    /// #16 如果 MagePassive 有反弹加成，为子弹附加 RicochetHandler
+    /// #45 如果子弹速度加成>100%，为子弹附加 PenetrateHandler
+    /// </summary>
+    private static void AttachRicochetIfAvailable(GameObject bullet)
+    {
+        if (bullet == null) return;
+        var mage = GameReferences.Player?.GetComponent<MagePassive>();
+        if (mage == null) return;
+
+        // #16 反弹
+        if (mage.RicochetChance > 0f)
+        {
+            var rh = bullet.AddComponent<RicochetHandler>();
+            rh.Setup(mage.RicochetChance, mage.RicochetMaxBounces);
+        }
+
+        // #45 穿透：子弹速度加成>100%时，每多100%多穿透1个敌人
+        if (mage.BulletSpeedBonus > 1f)
+        {
+            int penetrateCount = Mathf.FloorToInt(mage.BulletSpeedBonus);
+            var ph = bullet.AddComponent<PenetrateHandler>();
+            ph.Setup(penetrateCount);
+        }
+    }
+}
 
 public static class DotSpriteCache
 {
