@@ -177,9 +177,8 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 - **辐射** — 引爆伤害+30%
 - **污染** — 引爆冷却-30%
 
-### 6.4 DOT 时间增强（2种）
-- **侵蚀** — 每5次DOT生效额外冲击
-- **风蚀** — DOT敌人移动时生成漩涡
+### 6.4 DOT 时间增强（1种）
+- **侵蚀** — 每5次DOT生效额外冲击（风蚀已移除）
 
 ### 6.5 子弹增强（4种）
 - **急速** — 攻速+15%，子弹速度+10%
@@ -206,33 +205,36 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 ### 7.3 诅咒传播机制
 - `StatusEffectManager.OnEnable()` 注册 `BaseEntity.OnDeath` 事件
 - 敌人死亡时自动调用 `OnEnemyDeath_SpreadContaminate()`
-- 传播所有 DOT 效果给最近的 N 个敌人（N = MagePassive.CurseSpreadTargets）
+- 传播给范围内**所有敌人**，继承 **10%** 的原 DOT 层数/伤害/持续时间
+- 中毒/燃烧按 `StackCount × 0.1` 继承层数（最少 1 层）
 
 ---
 
 ## 8. 敌人系统（Enemies 模块）
 
-### 8.1 14 种敌人 + 1 种 Boss
-| # | 类型 | 行为特点 |
-|---|------|---------|
-| 1 | BasicEnemy | 基础近战，直冲玩家 |
-| 2 | FastEnemy | 高速追击，低血量 |
-| 3 | TankEnemy | 高血量(80)，慢速 |
+### 8.1 14 种敌人 + 1 种 Boss（每种独立形状+颜色+特效）
 
-> ⚠️ 所有敌人默认速度已调整为原来的50%（在 SpawnManager.SpawnRandomEnemy 中统一乘以 0.5f）
+| # | 类型 | 形状 | 颜色 | 特效 |
+|---|------|------|------|------|
+| 1 | BasicEnemy | █ 方形 | 🔴 红色 | - |
+| 2 | FastEnemy | ▲ 三角 | 🟣 紫色 | 高速追击 |
+| 3 | TankEnemy | ⬡ 六边形 | 🩶 灰色 | 高血量(80)，慢速 |
+| 4 | RangedEnemy | ▲ 三角 | 🩷 浅红 | 🔴 圆形子弹射击 |
+| 5 | ThrowerEnemy | ◆ 菱形 | 🟠 橙色 | 🟠 圆形投掷弹 |
+| 6 | HealerEnemy | ✚ 十字 | 🟢 绿色 | 🟢 治疗光环 + 脉冲 |
+| 7 | ChainHealerEnemy | ✚ 十字 | 🩵 青绿 | 链式治疗 |
+| 8 | EnhancerEnemy | ⬠ 五边形 | 🟡 黄色 | 🟠 增强光环 + 脉冲 |
+| 9 | ShielderEnemy | ⬡ 六边形 | 🔵 蓝色 | 🔵 护盾光环 + 呼吸 |
+| 10 | StealthEnemy | ◆ 菱形 | 🩶 暗灰 | 隐身/显形 |
+| 11 | BurstEnemy | ★ 星形 | 🟠 亮橙 | 蓄力爆发 |
+| 12 | SplitterEnemy | ◆ 菱形 | 🍷 暗红 | 死亡分裂 |
+| 13 | SummonerEnemy | ⬠ 五边形 | 🟣 深紫 | 召唤小兵 |
+| 14 | ChargerEnemy | ▲ 三角 | 🟤 橙棕 | 蓄力冲锋 |
+| 15 | BossEnemy | █ 方形 | 动态 | 5阶段Boss（每5波） |
 
-| 4 | RangedEnemy | 保持距离射击 |
-| 5 | ThrowerEnemy | 投掷炸弹 |
-| 6 | HealerEnemy | 治疗附近敌人 |
-| 7 | ChainHealerEnemy | 链式治疗 |
-| 8 | EnhancerEnemy | 增强附近敌人移速 |
-| 9 | ShielderEnemy | 为附近敌人添加护盾 |
-| 10 | StealthEnemy | 隐身/显形切换 |
-| 11 | BurstEnemy | 蓄力后爆发射击 |
-| 12 | SplitterEnemy | 死亡分裂 |
-| 13 | SummonerEnemy | 召唤小兵 |
-| 14 | ChargerEnemy | 蓄力冲锋 |
-| 15 | BossEnemy | 5阶段Boss（每5波） |
+> ⚠️ 所有敌人默认速度已调整为原来的50%
+> 形状由 SpriteFactory 运行时生成（Triangle/Diamond/Pentagon/Hexagon/Star/Cross）
+> 光环特效由 EnemyEffectHelper 统一管理
 
 ### 8.2 出怪逻辑（SpawnManager）
 - **第 1-2 波**：只出 BasicEnemy
@@ -268,28 +270,36 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 - **Step 2/2**：选择技能（8种可选）
 - 武器不再需要选择，所有角色自动获得默认子弹
 - Mage 的攻击由 MagePassive DOT 枪系统驱动，不使用 WeaponController
+- ⚠️ DOT 子弹枪（bleed/poison/burn/frostbite）一经选择即从牌库移除，不可重复拾取
 
 ---
 
 ## 11. 关键文件快速索引
 
 ### 最常修改
-| 文件 | 路径 |
-|------|------|
-| GameSceneBootstrap | Core/GameSceneBootstrap.cs |
-| EventManager | Core/EventManager.cs |
-| GameReferences | Core/GameReferences.cs |
-| GameInputHandler | Core/GameInputHandler.cs |
-| CombatManager | Combat/CombatManager.cs |
-| SpawnManager | Enemies/SpawnManager.cs |
-| PlayerController | Player/PlayerController.cs |
-| MagePassive | Player/MagePassive.cs |
-| DotProjectile | Combat/DotProjectile.cs |
-| StatusEffectSystem | Combat/StatusEffects/StatusEffectSystem.cs |
-| LevelUpUI | UI/LevelUpUI.cs |
-| Damageable | Entities/Damageable.cs |
-| GameConfig | ScriptableObjects/Config/GameConfig.cs |
-| PoolHelper | Core/PoolHelper.cs |
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| GameSceneBootstrap | Core/GameSceneBootstrap.cs | 游戏启动 + Mage 升级注入 |
+| EventManager | Core/EventManager.cs | 全局事件 |
+| GameReferences | Core/GameReferences.cs | 全局引用缓存 |
+| GameInputHandler | Core/GameInputHandler.cs | 输入处理 |
+| CombatManager | Combat/CombatManager.cs | 伤害管理 |
+| SpawnManager | Enemies/SpawnManager.cs | 敌人生成 + 形状分配 |
+| PlayerController | Player/PlayerController.cs | 玩家移动 |
+| MagePassive | Player/MagePassive.cs | DOT 枪系统 |
+| DotProjectile | Combat/DotProjectile.cs | 4种DOT子弹 + 效果组件 |
+| StatusEffectSystem | Combat/StatusEffects/StatusEffectSystem.cs | DOT 管理 + 诅咒传播 |
+| LevelUpUI | UI/LevelUpUI.cs | 升级界面 + DOT 枪过滤 |
+| Damageable | Entities/Damageable.cs | 可伤害实体 |
+| EnemyHealthBar | UI/EnemyHealthBar.cs | 敌人血条 + DOT 指示器 |
+| EnemyEffectHelper | Enemies/EnemyEffectHelper.cs | 光环/脉冲特效工具 |
+| SpriteFactory | Core/SpriteFactory.cs | 运行时几何图形生成 |
+| KillRewarder | Entities/KillRewarder.cs | 掉落物生成 |
+| PlayerHealthBarHUD | UI/PlayerHealthBarHUD.cs | 左上 HUD (HP/XP/金币) |
+| SkillHUD | UI/SkillHUD.cs | 左下技能冷却条 |
+| Coin | Entities/Coin.cs | 金币拾取逻辑 |
+| GameConfig | ScriptableObjects/Config/GameConfig.cs | 游戏配置 |
+| PoolHelper | Core/PoolHelper.cs | 对象池辅助 |
 
 ### 不应轻易修改
 | 文件 | 原因 |
@@ -318,8 +328,18 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 
 ### 修改检查清单
 - [ ] 修改 `EventManager` → 更新 `ClearAll()`
-- [ ] 新增敌人 → 池键常量 + SpawnManager 预制体字段 + ChooseEnemyPrefab
+- [ ] 新增敌人 → 池键常量 + SpawnManager 预制体字段 + ChooseEnemyPrefab + 形状分配 + 特效
 - [ ] 新增技能 → 继承 `BaseSkill` + `SetSkillData()` + 注册到 `PlayerSkillManager`
 - [ ] 新增被动 → `PassiveSkillData.PassiveType` + `Apply()` 方法
 - [ ] 新增 UI → 集成到 `GameSceneBootstrap` 或 `HUDManager`
 - [ ] 新增 DOT 子弹 → 继承对应基类 + 注册到 `MagePassive` + 更新 `LevelUpUI` 和 `GameSceneBootstrap`
+- [ ] 新增敌人形状 → `SpriteFactory` 中添加对应的 `Create*()` 方法 + `ClearCache()` 中注册清理
+- [ ] 新增掉落物 → `KillRewarder.SpawnDefault*()` + `GameSceneBootstrap` 对象池预热模板同步更新
+
+### 关键 Bug 注意事项
+- **PoisonBullet/FrostBullet 超时清理**：必须添加 `_lifetime` + `Update()` 超时 `Destroy(gameObject)`
+- **FrostEffect 对象池重置**：必须在 `OnEnable()` 中调用 `RestoreSpeed()` + 重置 `_frozen/_freezeEndTime/_speedCaptured`
+- **DOT 子弹枪去重**：`LevelUpUI.GenerateOptions()` 中 `IsDotGunUpgrade()` 检查 `MagePassive.DotGuns` 已拥有则跳过
+- **攻速公式**：`GetAttackSpeedMultiplier()` 使用 `1f - bonus` 而非 `1/(1+bonus)`，最低 0.2
+- **敌人血条左对齐**：填充条使用左 pivot Sprite 或居中与背景重叠，避免每帧动态计算位置
+- **金币对象池模板**：`GameSceneBootstrap` 中 Coin 模板 Sprite 必须与 `KillRewarder.SpawnDefaultCoin()` 一致（圆形+缩放）
