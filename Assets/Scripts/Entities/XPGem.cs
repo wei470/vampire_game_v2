@@ -13,8 +13,9 @@ public class XPGem : MonoBehaviour
     [Header("经验宝石")]
     [SerializeField] private int _xpAmount = 10;
     [SerializeField] private float _magnetRange = 3f;      // 磁铁吸引范围
-    [SerializeField] private float _magnetSpeed = 15f;      // 吸引速度
-    [SerializeField] private float _pickupRange = 0.5f;     // 拾取范围
+    [SerializeField] private float _magnetSpeed = 15f;       // 吸引速度（基础）
+    [SerializeField] private float _pickupRange = 0.5f;      // 拾取范围
+    [SerializeField] private float _magnetSpeedNear = 25f;   // #24 近距离快速吸引
     [SerializeField] private float _lifetime = 30f;         // 存在时间（秒）
     [SerializeField] private float _spawnFloatForce = 3f;   // 生成时的弹射力
 
@@ -23,6 +24,10 @@ public class XPGem : MonoBehaviour
     private float _spawnTime;
     private bool _isBeingMagnetized = false;
     private SpriteRenderer _spriteRenderer;
+
+    // #24 帧跳过优化（非磁吸状态的宝石每3帧检测一次距离）
+    private int _frameSkipCounter = 0;
+    private const int FRAME_SKIP_INTERVAL = 3;
 
     public int XpAmount => _xpAmount;
 
@@ -90,24 +95,45 @@ public class XPGem : MonoBehaviour
 
         if (_player == null) return;
 
-        float distToPlayer = Vector3.Distance(transform.position, _player.position);
+        // #24 使用平方距离避免开方运算
+        Vector3 delta = _player.position - transform.position;
+        float distSqr = delta.sqrMagnitude;
+
+        // #24 帧跳过优化：非磁吸状态每 3 帧检测一次（大量掉落物时减少 CPU 开销）
+        if (!_isBeingMagnetized)
+        {
+            _frameSkipCounter++;
+            if (_frameSkipCounter % FRAME_SKIP_INTERVAL != 0)
+            {
+                // 未激活时减速
+                _rb.linearVelocity = Vector2.Lerp(_rb.linearVelocity, Vector2.zero, Time.deltaTime * 3f);
+                return;
+            }
+        }
 
         // 进入磁铁范围，开始吸引（应用全局磁铁倍率 + 永久商店加成）
         float permanentMult = SaveManager.Instance?.GetPermanentMultiplier("magnet_radius") ?? 1f;
         float effectiveMagnetRange = _magnetRange * LevelUpUI.MagnetRangeMultiplier * permanentMult;
-        if (distToPlayer < effectiveMagnetRange)
+        float effectiveMagnetRangeSqr = effectiveMagnetRange * effectiveMagnetRange;
+        if (distSqr < effectiveMagnetRangeSqr)
         {
             _isBeingMagnetized = true;
         }
 
-        // 磁铁吸引移动
+        // 磁铁吸引移动（#24 距离越近速度越快的递增曲线）
         if (_isBeingMagnetized)
         {
-            Vector2 dir = (_player.position - transform.position).normalized;
-            _rb.linearVelocity = dir * _magnetSpeed;
+            float pickupRangeSqr = _pickupRange * _pickupRange;
+            Vector2 dir = delta.normalized;
+
+            // #24 距离越近速度越快：线性插值
+            float dist = Mathf.Sqrt(distSqr); // 仅在磁吸时开方
+            float speedT = 1f - Mathf.Clamp01(dist / effectiveMagnetRange);
+            float speed = Mathf.Lerp(_magnetSpeed, _magnetSpeedNear, speedT);
+            _rb.linearVelocity = dir * speed;
 
             // 到达拾取范围，拾取
-            if (distToPlayer < _pickupRange)
+            if (distSqr < pickupRangeSqr)
             {
                 Pickup();
             }

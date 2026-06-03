@@ -62,14 +62,14 @@ public class WeaponController : MonoBehaviour
 
     private void Start()
     {
-        _lastFireTime = -CurrentCooldown;
+        _lastFireTime = Time.time;
     }
 
     private void Update()
     {
-        // 检查游戏状态
+        // 检查游戏状态 — 只有 Playing 状态才允许射击
         if (GameManager.Instance != null &&
-            GameManager.Instance.CurrentState == GameManager.GameState.GameOver)
+            GameManager.Instance.CurrentState != GameManager.GameState.Playing)
         {
             return;
         }

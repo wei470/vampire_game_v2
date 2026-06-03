@@ -51,6 +51,9 @@ public class ThrowerEnemy : EnemyBase
     {
         if (!Alive || _target == null) return;
 
+        // #15 距离 LOD：远距离跳过投掷逻辑
+        if (SkipSpecialAbility) return;
+
         float dist = Vector3.Distance(transform.position, _target.position);
         if (dist <= _attackRange && Time.time - _lastThrowTime >= _throwCooldown)
         {

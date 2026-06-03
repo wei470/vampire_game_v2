@@ -57,6 +57,9 @@ public class BurstEnemy : EnemyBase
     {
         if (!Alive || _target == null) return;
 
+        // #15 距离 LOD：远距离跳过射击逻辑（但连射中不中断）
+        if (SkipSpecialAbility && !_isBursting) return;
+
         float dist = Vector3.Distance(transform.position, _target.position);
 
         // 开始连射

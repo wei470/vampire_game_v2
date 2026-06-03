@@ -51,6 +51,9 @@ public class SummonerEnemy : EnemyBase
     {
         if (!Alive) return;
 
+        // #15 距离 LOD：远距离跳过召唤逻辑
+        if (SkipSpecialAbility) return;
+
         // 清理已死亡的召唤物计数
         // (简化处理：通过检查子对象数量)
 

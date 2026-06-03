@@ -18,6 +18,10 @@ public class TankEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
+        // #11 TankEnemy DOT 抗性预设：流血抗性+50%，霜冻弱点-30%
+        var res = GetComponent<EnemyDotResistance>();
+        if (res == null) res = gameObject.AddComponent<EnemyDotResistance>();
+        EnemyDotResistance.ApplyTankPreset(res);
         // Tank 敌人移动较慢
         MoveSpeed *= _tankSpeedMultiplier;
     }

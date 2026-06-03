@@ -18,7 +18,7 @@ public class SpawnManager : MonoBehaviour
     [Header("波次配置")]
     [SerializeField] private int _baseEnemyCount = 3;
     [SerializeField] private int _enemiesPerWave = 2;      // 每波增加的敌人数量
-    [SerializeField] private float _restBetweenWaves = 2f;  // 波次间休息时间（秒）
+    [SerializeField] private float _restBetweenWaves = 3.5f; // #25 波次间休息时间（秒，增加到3.5秒）
     [SerializeField] private float _spawnInterval = 0.5f;   // 每个敌人生成间隔
     [SerializeField] private float _spawnRadius = 15f;      // 生成距离（屏幕边缘外）
 
@@ -344,10 +344,32 @@ public class SpawnManager : MonoBehaviour
 
     /// <summary>
     /// 波次间休息，然后开始下一波
+    /// #25 集成 WaveIntermissionUI 显示波次统计和下一波预告
     /// </summary>
     private IEnumerator RestBeforeNextWave()
     {
         DebugHelper.Log($"[SpawnManager] Resting for {_restBetweenWaves}s before next wave...");
+
+        // #25 通知 WaveIntermissionUI 显示间歇期统计
+        if (WaveIntermissionUI.Instance != null)
+        {
+            WaveIntermissionUI.Instance.SetRestDuration(_restBetweenWaves);
+
+            // 计算下一波预告信息
+            int nextWave = _currentWave + 1;
+            bool isNextBoss = (_waveConfig != null)
+                ? _waveConfig.IsBossWave(nextWave)
+                : (nextWave % 5 == 0);
+            string specialType = null;
+            if (_waveConfig != null)
+            {
+                var st = _waveConfig.GetSpecialWaveType(nextWave);
+                if (st != EnemyWaveConfig.SpecialWaveType.None)
+                    specialType = st.ToString();
+            }
+            WaveIntermissionUI.Instance.SetNextWavePreview(nextWave, isNextBoss, specialType);
+        }
+
         yield return new WaitForSeconds(_restBetweenWaves);
         StartNextWave();
     }
@@ -387,6 +409,10 @@ public class SpawnManager : MonoBehaviour
                 ? Mathf.Min(enemyCount, _waveConfig.bossMinionsPerWave)
                 : Mathf.Min(enemyCount, 3);
 
+            // #22 Boss 预警
+            if (SpawnWarningUI.Instance != null)
+                SpawnWarningUI.Instance.ShowBossWarning($"Wave {_currentWave} Boss");
+
             DebugHelper.Log($"[SpawnManager] ⚔️ BOSS WAVE {_currentWave}! Boss HP={bossHp}");
             SpawnBoss(bossHp);
             StartCoroutine(SpawnWave(bossMinions));
@@ -395,6 +421,11 @@ public class SpawnManager : MonoBehaviour
         {
             // #32 特殊波次事件
             int specialCount = _waveConfig.GetSpecialWaveEnemyCount(enemyCount, _currentSpecialWave);
+
+            // #22 特殊波次提示
+            if (SpawnWarningUI.Instance != null)
+                SpawnWarningUI.Instance.ShowWaveHint($"★ {_currentSpecialWave} Wave {_currentWave}");
+
             DebugHelper.Log($"[SpawnManager] ★ SPECIAL WAVE {_currentWave}: {_currentSpecialWave} ({specialCount} enemies)");
             StartCoroutine(SpawnSpecialWave(specialCount, _currentSpecialWave));
         }

@@ -20,7 +20,8 @@ public class TeleportSkill : BaseSkill
 
         // 获取鼠标位置并转换为世界坐标
         Vector3 mouseScreenPos = Mouse.current.position.ReadValue();
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
+        var cam = GameReferences.MainCamera ?? Camera.main;
+        Vector3 mouseWorldPos = cam.ScreenToWorldPoint(mouseScreenPos);
         mouseWorldPos.z = 0f;
 
         // 限制最大距离

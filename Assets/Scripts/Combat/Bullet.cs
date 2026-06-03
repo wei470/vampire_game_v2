@@ -38,6 +38,7 @@ public class Bullet : Projectile
         var go = new GameObject("Bullet");
         go.transform.position = position;
         go.tag = "Untagged";
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
 
         // Sprite
         var sr = go.AddComponent<SpriteRenderer>();

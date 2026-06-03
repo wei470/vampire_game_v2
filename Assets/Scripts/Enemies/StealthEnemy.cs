@@ -29,6 +29,10 @@ public class StealthEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
+        // #11 StealthEnemy DOT 抗性预设：燃烧抗性+50%，中毒弱点-20%
+        var res = GetComponent<EnemyDotResistance>();
+        if (res == null) res = gameObject.AddComponent<EnemyDotResistance>();
+        EnemyDotResistance.ApplyStealthPreset(res);
         _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
@@ -48,6 +52,13 @@ public class StealthEnemy : EnemyBase
 
         Vector2 dir = (_target.position - transform.position).normalized;
         float dist = Vector3.Distance(transform.position, _target.position);
+
+        // #15 距离 LOD：远距离简化为普通移动，跳过隐身逻辑
+        if (SkipSpecialAbility)
+        {
+            _rb.linearVelocity = dir * MoveSpeed;
+            return;
+        }
 
         switch (_state)
         {

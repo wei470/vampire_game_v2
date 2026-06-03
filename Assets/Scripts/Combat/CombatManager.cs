@@ -116,9 +116,9 @@ public class CombatManager : Singleton<CombatManager>
     {
         if (target == null || target.CurrentHp <= 0) return false;
 
-        int targetId = target.gameObject.GetInstanceID();
+        // 防止重复命中 — 使用 collider 实例作为 key，避免 GetInstanceID 废弃警告
+        int targetId = target.gameObject.GetHashCode();
 
-        // 防止重复命中
         if (hitEnemies.Contains(targetId)) return false;
         hitEnemies.Add(targetId);
 

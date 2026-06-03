@@ -24,6 +24,10 @@ public class HealerEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
+        // #11 HealerEnemy DOT 抗性预设：中毒抗性+40%，燃烧弱点-30%
+        var res = GetComponent<EnemyDotResistance>();
+        if (res == null) res = gameObject.AddComponent<EnemyDotResistance>();
+        EnemyDotResistance.ApplyHealerPreset(res);
         _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;

@@ -46,10 +46,29 @@ public class AchievementUI : MonoBehaviour
     private List<Achievement> _achievements = new List<Achievement>();
     private Dictionary<string, Achievement> _achievementMap = new Dictionary<string, Achievement>();
     private bool _showPanel = false; private Vector2 _scrollPos;
-    private float _lastUnlockDisplayTime; private string _lastUnlockName = ""; private float _unlockDisplayDuration = 3f;
+    private float _unlockDisplayDuration = 4f;
     private int _killsThisGame, _currentWave, _currentCombo, _bossesKilled, _totalCoins, _currentLevel;
     private bool _tookDamageThisWave;
     private Texture2D _overlayTex, _panelBgTex;
+
+    // #29 成就通知队列系统
+    private struct NotificationEntry
+    {
+        public string name;
+        public string description;
+        public string bonusText;
+        public float showTime;
+    }
+    private Queue<NotificationEntry> _notificationQueue = new Queue<NotificationEntry>();
+    private NotificationEntry? _currentNotification;
+    private float _notifSlideOffset; // 滑入动画偏移
+    private const float NOTIF_DISPLAY_TIME = 4f;
+    private const float NOTIF_SLIDE_IN_TIME = 0.3f;
+    private const float NOTIF_SLIDE_OUT_TIME = 0.5f;
+    private const float NOTIF_WIDTH = 380f;
+    private const float NOTIF_HEIGHT = 80f;
+    private Texture2D _notifBgTex;
+    private Texture2D _notifBorderTex;
 
     private void Awake() { foreach (var a in ALL_ACHIEVEMENTS) { _achievements.Add(a); _achievementMap[a.id] = a; } }
     private void OnEnable() { EventManager.OnEnemyKilled += OnEnemyKilled; EventManager.OnWaveStart += OnWaveStart; EventManager.OnPlayerDamaged += OnPlayerDamaged; EventManager.OnComboChanged += OnComboChanged; EventManager.OnCoinChanged += OnCoinChanged; EventManager.OnLevelUp += OnLevelUp; }
@@ -66,28 +85,180 @@ public class AchievementUI : MonoBehaviour
     private void Try(string id, bool cond)
     {
         if (!cond) return; if (!_achievementMap.TryGetValue(id, out var a)) return; if (a.unlocked) return;
-        a.unlocked = true; a.unlockTime = Time.unscaledTime; _lastUnlockName = a.name; _lastUnlockDisplayTime = Time.unscaledTime;
+        a.unlocked = true; a.unlockTime = Time.unscaledTime;
+
+        // #29 构建通知文本
+        string bonusText = "";
+        if (!string.IsNullOrEmpty(a.bonusKey) && a.bonusValue > 0)
+            bonusText = $"Bonus: +{a.bonusValue}";
+
+        _notificationQueue.Enqueue(new NotificationEntry
+        {
+            name = a.name,
+            description = a.description,
+            bonusText = bonusText,
+            showTime = 0f
+        });
+
+        // 播放成就音效
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.PlayLevelUp();
+
+        DebugHelper.Log($"[Achievement] Unlocked: {a.name} — {a.description}");
     }
 
     public void DrawAchievementUI()
     {
         InitTextures();
-        if (Time.unscaledTime - _lastUnlockDisplayTime < _unlockDisplayDuration && !string.IsNullOrEmpty(_lastUnlockName)) DrawUnlockToast();
+        // #29 通知队列系统
+        UpdateNotificationQueue();
+        if (_currentNotification.HasValue) DrawNotificationCard();
         if (_showPanel) DrawAchievementPanel();
     }
 
-    private void InitTextures() { if (_overlayTex == null) _overlayTex = UIColorTheme.MakeTexture(UIColorTheme.OverlayDark); if (_panelBgTex == null) _panelBgTex = UIColorTheme.MakeTexture(UIColorTheme.PanelBackground); }
-
-    private void DrawUnlockToast()
+    private void InitTextures()
     {
-        float alpha = 1f - (Time.unscaledTime - _lastUnlockDisplayTime) / _unlockDisplayDuration;
-        GUI.color = new Color(UIColorTheme.AccentCyan.r, UIColorTheme.AccentCyan.g, UIColorTheme.AccentCyan.b, alpha);
-        float w = 300, h = 50, x = (Screen.width - w) / 2f, y = 100 - (1f - alpha) * 30f;
-        GUI.Box(new Rect(x, y, w, h), "");
-        var style = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-        GUI.Label(new Rect(x, y, w, h), $"🏆 {_lastUnlockName}", style);
+        if (_overlayTex == null) _overlayTex = UIColorTheme.MakeTexture(UIColorTheme.OverlayDark);
+        if (_panelBgTex == null) _panelBgTex = UIColorTheme.MakeTexture(UIColorTheme.PanelBackground);
+        if (_notifBgTex == null) _notifBgTex = UIColorTheme.MakeTexture(new Color(0.08f, 0.12f, 0.2f, 0.95f));
+        if (_notifBorderTex == null) _notifBorderTex = UIColorTheme.MakeTexture(new Color(1f, 0.85f, 0.2f, 0.8f));
+    }
+
+    /// <summary>
+    /// #29 通知队列更新 — 逐个显示，间隔 0.5 秒
+    /// </summary>
+    private void UpdateNotificationQueue()
+    {
+        float now = Time.unscaledTime;
+
+        // 当前通知处理
+        if (_currentNotification.HasValue)
+        {
+            var n = _currentNotification.Value;
+            float elapsed = now - n.showTime;
+            float totalDuration = NOTIF_SLIDE_IN_TIME + NOTIF_DISPLAY_TIME + NOTIF_SLIDE_OUT_TIME;
+            if (elapsed >= totalDuration)
+            {
+                _currentNotification = null;
+                // 队列中下一个延迟 0.5 秒
+            }
+            return;
+        }
+
+        // 取队列中下一个
+        if (_notificationQueue.Count > 0)
+        {
+            var next = _notificationQueue.Dequeue();
+            next.showTime = now;
+            _currentNotification = next;
+        }
+    }
+
+    /// <summary>
+    /// #29 成就通知卡片 — 右上角滑入/滑出，金色边框
+    /// </summary>
+    private void DrawNotificationCard()
+    {
+        var n = _currentNotification.Value;
+        float elapsed = Time.unscaledTime - n.showTime;
+
+        // 计算滑入/滑出动画
+        float slideX;
+        float alpha;
+        if (elapsed < NOTIF_SLIDE_IN_TIME)
+        {
+            // 滑入：从右侧滑入
+            float t = elapsed / NOTIF_SLIDE_IN_TIME;
+            float eased = 1f - (1f - t) * (1f - t); // 缓入
+            slideX = (1f - eased) * NOTIF_WIDTH;
+            alpha = eased;
+        }
+        else if (elapsed > NOTIF_SLIDE_IN_TIME + NOTIF_DISPLAY_TIME)
+        {
+            // 滑出：向上滑出
+            float outElapsed = elapsed - NOTIF_SLIDE_IN_TIME - NOTIF_DISPLAY_TIME;
+            float t = outElapsed / NOTIF_SLIDE_OUT_TIME;
+            float eased = t * t; // 缓出
+            slideX = 0f;
+            alpha = 1f - eased;
+        }
+        else
+        {
+            slideX = 0f;
+            alpha = 1f;
+        }
+
+        if (alpha <= 0.01f) return;
+
+        // 位置：右上角
+        float x = Screen.width - NOTIF_WIDTH - 15f + slideX;
+        float y = 80f;
+
+        GUI.color = new Color(1f, 1f, 1f, alpha);
+
+        // 背景
+        GUI.DrawTexture(new Rect(x, y, NOTIF_WIDTH, NOTIF_HEIGHT), _notifBgTex);
+
+        // 金色边框
+        DrawNotifBorder(new Rect(x, y, NOTIF_WIDTH, NOTIF_HEIGHT), alpha);
+
+        // 左侧金色条纹
+        GUI.color = new Color(1f, 0.85f, 0.2f, 0.9f * alpha);
+        GUI.DrawTexture(new Rect(x, y, 4f, NOTIF_HEIGHT), _notifBorderTex);
+
+        // 成就图标（🏆）
+        var iconStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 28,
+            alignment = TextAnchor.MiddleCenter,
+            normal = { textColor = new Color(1f, 0.85f, 0.2f, alpha) }
+        };
+        GUI.Label(new Rect(x + 10, y + 10, 40, 40), "🏆", iconStyle);
+
+        // 成就名称
+        var nameStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 18,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color(1f, 0.95f, 0.6f, alpha) }
+        };
+        GUI.Label(new Rect(x + 55, y + 8, NOTIF_WIDTH - 70, 24), n.name, nameStyle);
+
+        // 描述
+        var descStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 14,
+            normal = { textColor = new Color(0.7f, 0.8f, 0.9f, alpha) }
+        };
+        GUI.Label(new Rect(x + 55, y + 32, NOTIF_WIDTH - 70, 20), n.description, descStyle);
+
+        // 永久加成
+        if (!string.IsNullOrEmpty(n.bonusText))
+        {
+            var bonusStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Italic,
+                normal = { textColor = new Color(0.3f, 1f, 0.5f, alpha) }
+            };
+            GUI.Label(new Rect(x + 55, y + 52, NOTIF_WIDTH - 70, 18), $"✨ {n.bonusText}", bonusStyle);
+        }
+
         GUI.color = Color.white;
     }
+
+    private void DrawNotifBorder(Rect r, float alpha)
+    {
+        GUI.color = new Color(1f, 0.85f, 0.2f, 0.4f * alpha);
+        float t = 1f;
+        GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), _notifBorderTex);
+        GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), _notifBorderTex);
+        GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), _notifBorderTex);
+        GUI.color = Color.white;
+    }
+
+    // 保留旧方法兼容性
+    private void DrawUnlockToast() { }
 
     private void DrawAchievementPanel()
     {

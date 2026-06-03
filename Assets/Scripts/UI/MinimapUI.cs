@@ -21,6 +21,13 @@ public class MinimapUI : MonoBehaviour
     [SerializeField] private float _worldRange = 60f;
     [SerializeField] private float _margin = 10f;
     [SerializeField] private bool _enabled = true;
+    [SerializeField] private float _minRange = 30f;   // #26 最小缩放
+    [SerializeField] private float _maxRange = 120f;   // #26 最大缩放
+
+    // #26 Boss 闪烁 + 缩放 + 生成方向
+    private float _bossFlashTimer;
+    private Color _bossFlashColor;
+    private float _zoomSpeed = 10f;
 
     [Header("颜色")]
     [SerializeField] private Color _bgColor = new Color(0.004f, 0.137f, 0.149f, 0.8f);  // #012326
@@ -95,8 +102,28 @@ public class MinimapUI : MonoBehaviour
         GUI.color = Color.white;
     }
 
+    /// <summary>
+    /// #26 Boss 出现时小地图上高亮闪烁标记
+    /// </summary>
+    public void NotifyBossSpawned()
+    {
+        _bossFlashTimer = 3f; // 闪烁 3 秒
+    }
+
+    /// <summary>
+    /// #26 鼠标滚轮缩放小地图范围
+    /// </summary>
+    public void HandleZoom(float scrollDelta)
+    {
+        _worldRange = Mathf.Clamp(_worldRange - scrollDelta * _zoomSpeed, _minRange, _maxRange);
+    }
+
     private void DrawEnemyDots(float center, float scale, Vector3 playerPos)
     {
+        // #26 Boss 闪烁更新
+        _bossFlashTimer -= Time.unscaledDeltaTime;
+        bool bossFlash = _bossFlashTimer > 0f && Mathf.Sin(Time.unscaledTime * 12f) > 0f;
+
         var enemies = FindObjectsByType<EnemyBase>();
         foreach (var enemy in enemies)
         {
@@ -108,10 +135,30 @@ public class MinimapUI : MonoBehaviour
             float px = center + offset.x * scale;
             float py = center - offset.y * scale;
 
-            float dotSize = (enemy is BossEnemy) ? 5f : 3f;
-            // Boss 用亮粉，普通敌人用洋红
-            Color dotColor = (enemy is BossEnemy) ? UIColorTheme.AccentPink : _enemyColor;
+            bool isBoss = enemy is BossEnemy;
+            float dotSize = isBoss ? 6f : 3f;
+            
+            // #26 Boss 闪烁效果
+            Color dotColor;
+            if (isBoss)
+            {
+                dotColor = bossFlash
+                    ? new Color(1f, 0.2f, 0.2f, 1f) // 亮红闪烁
+                    : UIColorTheme.AccentPink;
+                dotSize = bossFlash ? 8f : 6f;
+            }
+            else
+            {
+                dotColor = _enemyColor;
+            }
+            
             DrawDot(px - dotSize / 2, py - dotSize / 2, dotSize, dotColor);
+            
+            // #26 Boss 指示三角标记
+            if (isBoss)
+            {
+                DrawDot(px - 4, py - 8, 2, new Color(1f, 0.85f, 0.2f, 0.8f)); // 金色顶部标记
+            }
         }
     }
 

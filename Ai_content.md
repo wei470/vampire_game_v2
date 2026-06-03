@@ -291,6 +291,46 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 
 ---
 
+## 10b. #10 UI 主题系统（UIColorTheme）
+
+- **`UIColorTheme`** — 静态类，全局 UI 配色方案
+- 默认主题：深海暗青 + 荧光青强调色
+- Mage 主题：紫色边框 + 绿色HP + 紫色XP + DOT绿 + 引爆紫红
+- `SetTheme("mage")` / `SetTheme("default")` 切换主题
+- `GetAccentColor()` / `GetHighlightColor()` / `GetHpColor()` / `GetXpColor()` 获取当前主题色
+- `IsMageTheme` 查询当前是否为 Mage 主题
+- `GameSceneBootstrap` 在角色选择完成后自动设置主题
+
+---
+
+## 10c. #11 敌人 DOT 抗性系统（EnemyDotResistance）
+
+- **`EnemyDotResistance`** — MonoBehaviour 组件，挂载到敌人身上
+- 4 种 DOT 类型抗性：Bleed / Poison / Burn / Frostbite
+- 抗性值范围 -1.0 ~ 1.0（正值=抗性，负值=弱点，1.0=免疫）
+- `GetDamageMultiplier(type)` 返回伤害倍率（1 - 抗性）
+- `StatusEffectManager` 在 Awake 中缓存引用，每 tick 自动应用抗性
+- 预设工厂方法：
+  - `ApplyTankPreset` — 流血抗性+50%，霜冻弱点-30%
+  - `ApplyFastPreset` — 霜冻抗性+30%，流血弱点-20%
+  - `ApplyHealerPreset` — 中毒抗性+40%，燃烧弱点-30%
+  - `ApplyStealthPreset` — 燃烧抗性+50%，中毒弱点-20%
+  - `ApplyBossPreset` — 全DOT抗性+20%
+
+---
+
+## 10d. #12 连锁引爆系统
+
+- `MagePassive.Detonate()` 后自动触发 `TryChainDetonate()`
+- 波浪式扩散：被引爆的敌人如果还有 DOT，触发二次引爆
+- 参数：`_maxChainCount=3`（最大3轮）、`_chainRadius=10`（范围）、`_chainDamageRatio=0.5`（伤害递减）
+- 协程 `ChainDetonateWave()` 实现 0.1s×等级 延迟扩散
+- 每轮伤害递减 30%（`Pow(0.7f, chainLevel)`）
+- `HashSet<int>` 去重防止重复引爆
+- 视觉效果：紫色冲击波 + 屏幕抖动（强度递减）
+
+---
+
 ## 11. 关键文件快速索引
 
 ### 最常修改
@@ -328,6 +368,8 @@ TakeDamage() → HP≤0 → _dead=true → Die() → BaseEntity.Die() → OnDeat
 | DotParticleVFX | Combat/DotParticleVFX.cs | DOT 粒子特效（4种） |
 | AchievementUI | UI/AchievementUI.cs | 成就系统（24个成就） |
 | BossSplitBullet | Enemies/BossSplitBullet.cs | 狂战Boss分裂弹幕 |
+| EnemyDotResistance | Enemies/EnemyDotResistance.cs | #11 敌人DOT抗性系统（4种DOT抗性/弱点预设） |
+| UIColorTheme | UI/UIColorTheme.cs | #10 UI主题系统（Mage紫色主题切换） |
 
 ### 不应轻易修改
 | 文件 | 原因 |

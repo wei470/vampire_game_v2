@@ -78,6 +78,9 @@ public class RangedEnemy : EnemyBase
 
         if (!Alive || _target == null) return;
 
+        // #15 距离 LOD：远距离跳过射击逻辑
+        if (SkipSpecialAbility) return;
+
         float dist = Vector3.Distance(transform.position, _target.position);
 
         // 在射程内且冷却结束，射击

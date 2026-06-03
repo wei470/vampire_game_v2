@@ -55,6 +55,9 @@ public class GameSceneBootstrap : MonoBehaviour
 
     private void Start()
     {
+        // #17 配置 Physics2D 碰撞矩阵（Bullet/Enemy/Player/Pickup/Environment Layer 分离）
+        PhysicsLayerSetup.SetupCollisionMatrix();
+
         // 加载数据
         LoadSelectionData();
 
@@ -112,6 +115,14 @@ public class GameSceneBootstrap : MonoBehaviour
         {
             gameObject.AddComponent<DamageMeter>();
             DebugHelper.Log("[GameSceneBootstrap] Created DamageMeter");
+        }
+
+        // #21 创建 BossHealthBarUI（Boss 战专属血条 + 阶段指示器）
+        if (BossHealthBarUI.Instance == null)
+        {
+            var bossBarObj = new GameObject("BossHealthBarUI");
+            bossBarObj.AddComponent<BossHealthBarUI>();
+            DebugHelper.Log("[GameSceneBootstrap] Created BossHealthBarUI");
         }
 
         // 创建并初始化 GameInputHandler
@@ -509,6 +520,13 @@ public class GameSceneBootstrap : MonoBehaviour
         SkillData sd = selectedSkill < _skills.Length ? _skills[selectedSkill] : null;
         EventManager.TriggerSelectionComplete(cd, wd, sd);
 
+        // #10 根据角色类型设置 UI 主题
+        bool isMageChar = CurrentCharacter != null &&
+            (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage"));
+        UIColorTheme.SetTheme(isMageChar ? "mage" : "default");
+        if (isMageChar)
+            DebugHelper.Log("[GameSceneBootstrap] UI Theme: Mage (purple/green DOT theme)");
+
         // 设置游戏状态
         if (GameManager.Instance != null)
             GameManager.Instance.ChangeState(GameManager.GameState.Playing);
@@ -544,6 +562,47 @@ public class GameSceneBootstrap : MonoBehaviour
         // if (gameObject.GetComponent<DetonateHUD>() == null)
         //     gameObject.AddComponent<DetonateHUD>();
 
+        // #1 Mage 专属 HUD 统计面板（仅 Mage 角色显示）
+        if (CurrentCharacter != null &&
+            (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage")))
+        {
+            if (gameObject.GetComponent<MageStatsHUD>() == null)
+            {
+                gameObject.AddComponent<MageStatsHUD>();
+                DebugHelper.Log("[GameSceneBootstrap] Created MageStatsHUD for Mage character");
+            }
+        }
+
+        // #22 敌人生成预警 UI
+        if (SpawnWarningUI.Instance == null)
+        {
+            var warnObj = new GameObject("SpawnWarningUI");
+            warnObj.AddComponent<SpawnWarningUI>();
+            DebugHelper.Log("[GameSceneBootstrap] Created SpawnWarningUI");
+        }
+
+        // #25 波次间歇期统计 UI
+        if (WaveIntermissionUI.Instance == null)
+        {
+            var intermissionObj = new GameObject("WaveIntermissionUI");
+            intermissionObj.AddComponent<WaveIntermissionUI>();
+            DebugHelper.Log("[GameSceneBootstrap] Created WaveIntermissionUI");
+        }
+
+        // #30 快捷键提示 HUD
+        if (KeyHintHUD.Instance == null)
+        {
+            var keyHintObj = new GameObject("KeyHintHUD");
+            var keyHint = keyHintObj.AddComponent<KeyHintHUD>();
+            // Mage 角色使用专属键位（含 E 引爆）
+            if (CurrentCharacter != null &&
+                (CurrentCharacter.characterId == "mage" || CurrentCharacter.characterName.ToLower().Contains("mage")))
+            {
+                keyHint.SetMageKeys();
+            }
+            DebugHelper.Log("[GameSceneBootstrap] Created KeyHintHUD");
+        }
+
         DebugHelper.Log("[GameSceneBootstrap] Game started! WASD=Move, Mouse=Aim/Shoot, E=Skill, R=Restart");
     }
 
@@ -564,6 +623,7 @@ public class GameSceneBootstrap : MonoBehaviour
         {
             var go = new GameObject("XPGem_Template");
             go.tag = "Untagged";
+            go.layer = PhysicsLayerSetup.LAYER_PICKUP; // #17 Pickup Layer
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Circle;
             sr.color = new Color(0.1f, 0.9f, 0.2f);
@@ -581,6 +641,7 @@ public class GameSceneBootstrap : MonoBehaviour
         {
             var go = new GameObject("Coin_Template");
             go.tag = "Untagged";
+            go.layer = PhysicsLayerSetup.LAYER_PICKUP; // #17 Pickup Layer
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Circle;
             sr.color = new Color(1f, 0.85f, 0f);

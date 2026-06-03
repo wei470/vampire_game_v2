@@ -134,6 +134,9 @@ public class BossEnemy : EnemyBase
         ApplyBossTypeConfig();
 
         DebugHelper.Log($"[BossEnemy] Boss spawned! Type={_bossType}, HP={_bossHP}");
+
+        // #21 触发 Boss 出现事件（BossHealthBarUI 监听）
+        EventManager.TriggerBossSpawn(_bossType.ToString(), _bossHP);
     }
 
     /// <summary>
@@ -195,9 +198,27 @@ public class BossEnemy : EnemyBase
         Setup(_bossSpeed, _bossContactDamage, 0, 50);
     }
 
+    private int _lastReportedHP = -1; // #21 避免每帧触发事件
+
     private void Update()
     {
-        if (_bossDamageable == null || _bossDamageable.CurrentHp <= 0) return;
+        if (_bossDamageable == null || _bossDamageable.CurrentHp <= 0)
+        {
+            // #21 Boss 死亡时触发事件（仅触发一次）
+            if (_bossDamageable != null && _bossDamageable.CurrentHp <= 0 && _lastReportedHP > 0)
+            {
+                _lastReportedHP = 0;
+                EventManager.TriggerBossDeath(_bossType.ToString());
+            }
+            return;
+        }
+
+        // #21 每帧报告 Boss HP 变化（仅在 HP 实际变化时触发）
+        if (_bossDamageable.CurrentHp != _lastReportedHP)
+        {
+            _lastReportedHP = _bossDamageable.CurrentHp;
+            EventManager.TriggerBossHPChanged(_lastReportedHP, _bossDamageable.MaxHp);
+        }
 
         float hpPercent = _bossDamageable.HpPercent;
         UpdatePhase(hpPercent);
@@ -231,6 +252,9 @@ public class BossEnemy : EnemyBase
         {
             _currentPhase = newPhase;
             DebugHelper.Log($"[BossEnemy] Phase transition → Phase {_currentPhase}!");
+
+            // #21 触发阶段切换事件
+            EventManager.TriggerBossPhaseChange(_currentPhase, 5);
 
             // 进入狂暴阶段时加速
             if (_currentPhase == 5)

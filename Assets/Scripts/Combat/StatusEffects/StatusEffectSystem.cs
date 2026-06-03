@@ -77,6 +77,7 @@ public class StatusEffectManager : MonoBehaviour
     private float _tickInterval = 0.5f; // 动态 tick 间隔，受痛苦升级影响
     private int _erosionDotHitCount; // 侵蚀：DOT 生效计数器
     private DotParticleVFX _dotVFX; // #18 DOT 粒子视觉效果
+    private EnemyDotResistance _dotResistance; // #11 DOT 抗性系统
 
     /// <summary>
     /// DOT 频率加成（痛苦升级：每层 -10% 间隔）
@@ -102,6 +103,8 @@ public class StatusEffectManager : MonoBehaviour
     public bool WitherActive { get; set; } = false;       // 凋零禁回血
     public float ErosionMaxHpReduce { get; set; } = 0f;  // 侵蚀降最大生命
     public float WindErosionKnockback { get; set; } = 0f; // 风蚀击退
+    public float ErosionDamagePercent { get; set; } = 0f; // 侵蚀：额外冲击伤害比例（默认0，升级后+0.5）
+    public int ErosionTriggerCount { get; set; } = 5;      // 侵蚀：每N次DOT生效触发冲击（默认5，最低2）
     public float ContaminateRange { get; set; } = 0f;     // 污染传播范围
     public float RadiateRange { get; set; } = 0f;         // 辐射范围
     public float RadiateDamagePercent { get; set; } = 0f; // 辐射伤害比例
@@ -121,6 +124,7 @@ public class StatusEffectManager : MonoBehaviour
         _damageable = GetComponent<Damageable>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
+        _dotResistance = GetComponent<EnemyDotResistance>(); // #11 缓存抗性引用
     }
 
     private void OnEnable()
@@ -173,6 +177,12 @@ public class StatusEffectManager : MonoBehaviour
         }
         else
         {
+            // #16 防止极端情况：超过 10 个效果时移除最旧的
+            if (_activeEffects.Count >= 10)
+            {
+                _activeEffects.RemoveAt(0);
+            }
+
             _activeEffects.Add(new StatusEffect
             {
                 type = type,
@@ -235,6 +245,10 @@ public class StatusEffectManager : MonoBehaviour
 
             // 计算基础 DOT 伤害
         float tickDmg = effect.damagePerSecond * _tickInterval;
+
+            // #11 应用敌人 DOT 抗性
+            if (_dotResistance != null)
+                tickDmg *= _dotResistance.GetDamageMultiplier(effect.type);
 
             // 撕裂加成
             if (RendDamageBonus > 0)
@@ -697,8 +711,10 @@ public class StatusEffectManager : MonoBehaviour
     private const float COMBO_SEPSIS_BLEED_DPS_PER_POISON = 0.3f; // 脓毒：每层中毒+30%流血DPS
 
     private bool _comboShatterActive;   // 碎冰：霜冻+流血
+    #pragma warning disable CS0414 // 赋值后未使用，保留作为组合效果状态标记
     private bool _comboDetonateActive;  // 爆燃：燃烧+中毒
     private bool _comboSepsisActive;    // 脓毒：中毒+流血
+    #pragma warning restore CS0414
 
     /// <summary>
     /// 检测并应用 DOT 组合效果

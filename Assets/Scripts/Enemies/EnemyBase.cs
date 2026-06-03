@@ -20,6 +20,23 @@ public class EnemyBase : BaseEntity
     private float _lastAttackTime;
     private EnemyHealthBar _healthBar;
 
+    // ── #15 距离分级 LOD 系统 ──
+    private static int _globalFrameCounter = 0;
+    private int _aiUpdateInterval = 1;      // 每 N 帧更新一次 AI
+    private int _lastAiUpdateFrame = -1;
+    private bool _skipSpecialAbility = false; // 远距离跳过特殊能力
+
+    /// <summary>
+    /// 当前帧是否应更新 AI（由 FixedUpdate 中的距离检测设置）
+    /// 子类在自己的 Update/FixedUpdate 中应检查此属性
+    /// </summary>
+    protected bool ShouldUpdateThisFrame { get; private set; } = true;
+
+    /// <summary>
+    /// 是否应跳过特殊能力更新（30 格以外）
+    /// </summary>
+    protected bool SkipSpecialAbility => _skipSpecialAbility;
+
     public float MoveSpeed { get => _moveSpeed; set => _moveSpeed = value; }
     public int ContactDamage => _contactDamage;
 
@@ -46,6 +63,7 @@ public class EnemyBase : BaseEntity
     /// </summary>
     protected override void OnEnable()
     {
+        PhysicsLayerSetup.SetAsEnemy(gameObject); // #17 Enemy Layer
         base.OnEnable(); // 重置 _alive = true
         RegisterDeathEvent();
 
@@ -99,8 +117,41 @@ public class EnemyBase : BaseEntity
         }
 
         if (!Alive || _target == null) return;
-        Vector2 direction = (_target.position - transform.position).normalized;
-        _rb.linearVelocity = direction * _moveSpeed;
+
+        // #15 距离分级 LOD：根据与玩家的距离决定更新频率
+        _globalFrameCounter++;
+        float distSqr = (_target.position - transform.position).sqrMagnitude;
+
+        // 距离分级（平方距离，避免开方）
+        // 0-15 格：每帧更新 → interval=1
+        // 15-30 格：每 3 帧更新 → interval=3
+        // 30+ 格：每 10 帧更新 → interval=10
+        if (distSqr > 900f)         // >30 格
+        {
+            _aiUpdateInterval = 10;
+            _skipSpecialAbility = true;
+        }
+        else if (distSqr > 225f)    // >15 格
+        {
+            _aiUpdateInterval = 3;
+            _skipSpecialAbility = false;
+        }
+        else
+        {
+            _aiUpdateInterval = 1;
+            _skipSpecialAbility = false;
+        }
+
+        // 判断当前帧是否需要更新
+        ShouldUpdateThisFrame = (_globalFrameCounter % _aiUpdateInterval == 0);
+
+        // 远距离敌人仍然移动，但只在 AI 更新帧重新计算方向
+        if (ShouldUpdateThisFrame || _lastAiUpdateFrame < 0)
+        {
+            Vector2 direction = (_target.position - transform.position).normalized;
+            _rb.linearVelocity = direction * _moveSpeed;
+            _lastAiUpdateFrame = _globalFrameCounter;
+        }
     }
 
     private void Update()
@@ -134,10 +185,17 @@ public class EnemyBase : BaseEntity
 
     /// <summary>
     /// 死亡事件处理（参数为死亡位置）。子类可覆盖 OnEnable/OnDisable 但应确保此方法被调用。
+    /// #28 集成死亡动画特效（缩小+爆炸粒子）
     /// </summary>
     protected void OnEnemyDeathHandler(Vector3 deathPosition)
     {
         _rb.linearVelocity = Vector2.zero;
+
+        // #28 播放死亡特效（在对象回收/销毁之前，因为需要读取颜色/Sprite）
+        var sr = GetComponent<SpriteRenderer>();
+        Color enemyColor = sr != null ? sr.color : Color.white;
+        bool isBoss = GetComponent<BossEnemy>() != null;
+        EnemyDeathEffect.PlayDeathEffect(gameObject, enemyColor, isBoss);
 
         // 立即从 SpawnManager 活跃列表移除，避免 0.1s 延迟导致计数错误
         if (GameReferences.SpawnManager != null)

@@ -44,7 +44,7 @@ public class OffScreenCuller : Singleton<OffScreenCuller>
     protected override void Awake()
     {
         base.Awake();
-        _mainCamera = Camera.main;
+        _mainCamera = GameReferences.MainCamera ?? Camera.main;
     }
 
     private void Update()
@@ -52,7 +52,7 @@ public class OffScreenCuller : Singleton<OffScreenCuller>
         if (Time.time - _lastCheckTime < _checkInterval) return;
         _lastCheckTime = Time.time;
 
-        _mainCamera = Camera.main;
+        _mainCamera = GameReferences.MainCamera ?? Camera.main;
         if (_mainCamera == null) return;
 
         Rect screenBounds = GetScreenBounds();
@@ -221,7 +221,7 @@ public class OffScreenCuller : Singleton<OffScreenCuller>
     {
         var inst = Instance;
         if (inst == null) return false;
-        var cam = Camera.main;
+        var cam = GameReferences.MainCamera ?? Camera.main;
         if (cam == null) return false;
 
         float camHeight = cam.orthographicSize * 2f;

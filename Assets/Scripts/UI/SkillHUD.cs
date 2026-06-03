@@ -26,7 +26,6 @@ public class SkillHUD : MonoBehaviour
     {
         _skillManager = GameReferences.Player?.GetComponent<PlayerSkillManager>();
         _bgTex = UIColorTheme.MakeTexture(UIColorTheme.DarkBackground);
-        _readyTex = UIColorTheme.MakeTexture(UIColorTheme.AccentCyan);
 
         // 检测是否是 Mage 角色
         var player = GameReferences.Player;
@@ -35,6 +34,9 @@ public class SkillHUD : MonoBehaviour
             _magePassive = player.GetComponent<MagePassive>();
             _isMage = _magePassive != null;
         }
+
+        // #10 使用角色专属主题色
+        _readyTex = UIColorTheme.MakeTexture(UIColorTheme.GetAccentColor());
     }
 
     private void OnGUI()
@@ -62,9 +64,9 @@ public class SkillHUD : MonoBehaviour
                 {
                     fontSize = 20,
                     fontStyle = FontStyle.Bold,
-                    normal = { textColor = UIColorTheme.AccentCyan }
+                    normal = { textColor = UIColorTheme.GetAccentColor() }
                 };
-                GUI.color = UIColorTheme.AccentCyan;
+                GUI.color = UIColorTheme.GetAccentColor();
                 string keyHint = _skillManager.ActiveSkills.Count > 1
                     ? $" [{_skillManager.CurrentActiveIndex + 1}/{_skillManager.ActiveSkills.Count}]"
                     : "";
@@ -96,7 +98,7 @@ public class SkillHUD : MonoBehaviour
                 }
                 else
                 {
-                    GUI.color = UIColorTheme.AccentCyan;
+                    GUI.color = UIColorTheme.GetAccentColor();
                     GUI.DrawTexture(new Rect(x, y - 24, _barWidth, _barHeight), _readyTex);
 
                     var readyStyle = new GUIStyle(GUI.skin.label)

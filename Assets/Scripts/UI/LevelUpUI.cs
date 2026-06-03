@@ -32,6 +32,11 @@ public class LevelUpUI : MonoBehaviour
     private int _pendingLevelUpCount = 0;
 
     /// <summary>
+    /// 是否有待处理的升级选项（供 WaveIntermissionUI 等外部组件查询）
+    /// </summary>
+    public bool HasPendingOptions() => _pendingLevelUpCount > 0;
+
+    /// <summary>
     /// 全局磁铁范围倍率（由升级系统修改，XPGem 读取）
     /// </summary>
     public static float MagnetRangeMultiplier { get; private set; } = 1f;
@@ -61,6 +66,17 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
+    /// #7 Build 路线分类
+    /// </summary>
+    private enum BuildRoute
+    {
+        None,       // 通用升级/技能升级
+        DotType,    // ⚔️ DOT 流派：DOT子弹 + DOT增强
+        Detonate,   // 💥 引爆流派：引爆增强
+        Bullet      // 🔫 子弹流派：子弹增强
+    }
+
+    /// <summary>
     /// 当前显示的 3 个升级选项（可能是通用或专属或技能升级）
     /// </summary>
     private struct UpgradeSlot
@@ -70,6 +86,8 @@ public class LevelUpUI : MonoBehaviour
         public GenericUpgradeType genericType;
         public CharacterUpgradeOption customOption;
         public SkillUpgradeSlot skillUpgrade;
+        public BuildRoute buildRoute; // #7 Build 路线标记
+        public bool isRecommended;    // #7 是否推荐
     }
 
     private UpgradeSlot[] _currentSlots = new UpgradeSlot[3];
@@ -326,7 +344,7 @@ public class LevelUpUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 生成 3 个随机升级选项（支持角色专属升级）
+    /// 生成 3 个随机升级选项（支持角色专属升级 + #7 Build 路线推荐）
     /// </summary>
     private void GenerateOptions()
     {
@@ -340,11 +358,11 @@ public class LevelUpUI : MonoBehaviour
         bool useGeneric = _currentCharacter == null || _currentCharacter.useGenericUpgrades;
         if (useGeneric)
         {
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.ArmorUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MagnetRangeUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.ArmorUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MagnetRangeUp, buildRoute = BuildRoute.None });
 
             // 武器升级已移除（武器系统已简化）
         }
@@ -386,7 +404,9 @@ public class LevelUpUI : MonoBehaviour
                     if (alreadyOwned) continue;
                 }
 
-                allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade });
+                // #7 标记 Build 路线
+                BuildRoute route = ClassifyUpgradeRoute(upgrade.upgradeId);
+                allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade, buildRoute = route });
             }
         }
 
@@ -398,17 +418,20 @@ public class LevelUpUI : MonoBehaviour
             {
                 if (skill == null || skill.Data == null) continue;
                 if (skill.CurrentLevel >= skill.Data.maxLevel) continue; // 已满级跳过
-                allSlots.Add(new UpgradeSlot { isSkillUpgrade = true, skillUpgrade = new SkillUpgradeSlot { skill = skill } });
+                allSlots.Add(new UpgradeSlot { isSkillUpgrade = true, skillUpgrade = new SkillUpgradeSlot { skill = skill }, buildRoute = BuildRoute.None });
             }
         }
 
         // 如果没有可用选项，添加通用默认
         if (allSlots.Count == 0)
         {
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp });
-            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.AttackUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.MaxHpUp, buildRoute = BuildRoute.None });
+            allSlots.Add(new UpgradeSlot { isCustom = false, genericType = GenericUpgradeType.SpeedUp, buildRoute = BuildRoute.None });
         }
+
+        // #7 计算 Build 路线完成度并标记推荐
+        CalculateRecommendations(allSlots);
 
         // Fisher-Yates 洗牌
         var arr = allSlots.ToArray();
@@ -421,14 +444,172 @@ public class LevelUpUI : MonoBehaviour
         }
 
         // 选取前 3 个（不足 3 个则重复）
-        for (int i = 0; i < 3; i++)
+        // #7 优先选取推荐选项（如果有推荐选项，将其提前到前面）
+        int slotCount = Mathf.Min(3, arr.Length);
+        var recommendedList = new List<UpgradeSlot>();
+        var normalList = new List<UpgradeSlot>();
+        for (int i = 0; i < arr.Length; i++)
         {
-            _currentSlots[i] = arr[i % arr.Length];
+            if (arr[i].isRecommended)
+                recommendedList.Add(arr[i]);
+            else
+                normalList.Add(arr[i]);
+        }
+
+        // 从推荐列表中最多取 1 个（避免 3 个都是同类推荐），其余从普通列表取
+        int idx = 0;
+        if (recommendedList.Count > 0)
+        {
+            int ri = Random.Range(0, recommendedList.Count);
+            _currentSlots[idx++] = recommendedList[ri];
+        }
+        // 重新洗牌普通列表以保持随机性
+        var normalArr = normalList.ToArray();
+        for (int i = normalArr.Length - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            var temp = normalArr[i];
+            normalArr[i] = normalArr[j];
+            normalArr[j] = temp;
+        }
+        int ni = 0;
+        while (idx < 3)
+        {
+            if (normalArr.Length > 0)
+            {
+                _currentSlots[idx] = normalArr[ni % normalArr.Length];
+                ni++;
+            }
+            else if (recommendedList.Count > 0)
+            {
+                // 没有普通选项时，从推荐中重复
+                int ri2 = Random.Range(0, recommendedList.Count);
+                _currentSlots[idx] = recommendedList[ri2];
+            }
+            idx++;
         }
     }
 
     /// <summary>
-    /// 设置按钮文本和点击事件
+    /// #7 根据 upgradeId 分类 Build 路线
+    /// </summary>
+    private BuildRoute ClassifyUpgradeRoute(string upgradeId)
+    {
+        // DOT 流派：DOT子弹 + DOT增强
+        switch (upgradeId)
+        {
+            case "bleed":
+            case "poison":
+            case "burn":
+            case "frostbite":
+            case "corrosion":
+            case "curse":
+            case "agony":
+            case "wither":
+            case "erosion":
+                return BuildRoute.DotType;
+        }
+
+        // 引爆流派
+        switch (upgradeId)
+        {
+            case "radiate":
+            case "contaminate":
+                return BuildRoute.Detonate;
+        }
+
+        // 子弹流派
+        switch (upgradeId)
+        {
+            case "haste":
+            case "barrage":
+            case "ricochet":
+                return BuildRoute.Bullet;
+        }
+
+        return BuildRoute.None;
+    }
+
+    /// <summary>
+    /// #7 计算 Build 路线完成度并标记推荐选项
+    /// 规则：当某流派完成度 >50% 时，该流派的升级选项标记为推荐
+    /// </summary>
+    private void CalculateRecommendations(List<UpgradeSlot> slots)
+    {
+        if (_magePassive == null) return;
+
+        // ── 统计当前各流派完成度 ──
+
+        // DOT 流派进度：已解锁 DOT 子弹数 / 4 + 已选 DOT 增强数 / 5
+        int dotGunCount = _magePassive.DotGuns.Count; // 最大4
+        int dotEnhanceCount = 0;
+        int dotEnhanceMax = 5; // corrosion, curse, agony, wither, erosion
+        // 统计已选的 DOT 增强
+        foreach (var kvp in _customUpgradeStacks)
+        {
+            string id = kvp.Key;
+            if (id == "corrosion" || id == "curse" || id == "agony" || id == "wither" || id == "erosion")
+                dotEnhanceCount += kvp.Value;
+        }
+        // DOT 流派进度：子弹(4项) + 增强(每种可多次，按至少1次算5项) = 总共约9项
+        // 简化为：子弹解锁进度 + 增强解锁进度
+        float dotProgress = (dotGunCount / 4f) * 0.5f;
+        // 增强部分：至少选过几种（每种至少1次）
+        int dotEnhanceTypes = 0;
+        if (_customUpgradeStacks.ContainsKey("corrosion")) dotEnhanceTypes++;
+        if (_customUpgradeStacks.ContainsKey("curse")) dotEnhanceTypes++;
+        if (_customUpgradeStacks.ContainsKey("agony")) dotEnhanceTypes++;
+        if (_customUpgradeStacks.ContainsKey("wither")) dotEnhanceTypes++;
+        if (_customUpgradeStacks.ContainsKey("erosion")) dotEnhanceTypes++;
+        dotProgress += (dotEnhanceTypes / 5f) * 0.5f;
+
+        // 引爆流派进度：已选辐射/污染次数（至少各1次=完成度50%）
+        int detCount = 0;
+        if (_customUpgradeStacks.ContainsKey("radiate")) detCount++;
+        if (_customUpgradeStacks.ContainsKey("contaminate")) detCount++;
+        float detProgress = detCount / 2f;
+
+        // 子弹流派进度：已选急速/弹幕/反弹次数（至少各1次=完成度33%）
+        int bulletCount = 0;
+        if (_customUpgradeStacks.ContainsKey("haste")) bulletCount++;
+        if (_customUpgradeStacks.ContainsKey("barrage")) bulletCount++;
+        if (_customUpgradeStacks.ContainsKey("ricochet")) bulletCount++;
+        float bulletProgress = bulletCount / 3f;
+
+        // ── 标记推荐（完成度 > 50%）──
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            if (slot.buildRoute == BuildRoute.None) continue;
+
+            bool recommend = false;
+            switch (slot.buildRoute)
+            {
+                case BuildRoute.DotType:
+                    recommend = dotProgress > 0.5f;
+                    break;
+                case BuildRoute.Detonate:
+                    recommend = detProgress > 0.5f;
+                    break;
+                case BuildRoute.Bullet:
+                    recommend = bulletProgress > 0.5f;
+                    break;
+            }
+
+            if (recommend)
+            {
+                slot.isRecommended = true;
+                slots[i] = slot;
+            }
+        }
+
+        // ── 记录日志 ──
+        DebugHelper.Log($"[LevelUpUI] Build Progress - DOT:{dotProgress:P0}({dotGunCount}/4 guns, {dotEnhanceTypes}/5 enhance) " +
+            $"Detonate:{detProgress:P0}({detCount}/2) Bullet:{bulletProgress:P0}({bulletCount}/3)");
+    }
+
+    /// <summary>
+    /// 设置按钮文本和点击事件 + #7 Build 路线标签 + 推荐高亮
     /// </summary>
     private void SetupSlotButton(Button button, Text text, int index)
     {
@@ -440,13 +621,59 @@ public class LevelUpUI : MonoBehaviour
             text.text = GetSlotDescription(slot);
         }
 
+        // #7 推荐选项视觉高亮：金色边框 + 微亮背景
+        if (slot.isRecommended)
+        {
+            var img = button.GetComponent<Image>();
+            if (img != null)
+                img.color = new Color(UIColorTheme.PanelBackground.r + 0.08f,
+                    UIColorTheme.PanelBackground.g + 0.08f,
+                    UIColorTheme.PanelBackground.b + 0.05f, 1f);
+
+            var outline = button.GetComponent<Outline>();
+            if (outline == null)
+                outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 0.85f, 0.2f); // 金色推荐
+            outline.effectDistance = new Vector2(3f, 3f);
+        }
+        else
+        {
+            // 非推荐恢复默认
+            var img = button.GetComponent<Image>();
+            if (img != null)
+                img.color = UIColorTheme.PanelBackground;
+
+            var outline = button.GetComponent<Outline>();
+            if (outline == null)
+                outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = UIColorTheme.AccentCyan;
+            outline.effectDistance = new Vector2(2f, 2f);
+        }
+
         button.onClick.RemoveAllListeners();
         int capturedIndex = index;
         button.onClick.AddListener(() => OnOptionSelected(capturedIndex));
     }
 
     /// <summary>
-    /// 获取选项描述文字
+    /// #7 根据 BuildRoute 获取流派标签文本
+    /// </summary>
+    private string GetBuildRouteTag(BuildRoute route, bool isRecommended)
+    {
+        string tag = "";
+        switch (route)
+        {
+            case BuildRoute.DotType:    tag = "[DOT]"; break;
+            case BuildRoute.Detonate:   tag = "[DETO]"; break;
+            case BuildRoute.Bullet:     tag = "[BULLET]"; break;
+        }
+        if (isRecommended && route != BuildRoute.None)
+            return $"💡{tag} 推荐";
+        return tag;
+    }
+
+    /// <summary>
+    /// 获取选项描述文字（#7 带 Build 路线标签和推荐标记）
     /// </summary>
     private string GetSlotDescription(UpgradeSlot slot)
     {
@@ -456,7 +683,10 @@ public class LevelUpUI : MonoBehaviour
             int stacks = 0;
             _customUpgradeStacks.TryGetValue(opt.upgradeId, out stacks);
             string stackText = opt.maxStacks > 0 ? $" [{stacks}/{opt.maxStacks}]" : "";
-            return $"{opt.upgradeName}{stackText}\n{opt.description}";
+            // #7 添加 Build 路线标签
+            string routeTag = GetBuildRouteTag(slot.buildRoute, slot.isRecommended);
+            string tagPrefix = !string.IsNullOrEmpty(routeTag) ? $"{routeTag}\n" : "";
+            return $"{tagPrefix}{opt.upgradeName}{stackText}\n{opt.description}";
         }
 
         // #33 技能升级描述

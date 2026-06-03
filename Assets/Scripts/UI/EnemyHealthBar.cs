@@ -43,6 +43,30 @@ public class EnemyHealthBar : MonoBehaviour
     // #21 中毒层数文字显示
     private TextMesh _poisonStackText;
 
+    // #6 DOT 图标系统（小几何形状 + 层数文字）
+    private Transform _dotIconContainer;
+    private const float DOT_ICON_SIZE = 0.25f;
+    private const float DOT_ICON_GAP = 0.35f;
+    private const float DOT_ICON_TEXT_OFFSET = 0.18f;
+
+    // 图标 SpriteRenderers（小几何形状）
+    private SpriteRenderer _bleedIcon;
+    private SpriteRenderer _poisonIcon;
+    private SpriteRenderer _burnIcon;
+    private SpriteRenderer _frostIcon;
+
+    // 层数文字
+    private TextMesh _bleedCountText;
+    private TextMesh _burnCountText;
+    private TextMesh _frostCountText;
+    // _poisonStackText 已存在
+
+    // #6 图标几何形状缓存
+    private static Sprite _triangleSprite;  // 流血
+    private static Sprite _diamondSprite;   // 中毒
+    private static Sprite _pentagonSprite;  // 燃烧
+    private static Sprite _hexagonSprite;   // 霜冻
+
     // StatusEffectManager 动态指示器缓存
     private Dictionary<StatusEffectType, SpriteRenderer> _semIndicators
         = new Dictionary<StatusEffectType, SpriteRenderer>();
@@ -158,6 +182,9 @@ public class EnemyHealthBar : MonoBehaviour
         var mr = poisonTextObj.GetComponent<MeshRenderer>();
         if (mr != null) mr.sortingOrder = 13;
         _poisonStackText.gameObject.SetActive(false);
+
+        // #6 创建 DOT 图标系统
+        CreateDotIcons();
     }
 
     private SpriteRenderer CreateSingleIndicator(string name, Color color)
@@ -184,6 +211,215 @@ public class EnemyHealthBar : MonoBehaviour
         var sr = CreateSingleIndicator(type.ToString(), color);
         _semIndicators[type] = sr;
         return sr;
+    }
+
+    // ═══ #6 DOT 图标系统实现 ═══
+
+    /// <summary>
+    /// #6 创建 DOT 图标容器和图标（在 CreateDotIndicators 末尾调用）
+    /// </summary>
+    private void CreateDotIcons()
+    {
+        _dotIconContainer = new GameObject("DOT_Icons").transform;
+        _dotIconContainer.SetParent(_barTransform);
+        // 图标在指示器上方
+        _dotIconContainer.localPosition = new Vector3(0f, _barHeight + DOT_OFFSET_ABOVE_BAR + DOT_INDICATOR_HEIGHT + 0.15f, 0f);
+        _dotIconContainer.localRotation = Quaternion.identity;
+
+        // 创建 4 种 DOT 图标（默认隐藏）
+        _bleedIcon = CreateShapeIcon("BleedIcon", GetTriangleSprite(), new Color(0.9f, 0.1f, 0.1f));
+        _poisonIcon = CreateShapeIcon("PoisonIcon", GetDiamondSprite(), new Color(0.1f, 0.9f, 0.2f));
+        _burnIcon = CreateShapeIcon("BurnIcon", GetPentagonSprite(), new Color(1f, 0.5f, 0f));
+        _frostIcon = CreateShapeIcon("FrostIcon", GetHexagonSprite(), new Color(0.3f, 0.6f, 1f));
+
+        // 创建层数文字（图标旁）
+        _bleedCountText = CreateIconCountText("BleedCount", new Color(1f, 0.3f, 0.3f));
+        _burnCountText = CreateIconCountText("BurnCount", new Color(1f, 0.7f, 0.2f));
+        _frostCountText = CreateIconCountText("FrostCount", new Color(0.5f, 0.8f, 1f));
+        // _poisonStackText 已有，调整位置到图标旁
+    }
+
+    private SpriteRenderer CreateShapeIcon(string name, Sprite shape, Color color)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(_dotIconContainer);
+        obj.transform.localPosition = Vector3.zero;
+        obj.transform.localScale = Vector3.one * DOT_ICON_SIZE;
+        var sr = obj.AddComponent<SpriteRenderer>();
+        sr.sprite = shape;
+        sr.color = color;
+        sr.sortingOrder = 14;
+        sr.enabled = false;
+        return sr;
+    }
+
+    private TextMesh CreateIconCountText(string name, Color color)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(_dotIconContainer);
+        obj.transform.localPosition = new Vector3(DOT_ICON_TEXT_OFFSET, 0f, 0f);
+        var tm = obj.AddComponent<TextMesh>();
+        tm.text = "";
+        tm.fontSize = 40;
+        tm.fontStyle = FontStyle.Bold;
+        tm.characterSize = 0.06f;
+        tm.alignment = TextAlignment.Left;
+        tm.anchor = TextAnchor.MiddleLeft;
+        tm.color = color;
+        tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var mr = obj.GetComponent<MeshRenderer>();
+        if (mr != null) mr.sortingOrder = 15;
+        obj.SetActive(false);
+        return tm;
+    }
+
+    // #6 几何形状 Sprite 生成（静态缓存）
+    private static Sprite CreatePolygonSprite(int sides, float radius, string name)
+    {
+        int pxSize = 64;
+        var tex = new Texture2D(pxSize, pxSize, TextureFormat.RGBA32, false);
+        for (int x = 0; x < pxSize; x++)
+            for (int y = 0; y < pxSize; y++)
+                tex.SetPixel(x, y, Color.clear);
+
+        float cx = pxSize / 2f;
+        float cy = pxSize / 2f;
+        float r = pxSize * radius;
+
+        // 填充多边形
+        for (int x = 0; x < pxSize; x++)
+        {
+            for (int y = 0; y < pxSize; y++)
+            {
+                float dx = x - cx;
+                float dy = y - cy;
+                // 角度检测：判断点是否在多边形内
+                if (IsInsidePolygon(dx, dy, r, sides))
+                    tex.SetPixel(x, y, Color.white);
+            }
+        }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, pxSize, pxSize), new Vector2(0.5f, 0.5f), pxSize);
+    }
+
+    private static bool IsInsidePolygon(float px, float py, float r, int sides)
+    {
+        float dist = Mathf.Sqrt(px * px + py * py);
+        if (dist > r) return false;
+        if (dist < 0.01f) return true;
+        float angle = Mathf.Atan2(py, px);
+        if (angle < 0) angle += 2f * Mathf.PI;
+        float sectorAngle = 2f * Mathf.PI / sides;
+        float halfSector = sectorAngle / 2f;
+        float relAngle = angle % sectorAngle;
+        float edgeDist = r * Mathf.Cos(halfSector) / Mathf.Cos(relAngle - halfSector);
+        return dist <= edgeDist;
+    }
+
+    private static Sprite GetTriangleSprite()
+    {
+        if (_triangleSprite == null)
+            _triangleSprite = CreatePolygonSprite(3, 0.45f, "Triangle");
+        return _triangleSprite;
+    }
+
+    private static Sprite GetDiamondSprite()
+    {
+        if (_diamondSprite == null)
+            _diamondSprite = CreatePolygonSprite(4, 0.45f, "Diamond");
+        return _diamondSprite;
+    }
+
+    private static Sprite GetPentagonSprite()
+    {
+        if (_pentagonSprite == null)
+            _pentagonSprite = CreatePolygonSprite(5, 0.45f, "Pentagon");
+        return _pentagonSprite;
+    }
+
+    private static Sprite GetHexagonSprite()
+    {
+        if (_hexagonSprite == null)
+            _hexagonSprite = CreatePolygonSprite(6, 0.45f, "Hexagon");
+        return _hexagonSprite;
+    }
+
+    /// <summary>
+    /// #6 更新 DOT 图标显示（在 UpdateDotIndicators 末尾调用）
+    /// </summary>
+    private void UpdateDotIcons(bool hasBleed, bool hasPoison, int poisonStacks,
+        bool hasBurn, int burnStacks, bool hasFrost, int frostStacks)
+    {
+        // 流血图标
+        if (_bleedIcon != null)
+        {
+            _bleedIcon.enabled = hasBleed;
+            if (hasBleed) _bleedIcon.transform.localPosition = new Vector3(-DOT_ICON_GAP * 1.5f, 0f, 0f);
+        }
+        if (_bleedCountText != null)
+        {
+            _bleedCountText.gameObject.SetActive(hasBleed);
+            if (hasBleed)
+            {
+                _bleedCountText.transform.localPosition = new Vector3(-DOT_ICON_GAP * 1.5f + DOT_ICON_TEXT_OFFSET, 0f, 0f);
+                _bleedCountText.text = "";
+            }
+        }
+
+        // 中毒图标
+        if (_poisonIcon != null)
+        {
+            _poisonIcon.enabled = hasPoison;
+            if (hasPoison) _poisonIcon.transform.localPosition = new Vector3(-DOT_ICON_GAP * 0.5f, 0f, 0f);
+        }
+        // 移动已有中毒层数文字到图标旁
+        if (_poisonStackText != null && hasPoison)
+        {
+            _poisonStackText.transform.localPosition = new Vector3(-DOT_ICON_GAP * 0.5f + DOT_ICON_TEXT_OFFSET, 0f, 0f);
+            _poisonStackText.characterSize = 0.06f;
+        }
+
+        // 燃烧图标
+        if (_burnIcon != null)
+        {
+            _burnIcon.enabled = hasBurn;
+            if (hasBurn)
+            {
+                _burnIcon.transform.localPosition = new Vector3(DOT_ICON_GAP * 0.5f, 0f, 0f);
+                // 燃烧脉冲
+                float pulse = Mathf.Sin(Time.time * 8f) * 0.15f;
+                _burnIcon.color = new Color(1f, Mathf.Clamp01(0.5f + pulse), 0f);
+            }
+        }
+        if (_burnCountText != null)
+        {
+            _burnCountText.gameObject.SetActive(hasBurn);
+            if (hasBurn)
+            {
+                _burnCountText.transform.localPosition = new Vector3(DOT_ICON_GAP * 0.5f + DOT_ICON_TEXT_OFFSET, 0f, 0f);
+                _burnCountText.text = burnStacks > 0 ? $"x{burnStacks}" : "";
+            }
+        }
+
+        // 霜冻图标
+        if (_frostIcon != null)
+        {
+            _frostIcon.enabled = hasFrost;
+            if (hasFrost) _frostIcon.transform.localPosition = new Vector3(DOT_ICON_GAP * 1.5f, 0f, 0f);
+        }
+        if (_frostCountText != null)
+        {
+            _frostCountText.gameObject.SetActive(hasFrost);
+            if (hasFrost)
+            {
+                _frostCountText.transform.localPosition = new Vector3(DOT_ICON_GAP * 1.5f + DOT_ICON_TEXT_OFFSET, 0f, 0f);
+                _frostCountText.text = frostStacks > 0 ? $"x{frostStacks}" : "";
+            }
+        }
+
+        // 全部隐藏时隐藏容器
+        if (_dotIconContainer != null)
+            _dotIconContainer.gameObject.SetActive(hasBleed || hasPoison || hasBurn || hasFrost);
     }
 
     /// <summary>
@@ -300,10 +536,17 @@ public class EnemyHealthBar : MonoBehaviour
             poisonStacks = poison.StackCount;
         }
 
+        // #6 燃烧/霜冻层数追踪
+        int burnStacks = 0;
+        int frostStacks = 0;
+
         // 检查 BurnStackEffect（燃烧）
         var burn = GetComponent<BurnStackEffect>();
         if (burn != null && burn.StackCount > 0)
+        {
             hasBurnStack = true;
+            burnStacks = burn.StackCount;
+        }
 
         // 检查 BleedEffect（流血）
         var bleed = GetComponent<BleedEffect>();
@@ -313,7 +556,10 @@ public class EnemyHealthBar : MonoBehaviour
         // 检查 FrostEffect（霜冻）
         var frost = GetComponent<FrostEffect>();
         if (frost != null)
+        {
             hasFrostComponent = true;
+            // FrostEffect 可能有层数（通过 StatusEffectManager 查询）
+        }
 
         // 检查 StatusEffectManager 中的所有 DOT
         var sem = GetComponent<StatusEffectManager>();
@@ -456,6 +702,10 @@ public class EnemyHealthBar : MonoBehaviour
                 sr.color = entry.color;
             }
         }
+
+        // #6 更新 DOT 图标显示
+        UpdateDotIcons(hasBleedComponent, hasPoisonStack, poisonStacks,
+            hasBurnStack, burnStacks, hasFrostComponent, frostStacks);
     }
 
     private void SetIndicatorActive(SpriteRenderer sr, bool active)
@@ -471,6 +721,16 @@ public class EnemyHealthBar : MonoBehaviour
         if (_frostComponentIndicator != null) _frostComponentIndicator.enabled = false;
         foreach (var kvp in _semIndicators)
             kvp.Value.enabled = false;
+
+        // #6 隐藏所有 DOT 图标
+        if (_bleedIcon != null) _bleedIcon.enabled = false;
+        if (_poisonIcon != null) _poisonIcon.enabled = false;
+        if (_burnIcon != null) _burnIcon.enabled = false;
+        if (_frostIcon != null) _frostIcon.enabled = false;
+        if (_bleedCountText != null) _bleedCountText.gameObject.SetActive(false);
+        if (_burnCountText != null) _burnCountText.gameObject.SetActive(false);
+        if (_frostCountText != null) _frostCountText.gameObject.SetActive(false);
+        if (_dotIconContainer != null) _dotIconContainer.gameObject.SetActive(false);
     }
 
     private void OnDestroy()

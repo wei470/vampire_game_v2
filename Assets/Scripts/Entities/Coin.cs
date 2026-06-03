@@ -15,6 +15,7 @@ public class Coin : MonoBehaviour
     [SerializeField] private int _coinAmount = 5;
     [SerializeField] private float _magnetRange = 4f;
     [SerializeField] private float _magnetSpeed = 18f;
+    [SerializeField] private float _magnetSpeedNear = 28f;  // #24 近距离快速吸引
     [SerializeField] private float _pickupRange = 0.5f;
     [SerializeField] private float _lifetime = 30f;
     [SerializeField] private float _spawnFloatForce = 4f;
@@ -24,6 +25,10 @@ public class Coin : MonoBehaviour
     private float _spawnTime;
     private bool _isBeingMagnetized = false;
     private SpriteRenderer _spriteRenderer;
+
+    // #24 帧跳过优化（非磁吸状态的金币每3帧检测一次距离）
+    private int _frameSkipCounter = 0;
+    private const int FRAME_SKIP_INTERVAL = 3;
 
     /// <summary>
     /// 全局金币计数器（局内金币，拾取时同时存入 SaveManager）
@@ -91,22 +96,42 @@ public class Coin : MonoBehaviour
 
         if (_player == null) return;
 
-        float distToPlayer = Vector3.Distance(transform.position, _player.position);
+        // #24 使用平方距离避免开方运算
+        Vector3 delta = _player.position - transform.position;
+        float distSqr = delta.sqrMagnitude;
+
+        // #24 帧跳过优化：非磁吸状态每 3 帧检测一次
+        if (!_isBeingMagnetized)
+        {
+            _frameSkipCounter++;
+            if (_frameSkipCounter % FRAME_SKIP_INTERVAL != 0)
+            {
+                _rb.linearVelocity = Vector2.Lerp(_rb.linearVelocity, Vector2.zero, Time.deltaTime * 3f);
+                return;
+            }
+        }
 
         // 应用全局磁铁倍率 + 永久商店加成
         float permanentMult = SaveManager.Instance?.GetPermanentMultiplier("magnet_radius") ?? 1f;
         float effectiveMagnetRange = _magnetRange * LevelUpUI.MagnetRangeMultiplier * permanentMult;
-        if (distToPlayer < effectiveMagnetRange)
+        float effectiveMagnetRangeSqr = effectiveMagnetRange * effectiveMagnetRange;
+        if (distSqr < effectiveMagnetRangeSqr)
         {
             _isBeingMagnetized = true;
         }
 
         if (_isBeingMagnetized)
         {
-            Vector2 dir = (_player.position - transform.position).normalized;
-            _rb.linearVelocity = dir * _magnetSpeed;
+            float pickupRangeSqr = _pickupRange * _pickupRange;
+            Vector2 dir = delta.normalized;
 
-            if (distToPlayer < _pickupRange)
+            // #24 距离越近速度越快
+            float dist = Mathf.Sqrt(distSqr);
+            float speedT = 1f - Mathf.Clamp01(dist / effectiveMagnetRange);
+            float speed = Mathf.Lerp(_magnetSpeed, _magnetSpeedNear, speedT);
+            _rb.linearVelocity = dir * speed;
+
+            if (distSqr < pickupRangeSqr)
             {
                 Pickup();
             }

@@ -16,6 +16,10 @@ public class FastEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
+        // #11 FastEnemy DOT 抗性预设：霜冻抗性+30%，流血弱点-20%
+        var res = GetComponent<EnemyDotResistance>();
+        if (res == null) res = gameObject.AddComponent<EnemyDotResistance>();
+        EnemyDotResistance.ApplyFastPreset(res);
         // Fast 敌人移动更快
         MoveSpeed *= _fastSpeedMultiplier;
     }

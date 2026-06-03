@@ -224,7 +224,7 @@ public class MapThemeManager : Singleton<MapThemeManager>
     private void ApplyThemeVisuals(MapThemeData theme)
     {
         // 设置摄像机背景色
-        Camera mainCam = Camera.main;
+        Camera mainCam = GameReferences.MainCamera ?? Camera.main;
         if (mainCam != null)
         {
             mainCam.backgroundColor = theme.backgroundColor;
@@ -318,7 +318,7 @@ public class MapThemeManager : Singleton<MapThemeManager>
         _currentThemeName = "None";
 
         // 重置摄像机背景色为黑色
-        Camera mainCam = Camera.main;
+        Camera mainCam = GameReferences.MainCamera ?? Camera.main;
         if (mainCam != null)
         {
             mainCam.backgroundColor = Color.black;

@@ -76,6 +76,86 @@ public static class UIColorTheme
     public static readonly Color GoldText = new Color(0.02f, 0.949f, 0.6f);
 
     // ═══════════════════════════════════════════
+    // #10 角色专属 UI 主题系统
+    // ═══════════════════════════════════════════
+
+    /// <summary>当前活跃的 UI 主题（默认=Default，Mage=Mage）</summary>
+    private static string _activeTheme = "default";
+
+    /// <summary>Mage 紫色边框</summary>
+    public static readonly Color MagePanelBorder = new Color(0.55f, 0.15f, 0.85f);
+    /// <summary>Mage 紫色背景</summary>
+    public static readonly Color MageBackground = new Color(0.08f, 0.02f, 0.15f);
+    /// <summary>Mage 绿色 HP</summary>
+    public static readonly Color MageHpGreen = new Color(0.1f, 0.9f, 0.3f);
+    /// <summary>Mage 紫色 XP</summary>
+    public static readonly Color MageXpPurple = new Color(0.7f, 0.3f, 1f);
+    /// <summary>Mage 强调色（DOT 绿）</summary>
+    public static readonly Color MageAccentDot = new Color(0.2f, 1f, 0.5f);
+    /// <summary>Mage 引爆色（紫红）</summary>
+    public static readonly Color MageAccentDetonate = new Color(0.9f, 0.2f, 0.7f);
+
+    /// <summary>
+    /// #10 设置当前 UI 主题
+    /// </summary>
+    public static void SetTheme(string theme)
+    {
+        _activeTheme = theme ?? "default";
+    }
+
+    /// <summary>
+    /// #10 获取当前主题名
+    /// </summary>
+    public static string ActiveTheme => _activeTheme;
+
+    /// <summary>
+    /// #10 是否是 Mage 主题
+    /// </summary>
+    public static bool IsMageTheme => _activeTheme == "mage";
+
+    /// <summary>
+    /// #10 获取当前主题的强调色（根据角色切换）
+    /// Default: AccentCyan, Mage: MageAccentDetonate
+    /// </summary>
+    public static Color GetAccentColor()
+    {
+        return IsMageTheme ? MageAccentDetonate : AccentCyan;
+    }
+
+    /// <summary>
+    /// #10 获取当前主题的高亮文字色
+    /// Default: AccentCyan, Mage: MageAccentDot
+    /// </summary>
+    public static Color GetHighlightColor()
+    {
+        return IsMageTheme ? MageAccentDot : AccentCyan;
+    }
+
+    /// <summary>
+    /// #10 获取当前主题的面板边框色
+    /// </summary>
+    public static Color GetPanelBorderColor()
+    {
+        return IsMageTheme ? MagePanelBorder : PanelBackground;
+    }
+
+    /// <summary>
+    /// #10 获取当前主题的 HP 颜色
+    /// </summary>
+    public static Color GetHpColor()
+    {
+        return IsMageTheme ? MageHpGreen : AccentCyan;
+    }
+
+    /// <summary>
+    /// #10 获取当前主题的 XP 颜色
+    /// </summary>
+    public static Color GetXpColor()
+    {
+        return IsMageTheme ? MageXpPurple : AccentMagenta;
+    }
+
+    // ═══════════════════════════════════════════
     // 工具方法
     // ═══════════════════════════════════════════
 

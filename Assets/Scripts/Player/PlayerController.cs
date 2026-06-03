@@ -34,6 +34,7 @@ public class PlayerController : MonoBehaviour
 
     private void Awake()
     {
+        PhysicsLayerSetup.SetAsPlayer(gameObject); // #17 Player Layer
         _rb = GetComponent<Rigidbody2D>();
         _damageable = GetComponent<Damageable>();
         _baseEntity = GetComponent<BaseEntity>();

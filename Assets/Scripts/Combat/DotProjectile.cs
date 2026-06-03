@@ -106,10 +106,13 @@ public class BleedBullet : MonoBehaviour
         var go = new GameObject("BleedBullet");
         go.transform.position = pos;
         go.tag = "Untagged";
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.9f, 0.1f, 0.1f); sr.sortingOrder = 15;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.5f, 0.25f);
+        // #8 流血子弹：添加红色拖尾特效
+        DotBulletVisualEffects.AttachTrail(go, new Color(0.9f, 0.1f, 0.1f, 0.8f), 0.6f, 0.04f);
         var b = go.AddComponent<BleedBullet>();
         b.Setup(speed, impactDmg, bleedDps, bleedDuration, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
@@ -269,11 +272,13 @@ public class PoisonBullet : MonoBehaviour
     {
         var go = new GameObject("PoisonBullet");
         go.transform.position = pos; go.tag = "Untagged";
-        var sr = go.AddComponent<SpriteRenderer>();
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
         sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.25f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+        // #8 毒子弹：添加绿色拖尾特效
+        DotBulletVisualEffects.AttachTrail(go, new Color(0.1f, 0.9f, 0.2f, 0.6f), 0.4f, 0.03f);
         var b = go.AddComponent<PoisonBullet>();
         b.Setup(speed, poisonDps, poisonDuration, 0.5f, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
@@ -347,11 +352,13 @@ public class PoisonPotion : MonoBehaviour
     {
         var go = new GameObject("PoisonPotion");
         go.transform.position = pos; go.tag = "Untagged";
-        var sr = go.AddComponent<SpriteRenderer>();
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.1f, 0.8f, 0.1f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.8f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.3f;
+        // #8 中毒药瓶：添加旋转弹道视觉
+        DotBulletVisualEffects.AttachSpinEffect(go, 360f);
         var p = go.AddComponent<PoisonPotion>();
         p.Setup(speed, puddleDuration, puddleRadius, baseDps, dmgMult, canCrit, critChance, critMult);
         p.SetTarget(target);
@@ -575,6 +582,9 @@ public class BurnBullet : MonoBehaviour
             if (burn == null) burn = other.gameObject.AddComponent<BurnStackEffect>();
             burn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
         }
+        // #2 穿透检测：如果穿透成功则不销毁
+        var penetrate = GetComponent<PenetrateHandler>();
+        if (penetrate != null && penetrate.TryPenetrate(other)) return;
         // #16 反弹检测：如果反弹成功则不销毁
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
@@ -586,11 +596,13 @@ public class BurnBullet : MonoBehaviour
     {
         var go = new GameObject("BurnBullet");
         go.transform.position = pos; go.tag = "Untagged";
-        var sr = go.AddComponent<SpriteRenderer>();
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
         sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(1f, 0.4f, 0f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.2f; // 很小的球
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+        // #8 燃烧子弹：添加火焰脉冲视觉效果
+        DotBulletVisualEffects.AttachFlameEffect(go);
         var b = go.AddComponent<BurnBullet>();
         b.Setup(speed, impactDmg, burnDps, burnDuration, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
@@ -714,6 +726,9 @@ public class FrostBullet : MonoBehaviour
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
             frost.ApplyFreeze(_freezeDuration, _slowPercent, _frostDps * _damageMultiplier, _canCrit, _critChance, _critMult);
         }
+        // #2 穿透检测：如果穿透成功则不销毁
+        var penetrate = GetComponent<PenetrateHandler>();
+        if (penetrate != null && penetrate.TryPenetrate(other)) return;
         // #16 反弹检测：如果反弹成功则不销毁
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
@@ -726,11 +741,13 @@ public class FrostBullet : MonoBehaviour
     {
         var go = new GameObject("FrostBullet");
         go.transform.position = pos; go.tag = "Untagged";
-        var sr = go.AddComponent<SpriteRenderer>();
+        PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.3f, 0.6f, 1f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.5f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
+        // #8 霜冻子弹：添加冰晶拖尾 + 残影效果
+        DotBulletVisualEffects.AttachFrostTrail(go);
         var b = go.AddComponent<FrostBullet>();
         b.Setup(speed, impactDmg, frostDps, freezeDuration, slowPercent, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
@@ -982,7 +999,7 @@ public class WindErosionVortex : MonoBehaviour
 public class PenetrateHandler : MonoBehaviour
 {
     private int _remaining;
-    private HashSet<int> _hitEnemies = new HashSet<int>();
+    private HashSet<Collider2D> _hitEnemies = new HashSet<Collider2D>();
 
     /// <summary>
     /// 设置穿透次数（额外穿透的敌人数量）
@@ -998,10 +1015,9 @@ public class PenetrateHandler : MonoBehaviour
     /// </summary>
     public bool TryPenetrate(Collider2D hitEnemy)
     {
-        int id = hitEnemy.gameObject.GetInstanceID();
         // 防止同一敌人被穿透多次
-        if (_hitEnemies.Contains(id)) return false;
-        _hitEnemies.Add(id);
+        if (_hitEnemies.Contains(hitEnemy)) return false;
+        _hitEnemies.Add(hitEnemy);
 
         if (_remaining <= 0) return false;
         _remaining--;
@@ -1305,6 +1321,177 @@ public static class DotBulletFactory
             var ph = bullet.AddComponent<PenetrateHandler>();
             ph.Setup(penetrateCount);
         }
+    }
+}
+
+/// <summary>
+/// #8 DOT 子弹视觉特效组件 — 为不同 DOT 子弹添加独特的弹道视觉效果
+/// 使用 TrailRenderer / 子物体 / 旋转 等轻量级方案，避免 ParticleSystem 开销
+/// </summary>
+public static class DotBulletVisualEffects
+{
+    /// <summary>
+    /// 流血子弹：红色拖尾效果
+    /// </summary>
+    public static void AttachTrail(GameObject go, Color trailColor, float trailTime, float startWidth)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = trailTime;
+        trail.startWidth = startWidth;
+        trail.endWidth = 0f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = trailColor;
+        trail.endColor = new Color(trailColor.r, trailColor.g, trailColor.b, 0f);
+        trail.numCapVertices = 2;
+        trail.minVertexDistance = 0.05f;
+        trail.sortingOrder = 14;
+    }
+
+    /// <summary>
+    /// 燃烧子弹：火焰脉冲视觉 — 子物体橙色发光球跟随，带脉冲闪烁
+    /// </summary>
+    public static void AttachFlameEffect(GameObject go)
+    {
+        var glow = new GameObject("FlameGlow");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = Vector3.zero;
+        glow.transform.localScale = Vector3.one * 1.8f;
+
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = DotSpriteCache.CircleSprite();
+        glowSr.color = new Color(1f, 0.6f, 0f, 0.3f);
+        glowSr.sortingOrder = 14;
+
+        var pulse = glow.AddComponent<FlamePulseEffect>();
+        pulse.Init(glowSr);
+    }
+
+    /// <summary>
+    /// 霜冻子弹：冰蓝色拖尾 + 残影效果
+    /// </summary>
+    public static void AttachFrostTrail(GameObject go)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.3f;
+        trail.startWidth = 0.2f;
+        trail.endWidth = 0.05f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = new Color(0.5f, 0.8f, 1f, 0.7f);
+        trail.endColor = new Color(0.5f, 0.8f, 1f, 0f);
+        trail.numCapVertices = 3;
+        trail.minVertexDistance = 0.03f;
+        trail.sortingOrder = 14;
+
+        var ghost = go.AddComponent<FrostGhostSpawner>();
+    }
+
+    /// <summary>
+    /// 中毒药瓶：旋转弹道视觉
+    /// </summary>
+    public static void AttachSpinEffect(GameObject go, float spinSpeed)
+    {
+        var spin = go.AddComponent<SpinEffect>();
+        spin.Init(spinSpeed);
+    }
+}
+
+/// <summary>
+/// 火焰脉冲效果 — 燃烧子弹的光晕闪烁
+/// </summary>
+public class FlamePulseEffect : MonoBehaviour
+{
+    private SpriteRenderer _sr;
+    private float _baseAlpha = 0.3f;
+    private float _pulseSpeed = 12f;
+
+    public void Init(SpriteRenderer sr) { _sr = sr; }
+
+    private void Update()
+    {
+        if (_sr == null) return;
+        float pulse = Mathf.Sin(Time.time * _pulseSpeed) * 0.15f;
+        var c = _sr.color;
+        c.a = _baseAlpha + pulse;
+        _sr.color = c;
+        float scale = 1.8f + Mathf.Sin(Time.time * _pulseSpeed * 0.7f) * 0.3f;
+        transform.localScale = Vector3.one * scale;
+    }
+}
+
+/// <summary>
+/// 霜冻残影生成器 — 每隔一小段时间在子弹位置留下半透明冰晶残影
+/// </summary>
+public class FrostGhostSpawner : MonoBehaviour
+{
+    private float _spawnInterval = 0.08f;
+    private float _ghostLifetime = 0.25f;
+    private float _lastSpawn;
+    private static Sprite _ghostSprite;
+
+    private void Update()
+    {
+        if (Time.time - _lastSpawn < _spawnInterval) return;
+        _lastSpawn = Time.time;
+
+        var ghost = new GameObject("FrostGhost");
+        ghost.transform.position = transform.position;
+        ghost.transform.localScale = Vector3.one * 0.3f;
+
+        var sr = ghost.AddComponent<SpriteRenderer>();
+        if (_ghostSprite == null) _ghostSprite = DotSpriteCache.Get();
+        sr.sprite = _ghostSprite;
+        sr.color = new Color(0.5f, 0.8f, 1f, 0.5f);
+        sr.sortingOrder = 13;
+
+        var fade = ghost.AddComponent<GhostFadeOut>();
+        fade.Init(_ghostLifetime);
+    }
+}
+
+/// <summary>
+/// 残影淡出组件 — 控制残影在指定时间内淡出并销毁
+/// </summary>
+public class GhostFadeOut : MonoBehaviour
+{
+    private float _lifetime;
+    private float _spawnTime;
+    private SpriteRenderer _sr;
+
+    public void Init(float lifetime)
+    {
+        _lifetime = lifetime;
+        _spawnTime = Time.time;
+        _sr = GetComponent<SpriteRenderer>();
+    }
+
+    private void Update()
+    {
+        float elapsed = Time.time - _spawnTime;
+        if (elapsed >= _lifetime) { Destroy(gameObject); return; }
+
+        float t = 1f - (elapsed / _lifetime);
+        if (_sr != null)
+        {
+            var c = _sr.color;
+            c.a = 0.5f * t;
+            _sr.color = c;
+        }
+        transform.localScale = Vector3.one * (0.3f * t);
+    }
+}
+
+/// <summary>
+/// 旋转效果 — 中毒药瓶飞行时旋转
+/// </summary>
+public class SpinEffect : MonoBehaviour
+{
+    private float _spinSpeed = 360f;
+
+    public void Init(float speed) { _spinSpeed = speed; }
+
+    private void Update()
+    {
+        transform.Rotate(0, 0, _spinSpeed * Time.deltaTime);
     }
 }
 

@@ -14,6 +14,13 @@ public class Damageable : MonoBehaviour, IDamageable
     [SerializeField] private int _currentHp;
     [SerializeField] private int _armor = 0;
 
+    [Header("无敌帧（仅玩家）")]
+    [SerializeField] private float _invincibleDuration = 0.5f;  // 无敌帧持续时间
+    private float _invincibleUntil = -999f;                      // 无敌帧结束时间
+    private SpriteRenderer _playerSr;                            // 缓存玩家 SpriteRenderer
+    private float _flashTimer = 0f;                              // 闪烁计时器
+    private const float FLASH_INTERVAL = 0.05f;                  // 闪烁间隔
+
     /// <summary>
     /// 当前 HP
     /// </summary>
@@ -82,6 +89,46 @@ public class Damageable : MonoBehaviour, IDamageable
     private bool _dead = false;
 
     /// <summary>
+    /// 是否处于无敌帧状态
+    /// </summary>
+    public bool IsInvincible => Time.time < _invincibleUntil;
+
+    /// <summary>
+    /// 玩家无敌帧闪烁效果（每帧调用）
+    /// </summary>
+    private void Update()
+    {
+        // 仅玩家无敌帧期间执行闪烁
+        if (!gameObject.CompareTag("Player")) return;
+        if (!IsInvincible)
+        {
+            // 无敌帧结束，确保 SpriteRenderer 完全不透明
+            if (_playerSr != null && _playerSr.color.a < 1f)
+            {
+                var c = _playerSr.color;
+                c.a = 1f;
+                _playerSr.color = c;
+            }
+            return;
+        }
+
+        // 闪烁：每 0.05 秒切换透明/不透明
+        _flashTimer -= Time.deltaTime;
+        if (_flashTimer <= 0f)
+        {
+            _flashTimer = FLASH_INTERVAL;
+            if (_playerSr == null)
+                _playerSr = GetComponent<SpriteRenderer>();
+            if (_playerSr != null)
+            {
+                var c = _playerSr.color;
+                c.a = c.a > 0.5f ? 0.2f : 1f;
+                _playerSr.color = c;
+            }
+        }
+    }
+
+    /// <summary>
     /// 每帧检查：如果 HP ≤ 0 但对象仍存活，强制触发死亡。
     /// 这是终极安全网，不依赖任何子类的 FixedUpdate/Update 调用链。
     /// </summary>
@@ -130,6 +177,13 @@ public class Damageable : MonoBehaviour, IDamageable
         // 闪避系统（P1-27）— 仅对玩家生效
         if (gameObject.CompareTag("Player"))
         {
+            // 无敌帧检查：玩家在无敌帧期间免疫所有伤害
+            if (IsInvincible)
+            {
+                DebugHelper.Log($"[Damageable] {gameObject.name} is invincible — damage blocked!");
+                return;
+            }
+
             float dodgeChance = SaveManager.Instance?.GetPermanentBonus("dodge_chance") ?? 0f;
             if (dodgeChance > 0f && UnityEngine.Random.value < dodgeChance)
             {
@@ -151,9 +205,17 @@ public class Damageable : MonoBehaviour, IDamageable
 
         OnDamaged?.Invoke(_currentHp, _maxHp);
 
-        // 仅玩家受伤时通知全局事件
+        // 玩家受伤后：触发无敌帧 + 受伤闪红
         if (gameObject.CompareTag("Player"))
         {
+            // 触发无敌帧
+            _invincibleUntil = Time.time + _invincibleDuration;
+            _flashTimer = 0f; // 立即开始闪烁
+
+            // 受伤闪红效果（全屏红色闪一下）
+            DamageFlashEffect.Show(0.1f, new Color(1f, 0f, 0f, 0.3f));
+
+            // 受伤音效由 SFXManager 通过 EventManager.OnPlayerDamaged 事件自动播放
             EventManager.TriggerPlayerDamaged(_currentHp, _maxHp);
         }
 

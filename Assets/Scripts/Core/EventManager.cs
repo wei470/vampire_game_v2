@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// 全局事件总线，管理所有游戏事件的订阅和触发。
@@ -9,9 +10,76 @@ using System;
 ///   订阅: EventManager.OnEnemyKilled += MyHandler;
 ///   触发: EventManager.TriggerEnemyKilled(position, xp, coin);
 ///   取消: EventManager.OnEnemyKilled -= MyHandler;
+///
+/// #32 泛型事件系统：
+///   订阅: EventManager.Subscribe<MyEvent>(handler);
+///   触发: EventManager.Publish(new MyEvent { ... });
+///   取消: EventManager.Unsubscribe<MyEvent>(handler);
 /// </summary>
 public static class EventManager
 {
+    // ============================================================
+    // #32 泛型事件系统（新增）
+    // ============================================================
+
+    /// <summary>
+    /// 泛型事件容器 — 按类型 T 存储委托列表
+    /// </summary>
+    private static class GenericEventBus<T>
+    {
+        public static event Action<T> Handlers;
+        public static void Publish(T data) => Handlers?.Invoke(data);
+        public static void Clear() => Handlers = null;
+    }
+
+    /// <summary>
+    /// 订阅泛型事件
+    /// </summary>
+    public static void Subscribe<T>(Action<T> handler)
+    {
+        GenericEventBus<T>.Handlers += handler;
+    }
+
+    /// <summary>
+    /// 取消订阅泛型事件
+    /// </summary>
+    public static void Unsubscribe<T>(Action<T> handler)
+    {
+        GenericEventBus<T>.Handlers -= handler;
+    }
+
+    /// <summary>
+    /// 触发泛型事件
+    /// </summary>
+    public static void Publish<T>(T data)
+    {
+        GenericEventBus<T>.Publish(data);
+    }
+
+    /// <summary>
+    /// 清除指定类型的泛型事件
+    /// </summary>
+    public static void ClearGeneric<T>()
+    {
+        GenericEventBus<T>.Clear();
+    }
+
+    // 泛型事件类型注册表 — ClearAll 时一并清除
+    private static readonly List<Action> _genericClearActions = new List<Action>();
+
+    /// <summary>
+    /// 注册泛型类型到清理列表（首次使用时自动注册）
+    /// </summary>
+    private static readonly HashSet<Type> _registeredGenericTypes = new HashSet<Type>();
+
+    private static void EnsureRegistered<T>()
+    {
+        if (_registeredGenericTypes.Add(typeof(T)))
+        {
+            _genericClearActions.Add(() => GenericEventBus<T>.Clear());
+        }
+    }
+
     // ============================================================
     // 战斗相关事件
     // ============================================================
@@ -101,6 +169,30 @@ public static class EventManager
     /// 角色选择事件。参数：(角色数据)
     /// </summary>
     public static event Action<CharacterData> OnCharacterSelected;
+
+    // ============================================================
+    // Boss 相关事件（#21 Boss 战专属 UI）
+    // ============================================================
+
+    /// <summary>
+    /// Boss 出现事件。参数：(Boss 类型名称, Boss 最大 HP)
+    /// </summary>
+    public static event Action<string, int> OnBossSpawn;
+
+    /// <summary>
+    /// Boss 阶段切换事件。参数：(当前阶段, 最大阶段)
+    /// </summary>
+    public static event Action<int, int> OnBossPhaseChange;
+
+    /// <summary>
+    /// Boss 死亡事件。参数：(Boss 类型名称)
+    /// </summary>
+    public static event Action<string> OnBossDeath;
+
+    /// <summary>
+    /// Boss HP 变化事件。参数：(当前 HP, 最大 HP)
+    /// </summary>
+    public static event Action<int, int> OnBossHPChanged;
 
     // ============================================================
     // 游戏流程事件
@@ -201,6 +293,27 @@ public static class EventManager
         OnCharacterSelected?.Invoke(character);
     }
 
+    // #21 Boss 相关触发方法
+    public static void TriggerBossSpawn(string bossTypeName, int maxHP)
+    {
+        OnBossSpawn?.Invoke(bossTypeName, maxHP);
+    }
+
+    public static void TriggerBossPhaseChange(int currentPhase, int maxPhase)
+    {
+        OnBossPhaseChange?.Invoke(currentPhase, maxPhase);
+    }
+
+    public static void TriggerBossDeath(string bossTypeName)
+    {
+        OnBossDeath?.Invoke(bossTypeName);
+    }
+
+    public static void TriggerBossHPChanged(int currentHP, int maxHP)
+    {
+        OnBossHPChanged?.Invoke(currentHP, maxHP);
+    }
+
     // ============================================================
     // 工具方法
     // ============================================================
@@ -226,6 +339,19 @@ public static class EventManager
         OnComboChanged = null;
         OnSelectionComplete = null;
         OnCharacterSelected = null;
+
+        // #21 Boss 事件清理
+        OnBossSpawn = null;
+        OnBossPhaseChange = null;
+        OnBossDeath = null;
+        OnBossHPChanged = null;
+
+        // #32 泛型事件清理
+        for (int i = 0; i < _genericClearActions.Count; i++)
+        {
+            _genericClearActions[i]?.Invoke();
+        }
+        _registeredGenericTypes.Clear();
 
         DebugHelper.Log("[EventManager] All events cleared.");
     }
