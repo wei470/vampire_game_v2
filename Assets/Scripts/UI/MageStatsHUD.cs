@@ -244,7 +244,6 @@ public class MageStatsHUD : MonoBehaviour
         if (guns == null || guns.Count == 0) return;
 
         float iconSize = 14f;
-        float gap = 4f;
         float curX = x;
 
         for (int i = 0; i < guns.Count; i++)

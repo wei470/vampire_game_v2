@@ -100,7 +100,9 @@ public class MapThemeData : ScriptableObject
         Slow,       // 减速区域
         Damage,     // 伤害区域
         Heal,       // 治疗区域
-        Lava        // 岩浆区域（持续高伤害）
+        Lava,       // 岩浆区域（持续高伤害）
+        Speed,      // #40 加速区域（移速+50%）
+        DotEnhance  // #40 DOT增强区域（DOT伤害+30%，Mage专属优势）
     }
 
     /// <summary>

@@ -82,15 +82,17 @@ public class AchievementUI : MonoBehaviour
     private void OnLevelUp(int l) { _currentLevel = l; Try("level_max", l >= 20); }
     public void OnBossDefeated() { _bossesKilled++; Try("boss_first", _bossesKilled >= 1); Try("boss_5", _bossesKilled >= 5); }
 
+    // #38 永久加成上限控制
+    private const float MAX_SINGLE_BONUS = 0.20f;  // 单个加成上限 20%
+    private const float MAX_TOTAL_BONUS = 1.00f;   // 总加成上限 100%
+
     private void Try(string id, bool cond)
     {
         if (!cond) return; if (!_achievementMap.TryGetValue(id, out var a)) return; if (a.unlocked) return;
         a.unlocked = true; a.unlockTime = Time.unscaledTime;
 
-        // #29 构建通知文本
-        string bonusText = "";
-        if (!string.IsNullOrEmpty(a.bonusKey) && a.bonusValue > 0)
-            bonusText = $"Bonus: +{a.bonusValue}";
+        // #29 构建通知文本（#38 增强：显示具体永久加成数值）
+        string bonusText = FormatBonusText(a.bonusKey, a.bonusValue);
 
         _notificationQueue.Enqueue(new NotificationEntry
         {
@@ -260,9 +262,59 @@ public class AchievementUI : MonoBehaviour
     // 保留旧方法兼容性
     private void DrawUnlockToast() { }
 
+    /// <summary>
+    /// #38 格式化永久加成描述文本
+    /// </summary>
+    private static string FormatBonusText(string bonusKey, float bonusValue)
+    {
+        if (string.IsNullOrEmpty(bonusKey) || bonusValue <= 0f) return "";
+
+        switch (bonusKey)
+        {
+            case "crit_chance": return $"暴击率 +{bonusValue * 100:F0}%，永久生效";
+            case "max_hp_bonus": return $"最大生命 +{bonusValue:F0}，永久生效";
+            case "damage_bonus": return $"伤害 +{bonusValue * 100:F0}%，永久生效";
+            case "dot_damage_bonus": return $"DOT伤害 +{bonusValue * 100:F0}%，永久生效";
+            case "detonate_bonus": return $"引爆伤害 +{bonusValue * 100:F0}%，永久生效";
+            case "coin_bonus": return $"金币获取 +{bonusValue * 100:F0}%，永久生效";
+            default: return $"Bonus: +{bonusValue}，永久生效";
+        }
+    }
+
+    /// <summary>
+    /// #38 获取所有已解锁成就的永久加成汇总
+    /// </summary>
+    private Dictionary<string, float> GetBonusSummary()
+    {
+        var summary = new Dictionary<string, float>();
+        foreach (var a in _achievements)
+        {
+            if (!a.unlocked || string.IsNullOrEmpty(a.bonusKey) || a.bonusValue <= 0f) continue;
+            if (!summary.ContainsKey(a.bonusKey))
+                summary[a.bonusKey] = 0f;
+            summary[a.bonusKey] += a.bonusValue;
+        }
+        return summary;
+    }
+
+    /// <summary>
+    /// #38 获取某个加成的当前总值（含上限控制）
+    /// </summary>
+    public float GetCappedBonus(string bonusKey)
+    {
+        float total = 0f;
+        foreach (var a in _achievements)
+        {
+            if (!a.unlocked || a.bonusKey != bonusKey) continue;
+            total += a.bonusValue;
+        }
+        // 单个加成上限
+        return Mathf.Min(total, MAX_SINGLE_BONUS);
+    }
+
     private void DrawAchievementPanel()
     {
-        float w = 500, h = 400, x = (Screen.width - w) / 2f, y = (Screen.height - h) / 2f;
+        float w = 520, h = 480, x = (Screen.width - w) / 2f, y = (Screen.height - h) / 2f;
         GUI.color = UIColorTheme.OverlayDark; GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _overlayTex); GUI.color = Color.white;
         GUI.color = UIColorTheme.PanelBackground; GUI.DrawTexture(new Rect(x, y, w, h), _panelBgTex); GUI.color = Color.white;
         GUI.Box(new Rect(x, y, w, h), "");
@@ -270,12 +322,61 @@ public class AchievementUI : MonoBehaviour
         var titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UIColorTheme.AccentCyan } };
         GUI.color = UIColorTheme.AccentCyan; GUI.Label(new Rect(x, y + 10, w, 30), "🏆 Achievements", titleStyle); GUI.color = Color.white;
 
-        GUILayout.BeginArea(new Rect(x + 10, y + 50, w - 20, h - 100));
-        _scrollPos = GUILayout.BeginScrollView(_scrollPos);
         int unlocked = 0;
-        foreach (var a in _achievements) { GUI.color = a.unlocked ? UIColorTheme.AccentCyan : UIColorTheme.TextSecondary; string s = a.unlocked ? "✅" : "🔒"; GUILayout.Label($"{s}  {a.name}  —  {a.description}"); if (a.unlocked) unlocked++; }
+        foreach (var a in _achievements) { if (a.unlocked) unlocked++; }
+
+        // 成就列表
+        float listHeight = h - 180f;
+        GUILayout.BeginArea(new Rect(x + 10, y + 50, w - 20, listHeight));
+        _scrollPos = GUILayout.BeginScrollView(_scrollPos);
+        foreach (var a in _achievements)
+        {
+            GUI.color = a.unlocked ? UIColorTheme.AccentCyan : UIColorTheme.TextSecondary;
+            string s = a.unlocked ? "✅" : "🔒";
+            string bonus = a.unlocked ? FormatBonusText(a.bonusKey, a.bonusValue) : "";
+            string line = $"{s}  {a.name}  —  {a.description}";
+            if (!string.IsNullOrEmpty(bonus)) line += $"\n      ✨ {bonus}";
+            GUILayout.Label(line);
+        }
         GUILayout.EndScrollView(); GUILayout.EndArea();
 
+        // #38 永久加成总览面板
+        float bonusY = y + listHeight + 55;
+        GUI.color = new Color(0.2f, 1f, 0.4f, 0.8f);
+        var bonusTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.2f, 1f, 0.4f) } };
+        GUI.Label(new Rect(x + 15, bonusY, w - 30, 20), "✨ 永久加成总览", bonusTitleStyle);
+
+        var bonusSummary = GetBonusSummary();
+        float totalBonus = 0f;
+        float bx = x + 15;
+        float by = bonusY + 22;
+        var bonusLineStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, normal = { textColor = new Color(0.8f, 0.9f, 0.7f) } };
+
+        foreach (var kvp in bonusSummary)
+        {
+            float capped = Mathf.Min(kvp.Value, MAX_SINGLE_BONUS);
+            totalBonus += capped;
+            string display = FormatBonusText(kvp.Key, capped);
+            if (!string.IsNullOrEmpty(display))
+            {
+                GUI.Label(new Rect(bx, by, w / 2f - 20, 16), $"• {display}", bonusLineStyle);
+                by += 16;
+            }
+        }
+
+        if (bonusSummary.Count == 0)
+        {
+            GUI.Label(new Rect(bx, by, w - 30, 16), "暂无解锁加成", bonusLineStyle);
+        }
+        else
+        {
+            // 总加成显示
+            var totalStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.3f, 1f, 0.6f) } };
+            totalBonus = Mathf.Min(totalBonus, MAX_TOTAL_BONUS);
+            GUI.Label(new Rect(bx, by + 4, w - 30, 16), $"总计加成: {totalBonus * 100:F1}% (上限 {MAX_TOTAL_BONUS * 100:F0}%)", totalStyle);
+        }
+
+        // 统计和关闭按钮
         var statStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
         GUI.color = UIColorTheme.AccentCyan; GUI.Label(new Rect(x, y + h - 40, w, 30), $"{unlocked}/{_achievements.Count} Unlocked", statStyle); GUI.color = Color.white;
         if (GUI.Button(new Rect(x + w - 80, y + 10, 60, 25), "Close")) _showPanel = false;

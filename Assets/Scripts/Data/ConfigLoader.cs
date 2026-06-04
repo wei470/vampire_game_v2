@@ -43,7 +43,7 @@ public class ConfigLoader : Singleton<ConfigLoader>
             var config = Resources.Load<EnemyWaveConfig>("Configs/EnemyWaveConfig");
             if (config == null)
             {
-                DebugHelper.LogWarning("[ConfigLoader] EnemyWaveConfig not found, creating default");
+                DebugHelper.Log("[ConfigLoader] EnemyWaveConfig not found, creating default");
                 config = ScriptableObject.CreateInstance<EnemyWaveConfig>();
             }
             if (Instance != null) Instance._enemyWaveConfig = config;

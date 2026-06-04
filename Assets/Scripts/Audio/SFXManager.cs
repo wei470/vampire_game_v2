@@ -268,6 +268,14 @@ public class SFXManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 播放升级音效（由 MagePassive / AchievementUI 等调用）
+    /// </summary>
+    public void PlayLevelUp()
+    {
+        Play(_levelUpSound, 1f);
+    }
+
+    /// <summary>
     /// 播放升级选择音效（由 LevelUpUI 调用）
     /// </summary>
     public void PlaySelect()

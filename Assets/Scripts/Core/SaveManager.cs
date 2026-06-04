@@ -2,10 +2,16 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 /// <summary>
 /// 存档管理器，负责保存/加载玩家永久进度。
 /// 对应 Python: playfile.py
+/// 
+/// #34 安全特性：
+/// - CRC32 校验码防篡改
+/// - 存档版本号，未来格式升级时自动迁移
+/// - 最近 3 个存档备份，循环覆盖
 /// </summary>
 public class SaveManager : Singleton<SaveManager>
 {
@@ -47,6 +53,7 @@ public class SaveManager : Singleton<SaveManager>
     [Serializable]
     public class SaveData
     {
+        public int saveVersion = CURRENT_SAVE_VERSION;
         public int coins;
         public SerializableDictionary upgrades = new SerializableDictionary();
         public int highestWave;
@@ -54,6 +61,23 @@ public class SaveManager : Singleton<SaveManager>
         public int totalGames;
         public string[] claimedMilestones = new string[0];
     }
+
+    /// <summary>
+    /// 存档包装器 — 包含实际数据 + CRC32 校验码
+    /// </summary>
+    [Serializable]
+    public class SaveWrapper
+    {
+        public string data;       // SaveData 的 JSON 字符串
+        public string checksum;   // CRC32 校验码（十六进制字符串）
+    }
+
+    // 存档版本号（未来格式升级时递增）
+    private const int CURRENT_SAVE_VERSION = 1;
+
+    // 备份配置
+    private const int MAX_BACKUPS = 3;
+    private static readonly string[] BACKUP_SUFFIXES = { ".bak1", ".bak2", ".bak3" };
 
     [Serializable]
     public class SerializableDictionary
@@ -162,6 +186,7 @@ public class SaveManager : Singleton<SaveManager>
 
     private SaveData _data = null;
     private string _savePath = null;
+    private string _saveDir = null;
 
     /// <summary>
     /// 当前存档数据（保证非 null）
@@ -181,7 +206,8 @@ public class SaveManager : Singleton<SaveManager>
     protected override void Awake()
     {
         base.Awake();
-        _savePath = Path.Combine(Application.persistentDataPath, "save_data.json");
+        _saveDir = Application.persistentDataPath;
+        _savePath = Path.Combine(_saveDir, "save_data.json");
         if (_data == null) _data = CreateDefaultSave();
         Load();
     }
@@ -193,14 +219,28 @@ public class SaveManager : Singleton<SaveManager>
     public void Save()
     {
         if (string.IsNullOrEmpty(_savePath))
-            _savePath = Path.Combine(Application.persistentDataPath, "save_data.json");
+        {
+            _saveDir = Application.persistentDataPath;
+            _savePath = Path.Combine(_saveDir, "save_data.json");
+        }
         try
         {
             // 保存前将 Dictionary 同步回数组
             Data.upgrades.Flush();
-            string json = JsonUtility.ToJson(Data, true);
-            File.WriteAllText(_savePath, json);
-            DebugHelper.Log($"[SaveManager] Saved to {_savePath}");
+            Data.saveVersion = CURRENT_SAVE_VERSION;
+
+            string dataJson = JsonUtility.ToJson(Data, true);
+            string checksum = ComputeCRC32(dataJson);
+
+            // 包装为 SaveWrapper（包含校验码）
+            var wrapper = new SaveWrapper { data = dataJson, checksum = checksum };
+            string wrapperJson = JsonUtility.ToJson(wrapper, true);
+
+            // #34 先创建备份，再写入新存档
+            RotateBackups();
+
+            File.WriteAllText(_savePath, wrapperJson);
+            DebugHelper.Log($"[SaveManager] Saved to {_savePath} (CRC32={checksum}, v{CURRENT_SAVE_VERSION})");
         }
         catch (Exception e)
         {
@@ -211,22 +251,48 @@ public class SaveManager : Singleton<SaveManager>
     public void Load()
     {
         if (_savePath == null)
-            _savePath = Path.Combine(Application.persistentDataPath, "save_data.json");
+        {
+            _saveDir = Application.persistentDataPath;
+            _savePath = Path.Combine(_saveDir, "save_data.json");
+        }
 
         if (File.Exists(_savePath))
         {
             try
             {
-                string json = File.ReadAllText(_savePath);
-                _data = JsonUtility.FromJson<SaveData>(json);
-                if (_data.upgrades == null) _data.upgrades = new SerializableDictionary();
-                if (_data.claimedMilestones == null) _data.claimedMilestones = new string[0];
-                DebugHelper.Log($"[SaveManager] Loaded: coins={_data.coins}, waves={_data.highestWave}, kills={_data.totalKills}");
+                string wrapperJson = File.ReadAllText(_savePath);
+                _data = TryLoadFromWrapper(wrapperJson);
+
+                if (_data == null)
+                {
+                    // 尝试从备份恢复
+                    _data = TryLoadFromBackups();
+                }
+
+                if (_data != null)
+                {
+                    // 存档版本迁移
+                    MigrateSaveData(_data);
+
+                    if (_data.upgrades == null) _data.upgrades = new SerializableDictionary();
+                    if (_data.claimedMilestones == null) _data.claimedMilestones = new string[0];
+                    DebugHelper.Log($"[SaveManager] Loaded: coins={_data.coins}, waves={_data.highestWave}, kills={_data.totalKills}");
+                }
+                else
+                {
+                    DebugHelper.LogWarning("[SaveManager] All save files corrupted, creating new save");
+                    _data = CreateDefaultSave();
+                }
             }
             catch (Exception e)
             {
-                DebugHelper.LogWarning($"[SaveManager] Load failed: {e.Message}");
-                _data = CreateDefaultSave();
+                DebugHelper.LogWarning($"[SaveManager] Load failed: {e.Message}, attempting backup recovery");
+                _data = TryLoadFromBackups();
+                if (_data == null)
+                {
+                    DebugHelper.LogWarning("[SaveManager] No valid backup found, creating default save");
+                    _data = CreateDefaultSave();
+                }
             }
         }
         else
@@ -235,6 +301,167 @@ public class SaveManager : Singleton<SaveManager>
             DebugHelper.Log("[SaveManager] No save file found, created default save");
         }
         OnSaveLoaded?.Invoke(_data);
+    }
+
+    /// <summary>
+    /// 尝试从 SaveWrapper 格式加载存档，校验 CRC32
+    /// </summary>
+    private SaveData TryLoadFromWrapper(string json)
+    {
+        try
+        {
+            var wrapper = JsonUtility.FromJson<SaveWrapper>(json);
+            if (wrapper != null && !string.IsNullOrEmpty(wrapper.data))
+            {
+                // 验证 CRC32 校验码
+                string expectedCrc = ComputeCRC32(wrapper.data);
+                if (wrapper.checksum == expectedCrc)
+                {
+                    DebugHelper.Log($"[SaveManager] CRC32 verified: {expectedCrc}");
+                    return JsonUtility.FromJson<SaveData>(wrapper.data);
+                }
+                else
+                {
+                    DebugHelper.LogWarning($"[SaveManager] CRC32 mismatch! Expected={expectedCrc}, Got={wrapper.checksum}. Save file may be corrupted or tampered.");
+                    return null;
+                }
+            }
+        }
+        catch
+        {
+            // 可能是旧格式（直接 SaveData JSON），尝试兼容加载
+        }
+
+        // 旧格式兼容：直接作为 SaveData 加载（无校验）
+        try
+        {
+            var legacyData = JsonUtility.FromJson<SaveData>(json);
+            if (legacyData != null)
+            {
+                DebugHelper.Log("[SaveManager] Loaded legacy save format (no checksum). Will upgrade on next save.");
+                return legacyData;
+            }
+        }
+        catch
+        {
+            // 完全无法解析
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 尝试从备份文件加载存档
+    /// </summary>
+    private SaveData TryLoadFromBackups()
+    {
+        for (int i = 0; i < MAX_BACKUPS; i++)
+        {
+            string backupPath = _savePath + BACKUP_SUFFIXES[i];
+            if (!File.Exists(backupPath)) continue;
+
+            try
+            {
+                string json = File.ReadAllText(backupPath);
+                var data = TryLoadFromWrapper(json);
+                if (data != null)
+                {
+                    DebugHelper.Log($"[SaveManager] Recovered from backup #{i + 1}: {backupPath}");
+                    return data;
+                }
+            }
+            catch
+            {
+                // 备份也损坏，尝试下一个
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 循环覆盖备份文件（最旧的被覆盖）
+    /// </summary>
+    private void RotateBackups()
+    {
+        if (!File.Exists(_savePath)) return;
+
+        try
+        {
+            // 删除最旧的备份，将当前存档移到备份位置
+            string oldestBackup = _savePath + BACKUP_SUFFIXES[MAX_BACKUPS - 1];
+            if (File.Exists(oldestBackup))
+                File.Delete(oldestBackup);
+
+            // 从后往前移动备份
+            for (int i = MAX_BACKUPS - 1; i > 0; i--)
+            {
+                string src = _savePath + BACKUP_SUFFIXES[i - 1];
+                string dst = _savePath + BACKUP_SUFFIXES[i];
+                if (File.Exists(src))
+                    File.Move(src, dst);
+            }
+
+            // 当前存档变为第一个备份
+            File.Copy(_savePath, _savePath + BACKUP_SUFFIXES[0], true);
+        }
+        catch (Exception e)
+        {
+            DebugHelper.LogWarning($"[SaveManager] Backup rotation failed: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 存档版本迁移（未来格式升级时在此添加逻辑）
+    /// </summary>
+    private void MigrateSaveData(SaveData data)
+    {
+        if (data.saveVersion < CURRENT_SAVE_VERSION)
+        {
+            DebugHelper.Log($"[SaveManager] Migrating save from v{data.saveVersion} to v{CURRENT_SAVE_VERSION}");
+            // 未来在此添加迁移逻辑
+            // if (data.saveVersion < 2) { ... }
+            data.saveVersion = CURRENT_SAVE_VERSION;
+        }
+    }
+
+    // ============================================================
+    // CRC32 校验码计算
+    // ============================================================
+
+    private static uint[] _crc32Table;
+
+    /// <summary>
+    /// 计算字符串的 CRC32 校验码（返回 8 位十六进制字符串）
+    /// </summary>
+    private static string ComputeCRC32(string input)
+    {
+        if (_crc32Table == null) InitCRC32Table();
+
+        byte[] bytes = Encoding.UTF8.GetBytes(input);
+        uint crc = 0xFFFFFFFF;
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            byte tableIndex = (byte)((crc & 0xFF) ^ bytes[i]);
+            crc = (crc >> 8) ^ _crc32Table[tableIndex];
+        }
+        return (crc ^ 0xFFFFFFFF).ToString("X8");
+    }
+
+    /// <summary>
+    /// 初始化 CRC32 查找表
+    /// </summary>
+    private static void InitCRC32Table()
+    {
+        _crc32Table = new uint[256];
+        for (uint i = 0; i < 256; i++)
+        {
+            uint crc = i;
+            for (int j = 0; j < 8; j++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320 : crc >> 1;
+            }
+            _crc32Table[i] = crc;
+        }
     }
 
     private SaveData CreateDefaultSave()

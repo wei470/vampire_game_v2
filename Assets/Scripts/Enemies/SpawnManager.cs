@@ -136,6 +136,14 @@ public class SpawnManager : MonoBehaviour
         }
     }
 
+    // #39 波次挑战系统
+    private WaveChallengeSystem _challengeSystem;
+
+    /// <summary>
+    /// 获取挑战系统的引用（供外部访问）
+    /// </summary>
+    public WaveChallengeSystem ChallengeSystem => _challengeSystem;
+
     private Transform _playerTransform;
 
     private void OnEnable()
@@ -150,6 +158,9 @@ public class SpawnManager : MonoBehaviour
 
     private void Start()
     {
+        // #39 初始化波次挑战系统
+        _challengeSystem = gameObject.AddComponent<WaveChallengeSystem>();
+
         // 使用全局引用缓存，避免昂贵的 FindAnyObjectByType 调用
         var player = GameReferences.Player;
         if (player != null)
@@ -289,18 +300,65 @@ public class SpawnManager : MonoBehaviour
     /// </summary>
     public void StartFirstWave()
     {
+        // 彻底重置：停止所有协程、清空状态、销毁场景中所有残留敌人
+        StopAllCoroutines();
+
+        _currentWave = 0;
+        _enemiesAlive = 0;
+        _isSpawning = false;
+        _waveInProgress = false;
+
+        // 强制清除场景中所有 Enemy 标签的物体（不依赖 _activeEnemies 列表）
+        ForceDestroyAllEnemies();
+
         // 确保敌人预制体已创建（Start() 可能因组件被禁用而未执行）
         EnsureEnemyPrefabs();
 
-        // 确保玩家引用已缓存
-        if (_playerTransform == null)
+        // 强制重新获取玩家引用（防止上一局的 stale 引用）
+        _playerTransform = null;
+        var player = GameReferences.Player;
+        if (player != null)
+            _playerTransform = player.transform;
+        else
+            _playerTransform = FindAnyObjectByType<PlayerController>()?.transform;
+
+        DebugHelper.Log("[SpawnManager] StartFirstWave: All enemies destroyed, state fully reset, starting wave 1");
+        StartNextWave();
+    }
+
+    /// <summary>
+    /// 彻底销毁场景中所有残留敌人（包括 _activeEnemies 列表中的和未被追踪的）
+    /// </summary>
+    private void ForceDestroyAllEnemies()
+    {
+        // 1. 清空内部列表
+        _activeEnemies.Clear();
+        _enemiesAlive = 0;
+
+        // 2. 查找并销毁场景中所有带 "Enemy" 标签的活跃物体
+        GameObject[] allEnemies = GameObject.FindGameObjectsWithTag("Enemy");
+        int destroyed = 0;
+        foreach (var enemy in allEnemies)
         {
-            var player = GameReferences.Player;
-            if (player != null)
-                _playerTransform = player.transform;
+            if (enemy != null)
+            {
+                enemy.SetActive(false); // 回到对象池
+                destroyed++;
+            }
         }
 
-        StartNextWave();
+        // 3. 查找并销毁所有 Boss（可能标签不是 Enemy）
+        var bosses = FindObjectsByType<BossEnemy>(FindObjectsSortMode.None);
+        foreach (var boss in bosses)
+        {
+            if (boss != null)
+            {
+                boss.gameObject.SetActive(false);
+                destroyed++;
+            }
+        }
+
+        DebugHelper.Log($"[SpawnManager] ForceDestroyAllEnemies: Destroyed {destroyed} enemies");
     }
 
     private void Update()
@@ -368,6 +426,13 @@ public class SpawnManager : MonoBehaviour
                     specialType = st.ToString();
             }
             WaveIntermissionUI.Instance.SetNextWavePreview(nextWave, isNextBoss, specialType);
+        }
+
+        // #39 波次挑战：每 5 波非 Boss 波前提供挑战
+        if (_challengeSystem != null && _challengeSystem.OfferChallenge(_currentWave + 1))
+        {
+            // 暂停倒计时，等待玩家选择
+            yield return _challengeSystem.WaitForChallengeResolution();
         }
 
         yield return new WaitForSeconds(_restBetweenWaves);
@@ -571,7 +636,23 @@ public class SpawnManager : MonoBehaviour
     /// </summary>
     private void SpawnRandomEnemy()
     {
-        if (_playerTransform == null) return;
+        // 安全检查：如果玩家引用丢失，尝试重新获取
+        if (_playerTransform == null)
+        {
+            var player = GameReferences.Player;
+            if (player != null)
+                _playerTransform = player.transform;
+            else
+            {
+                var pc = FindAnyObjectByType<PlayerController>();
+                if (pc != null) _playerTransform = pc.transform;
+            }
+        }
+        if (_playerTransform == null)
+        {
+            DebugHelper.LogWarning("[SpawnManager] SpawnRandomEnemy: Player transform is null, skipping spawn");
+            return;
+        }
 
         Vector2 spawnPos = GetRandomSpawnPosition();
 
@@ -595,13 +676,20 @@ public class SpawnManager : MonoBehaviour
             var dmg = enemy.GetComponent<Damageable>();
             if (dmg != null)
             {
-                int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * HpMultiplier * WeakenMultiplier);
+                float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
+                int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * HpMultiplier * WeakenMultiplier * challengeHp);
                 dmg.SetMaxHp(scaledMaxHp);
             }
 
-            // 削弱敌人速度 + 全局减速50%
+            // 削弱敌人速度 + 全局减速50% + #39 挑战速度倍率
             float weaken = WeakenMultiplier;
-            enemyBase.MoveSpeed *= weaken * 0.5f;
+            float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
+            enemyBase.MoveSpeed *= weaken * 0.5f * challengeSpd;
+
+            // #39 精英试炼：给敌人增加护甲
+            int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
+            if (eliteArmor > 0 && dmg != null)
+                dmg.SetArmor(dmg.Armor + eliteArmor);
 
             enemyBase.SetTarget(_playerTransform);
         }

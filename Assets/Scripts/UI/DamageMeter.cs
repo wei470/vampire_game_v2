@@ -40,7 +40,7 @@ public class DamageMeter : MonoBehaviour
     /// <summary>
     /// 单个来源的伤害统计
     /// </summary>
-    private class SourceStats
+    public class SourceStats
     {
         public long totalDamage;
         public int hitCount;
@@ -57,6 +57,15 @@ public class DamageMeter : MonoBehaviour
     private float _combatStartTime;
     private bool _isTracking = false;
     private StringBuilder _sb = new StringBuilder(512);
+
+    // #41 额外统计追踪
+    private long _maxSingleDetonateDamage = 0;   // 最高单次引爆伤害
+    private float _maxDpsPeak = 0f;               // 最高 DPS 峰值
+    private int _totalDotTicks = 0;               // 总 DOT 生效次数
+    private int _totalKills = 0;                  // 总击杀数
+    private int _bossKills = 0;                   // Boss 击杀数
+    private float _lastDpsCalcTime = 0f;          // 上次 DPS 峰值计算时间
+    private long _damageSinceLastDpsCalc = 0;    // 上次计算后的伤害增量
 
     // ════════════════════════════════════════════════════════════════
     // 单例（非 MonoBehaviour 单例，使用静态引用）
@@ -87,6 +96,17 @@ public class DamageMeter : MonoBehaviour
             return total;
         }
     }
+
+    /// <summary>获取战斗时长</summary>
+    public float CombatTime => _isTracking ? (Time.time - _combatStartTime) : 0f;
+
+    // #41 额外统计公共访问器
+    public long MaxSingleDetonateDamage => _maxSingleDetonateDamage;
+    public float MaxDpsPeak => _maxDpsPeak;
+    public int TotalDotTicks => _totalDotTicks;
+    public int TotalKills => _totalKills;
+    public int BossKills => _bossKills;
+    public Dictionary<DamageSource, SourceStats> StatsSnapshot => _stats;
 
     // ════════════════════════════════════════════════════════════════
     // 生命周期
@@ -190,6 +210,9 @@ public class DamageMeter : MonoBehaviour
     public void RecordDetonate(int damage, int enemiesHit)
     {
         RecordDamage(DamageSource.Detonate, damage);
+        // #41 追踪最高单次引爆伤害
+        if (damage > _maxSingleDetonateDamage)
+            _maxSingleDetonateDamage = damage;
     }
 
     /// <summary>
@@ -206,6 +229,17 @@ public class DamageMeter : MonoBehaviour
             _ => DamageSource.Other
         };
         RecordDamage(source, damage);
+        _totalDotTicks++;
+        _damageSinceLastDpsCalc += damage;
+    }
+
+    /// <summary>
+    /// #41 记录击杀（由 EventManager 触发）
+    /// </summary>
+    public void RecordKill(bool isBoss)
+    {
+        _totalKills++;
+        if (isBoss) _bossKills++;
     }
 
     /// <summary>
@@ -216,6 +250,43 @@ public class DamageMeter : MonoBehaviour
         _stats.Clear();
         _isTracking = false;
         ShowPanel = false;
+        _maxSingleDetonateDamage = 0;
+        _maxDpsPeak = 0f;
+        _totalDotTicks = 0;
+        _totalKills = 0;
+        _bossKills = 0;
+        _lastDpsCalcTime = 0f;
+        _damageSinceLastDpsCalc = 0;
+    }
+
+    /// <summary>
+    /// #41 生成统计摘要文本（供分享按钮使用）
+    /// </summary>
+    public string GenerateStatsSummary()
+    {
+        float elapsed = CombatTime;
+        long totalDmg = TotalDamage;
+        float avgDps = elapsed > 0 ? totalDmg / elapsed : 0f;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("═══ Vampire Survivors 战斗统计 ═══");
+        sb.AppendLine($"⏱ 存活时间: {FormatTime(elapsed)}");
+        sb.AppendLine($"⚔ 总伤害: {FormatDamage(totalDmg)}");
+        sb.AppendLine($"📊 平均DPS: {FormatDamage((long)avgDps)}/s");
+        sb.AppendLine($"💀 击杀数: {_totalKills} | Boss: {_bossKills}");
+        sb.AppendLine($"💥 最高引爆: {FormatDamage(_maxSingleDetonateDamage)}");
+        sb.AppendLine($"🔥 最高DPS: {FormatDamage((long)_maxDpsPeak)}/s");
+        sb.AppendLine($"☠ DOT总触发: {_totalDotTicks}次");
+        sb.AppendLine();
+        sb.AppendLine("─ 伤害分布 ─");
+
+        long td = totalDmg;
+        foreach (var kvp in _stats)
+        {
+            float pct = td > 0 ? (float)kvp.Value.totalDamage / td * 100f : 0f;
+            sb.AppendLine($"  {GetSourceName(kvp.Key)}: {FormatDamage(kvp.Value.totalDamage)} ({pct:F1}%)");
+        }
+        return sb.ToString();
     }
 
     // ════════════════════════════════════════════════════════════════

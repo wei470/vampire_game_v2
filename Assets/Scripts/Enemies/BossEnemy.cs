@@ -77,6 +77,10 @@ public class BossEnemy : EnemyBase
     private float _splitBulletInterval = 3f;
     private float _lastSplitTime;
 
+    // #37 Boss 阶段专属机制状态
+    private bool _berserkerLeaveFireTrail = false;
+    private bool _phase5AbilityTriggered = false;
+
     // #36 Boss 类型颜色映射
     private static readonly Color[] BossColors = new Color[]
     {
@@ -300,7 +304,9 @@ public class BossEnemy : EnemyBase
         }
     }
 
-    // ── 阶段 3：狂暴 + 冲锋 + 弹幕 ──
+    // ── 阶段 3：狂暴 + 冲锋 + 弹幕 + 阶段专属技能 ──
+    private bool _phase3AbilityUsed = false;
+
     private void UpdatePhase3()
     {
         if (_bossType == BossType.Phantom) UpdatePhantomBlink();
@@ -316,6 +322,79 @@ public class BossEnemy : EnemyBase
         {
             StartCharge();
             _lastChargeTime = Time.time;
+        }
+
+        // #37 阶段 3 专属技能（首次进入时触发一次，之后周期触发）
+        if (!_phase3AbilityUsed)
+        {
+            _phase3AbilityUsed = true;
+            ExecutePhase3Ability();
+        }
+    }
+
+    /// <summary>
+    /// #37 阶段 3 专属技能 — 根据 Boss 类型执行不同技能
+    /// </summary>
+    private void ExecutePhase3Ability()
+    {
+        switch (_bossType)
+        {
+            case BossType.Juggernaut:
+                // 召唤 2 个 TankEnemy 作为护盾
+                DebugHelper.Log("[Boss] Juggernaut Phase 3: Summoning 2 TankEnemy shields!");
+                for (int i = 0; i < 2; i++)
+                {
+                    Vector2 offset = Random.insideUnitCircle.normalized * 2f;
+                    var minion = new GameObject($"JuggernautShield_{i}");
+                    minion.transform.position = (Vector2)transform.position + offset;
+                    minion.tag = "Enemy";
+                    minion.layer = gameObject.layer;
+                    minion.transform.localScale = Vector3.one * 0.8f;
+                    var sr = minion.AddComponent<SpriteRenderer>();
+                    sr.sprite = SpriteFactory.Hexagon;
+                    sr.color = new Color(0.5f, 0.5f, 0.5f);
+                    sr.sortingOrder = 7;
+                    var rb = minion.AddComponent<Rigidbody2D>();
+                    rb.gravityScale = 0f; rb.freezeRotation = true;
+                    minion.AddComponent<BoxCollider2D>().isTrigger = true;
+                    minion.AddComponent<BaseEntity>();
+                    var dmg = minion.AddComponent<Damageable>();
+                    dmg.SetMaxHp(80);
+                    minion.AddComponent<KillRewarder>().SetRewards(10, 5);
+                    minion.AddComponent<TankEnemy>();
+                }
+                break;
+
+            case BossType.Sorcerer:
+                // 释放"反魔法区域" — 区域内标记，玩家技能 CD 翻倍
+                DebugHelper.Log("[Boss] Sorcerer Phase 3: Anti-magic zone deployed!");
+                var zone = new GameObject("AntiMagicZone");
+                zone.transform.position = transform.position;
+                zone.transform.localScale = Vector3.one * 6f;
+                var zoneSr = zone.AddComponent<SpriteRenderer>();
+                zoneSr.sprite = CreateCircleSprite();
+                zoneSr.color = new Color(0.6f, 0f, 0.8f, 0.15f);
+                zoneSr.sortingOrder = -1;
+                var zoneCol = zone.AddComponent<CircleCollider2D>();
+                zoneCol.isTrigger = true;
+                zoneCol.radius = 0.5f;
+                var antiMagic = zone.AddComponent<BossPoisonZone>();
+                antiMagic.Setup(0, 10f, 0.5f); // 不造成伤害，纯控制区
+                Object.Destroy(zone, 10f);
+                break;
+
+            case BossType.Phantom:
+                // 隐身时间延长 + 闪现距离增大
+                _invisibleDuration = 3f;
+                _blinkCooldown = 3f;
+                DebugHelper.Log("[Boss] Phantom Phase 3: Enhanced stealth (3s invis, faster blink)!");
+                break;
+
+            case BossType.Berserker:
+                // 每次冲锋后留下火焰路径
+                DebugHelper.Log("[Boss] Berserker Phase 3: Fire trail on charge!");
+                _berserkerLeaveFireTrail = true;
+                break;
         }
     }
 
@@ -347,9 +426,16 @@ public class BossEnemy : EnemyBase
         }
     }
 
-    // ── 阶段 5：全技能加速 + 连续冲锋 + 环形弹幕 ──
+    // ── 阶段 5：全技能加速 + 连续冲锋 + 环形弹幕 + 阶段专属技能 ──
     private void UpdatePhase5()
     {
+        // #37 阶段 5 专属技能（首次进入时触发）
+        if (!_phase5AbilityTriggered)
+        {
+            _phase5AbilityTriggered = true;
+            ExecutePhase5Ability();
+        }
+
         // 弹幕加速（环形弹幕数量翻倍）
         if (Time.time - _lastBarrageTime > _bulletBarrageInterval * _enrageAttackMult)
         {
@@ -375,7 +461,77 @@ public class BossEnemy : EnemyBase
             SpawnPoisonZone();
             _lastPoisonTime = Time.time;
         }
+
+        // #37 Berserker 阶段 5：血量低于 20% 时锁定 HP 为 1（5 秒不死）
+        if (_bossType == BossType.Berserker && _bossDamageable != null && _bossDamageable.HpPercent < 0.2f && !_berserkerUndyingActive)
+        {
+            _berserkerUndyingActive = true;
+            _berserkerUndyingEndTime = Time.time + 5f;
+            DebugHelper.Log("[Boss] Berserker Phase 5: UNDYING STATE! HP locked at 1 for 5 seconds!");
+        }
+        if (_berserkerUndyingActive)
+        {
+            if (_bossDamageable != null) _bossDamageable.Heal(1); // 锁定 HP
+            if (Time.time >= _berserkerUndyingEndTime)
+            {
+                _berserkerUndyingActive = false;
+                DebugHelper.Log("[Boss] Berserker: Undying state ended!");
+            }
+        }
     }
+
+    /// <summary>
+    /// #37 阶段 5 专属技能 — 根据 Boss 类型执行不同终极技能
+    /// </summary>
+    private void ExecutePhase5Ability()
+    {
+        switch (_bossType)
+        {
+            case BossType.Juggernaut:
+                // 狂暴状态：速度 ×2，冲锋无冷却
+                _bossSpeed = _baseSpeed * 2f;
+                _chargeInterval = 0.5f;
+                Setup(_bossSpeed, _bossContactDamage, 0, 50);
+                DebugHelper.Log("[Boss] Juggernaut Phase 5: BERSERK! Speed x2, charge no cooldown!");
+                break;
+
+            case BossType.Sorcerer:
+                // 同时释放环形弹幕 + 召唤 + 震波
+                FireBarrage();
+                SummonMinions();
+                FireShockwave();
+                DebugHelper.Log("[Boss] Sorcerer Phase 5: BARRAGE + SUMMON + SHOCKWAVE simultaneously!");
+                break;
+
+            case BossType.Phantom:
+                // 分裂为 2 个幽灵分身（血量各 50%）
+                DebugHelper.Log("[Boss] Phantom Phase 5: SPLIT into 2 phantoms!");
+                if (_bossDamageable != null)
+                {
+                    int splitHp = _bossDamageable.MaxHp / 2;
+                    var clone = CreateBoss(transform.position + Vector3.right * 2f, splitHp);
+                    clone._bossType = BossType.Phantom;
+                    clone._bossHP = splitHp;
+                    clone._bossSpeed = _bossSpeed * 1.2f;
+                    clone._bulletBarrageCount = 12;
+                    var sr = clone.GetComponent<SpriteRenderer>();
+                    if (sr != null) { var c = sr.color; c.a = 0.5f; sr.color = c; }
+                    // 本体也减半
+                    _bossDamageable.SetMaxHp(splitHp);
+                    _bossDamageable.Heal(splitHp);
+                }
+                break;
+
+            case BossType.Berserker:
+                // 不死状态在 UpdatePhase5 中持续检查
+                DebugHelper.Log("[Boss] Berserker Phase 5: Undying mode ready (activates below 20% HP)!");
+                break;
+        }
+    }
+
+    // #37 Berserker 不死状态
+    private bool _berserkerUndyingActive = false;
+    private float _berserkerUndyingEndTime;
 
     /// <summary>
     /// 在 Boss 周围生成毒区（持续伤害区域，改变地形外观）

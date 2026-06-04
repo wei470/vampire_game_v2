@@ -32,7 +32,7 @@ public class CombatManager : Singleton<CombatManager>
         isCrit = Random.value < critChance;
         float critMult = isCrit ? 1.5f : 1f;
 
-        int rawDamage = Mathf.RoundToInt(baseDamage * multiplier * Instance._globalDamageMultiplier * critMult);
+        int rawDamage = Mathf.RoundToInt(baseDamage * multiplier * Instance._globalDamageMultiplier * DebugConfigPanel.DebugDamageMultiplier * critMult);
         return Mathf.Max(1, rawDamage - armor);
     }
 

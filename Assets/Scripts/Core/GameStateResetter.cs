@@ -12,6 +12,34 @@ public static class GameStateResetter
     /// </summary>
     public static void FullReset()
     {
+        // 0. 强制销毁场景中所有敌人（在销毁 ObjectPool 之前！）
+        // 这是防止敌人跨局残留的关键步骤
+        int enemyCount = 0;
+        foreach (var enemy in Object.FindObjectsByType<EnemyBase>(FindObjectsSortMode.None))
+        {
+            if (enemy != null)
+            {
+                Object.DestroyImmediate(enemy.gameObject);
+                enemyCount++;
+            }
+        }
+        // 也销毁所有 Boss
+        foreach (var boss in Object.FindObjectsByType<BossEnemy>(FindObjectsSortMode.None))
+        {
+            if (boss != null)
+            {
+                Object.DestroyImmediate(boss.gameObject);
+                enemyCount++;
+            }
+        }
+        // 销毁所有残留子弹/DOT效果
+        foreach (var bullet in GameObject.FindGameObjectsWithTag("Bullet"))
+        {
+            if (bullet != null) Object.DestroyImmediate(bullet);
+        }
+        if (enemyCount > 0)
+            DebugHelper.Log($"[GameStateResetter] Force destroyed {enemyCount} enemies");
+
         // 1. 清除所有事件订阅
         EventManager.ClearAll();
 

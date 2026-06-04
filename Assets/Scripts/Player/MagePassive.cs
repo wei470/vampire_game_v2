@@ -27,7 +27,9 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private int _maxChainCount = 3;           // 最大连锁次数
     [SerializeField] private float _chainRadius = 10f;         // 二次引爆范围
     [SerializeField] private float _chainDamageRatio = 0.5f;   // 二次引爆伤害比例
+    #pragma warning disable CS0414
     [SerializeField] private float _chainWaveSpeed = 50f;      // 波浪扩散速度（格/秒）
+    #pragma warning restore CS0414
 
     [Header("DOT 增强属性")]
     [SerializeField] private float _corrosionArmorReduction = 0.1f;    // 腐蚀：每次叠加 -10% 护甲
@@ -105,6 +107,18 @@ public class MagePassive : MonoBehaviour
     public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
 
     public float GetDotDurationMultiplier() => 1f + _dotDurationBonus;
+    /// <summary>
+    /// DOT 持续时间倍率（属性形式，供 UI 显示）
+    /// </summary>
+    public float DotDurationMultiplier => GetDotDurationMultiplier();
+    /// <summary>
+    /// DOT 暴击倍率
+    /// </summary>
+    public float CritMultiplier => _dotCritMultiplier;
+    /// <summary>
+    /// DOT 暴击率（默认 5%）
+    /// </summary>
+    public float CritChance => 0.05f;
 
     /// <summary>
     /// #26 获取 DOT 伤害倍率（含里程碑加成）
@@ -349,6 +363,17 @@ public class MagePassive : MonoBehaviour
             gun.dotDps *= (1f + dpsMultiplier);
             _dotGuns[i] = gun; // struct 需要重新赋值回 List
         }
+    }
+
+    /// <summary>
+    /// 清空所有 DOT 子弹（Test 模式专用）
+    /// 用于在 test 模式下重新配置初始子弹
+    /// </summary>
+    public void ClearAllDotGuns()
+    {
+        _dotGuns.Clear();
+        _elementMasterTriggered = false;
+        DebugHelper.Log("[MagePassive] All DOT guns cleared (Test mode)");
     }
 
     private void Awake()
@@ -976,7 +1001,7 @@ public class MagePassive : MonoBehaviour
         int chainHits = 0;
         List<GameObject> nextChainTargets = new List<GameObject>();
 
-        HashSet<int> alreadyHit = new HashSet<int>();
+        HashSet<GameObject> alreadyHit = new HashSet<GameObject>();
 
         for (int s = 0; s < sources.Count; s++)
         {
@@ -986,7 +1011,7 @@ public class MagePassive : MonoBehaviour
             {
                 var enemy = enemies[i];
                 if (enemy == null || !enemy.activeInHierarchy) continue;
-                if (alreadyHit.Contains(enemy.GetInstanceID())) continue;
+                if (alreadyHit.Contains(enemy)) continue;
 
                 Vector2 delta = (Vector2)(enemy.transform.position - sourcePos);
                 if (delta.sqrMagnitude > chainRadiusSqr) continue;
@@ -994,7 +1019,7 @@ public class MagePassive : MonoBehaviour
                 var d = enemy.GetComponent<Damageable>();
                 if (d == null || d.CurrentHp <= 0) continue;
 
-                alreadyHit.Add(enemy.GetInstanceID());
+                alreadyHit.Add(enemy);
 
                 // 连锁引爆 DOT
                 var sem = enemy.GetComponent<StatusEffectManager>();

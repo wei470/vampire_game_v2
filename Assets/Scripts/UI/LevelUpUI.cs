@@ -543,7 +543,8 @@ public class LevelUpUI : MonoBehaviour
         // DOT 流派进度：已解锁 DOT 子弹数 / 4 + 已选 DOT 增强数 / 5
         int dotGunCount = _magePassive.DotGuns.Count; // 最大4
         int dotEnhanceCount = 0;
-        int dotEnhanceMax = 5; // corrosion, curse, agony, wither, erosion
+        const int dotEnhanceMax = 5; // corrosion, curse, agony, wither, erosion
+        _ = dotEnhanceMax; // suppress unused warning — used conceptually for documentation
         // 统计已选的 DOT 增强
         foreach (var kvp in _customUpgradeStacks)
         {

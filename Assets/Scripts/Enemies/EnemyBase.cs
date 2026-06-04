@@ -35,7 +35,7 @@ public class EnemyBase : BaseEntity
     /// <summary>
     /// 是否应跳过特殊能力更新（30 格以外）
     /// </summary>
-    protected bool SkipSpecialAbility => _skipSpecialAbility;
+    public bool SkipSpecialAbility => _skipSpecialAbility;
 
     public float MoveSpeed { get => _moveSpeed; set => _moveSpeed = value; }
     public int ContactDamage => _contactDamage;
@@ -72,6 +72,19 @@ public class EnemyBase : BaseEntity
             _damageable = GetComponent<Damageable>();
         if (_healthBar == null)
             _healthBar = GetComponent<EnemyHealthBar>();
+
+        // #33 Debug 面板：应用敌人血量倍率
+        if (_damageable != null)
+        {
+            float hpMult = DebugConfigPanel.DebugEnemyHpMultiplier;
+            if (Mathf.Abs(hpMult - 1f) > 0.001f)
+            {
+                int scaledMaxHp = Mathf.RoundToInt(_damageable.MaxHp * hpMult);
+                _damageable.SetMaxHp(scaledMaxHp);
+                _damageable.Heal(scaledMaxHp); // 回满
+            }
+        }
+
         if (_healthBar != null)
             _healthBar.Setup(_damageable);
     }
@@ -149,7 +162,7 @@ public class EnemyBase : BaseEntity
         if (ShouldUpdateThisFrame || _lastAiUpdateFrame < 0)
         {
             Vector2 direction = (_target.position - transform.position).normalized;
-            _rb.linearVelocity = direction * _moveSpeed;
+            _rb.linearVelocity = direction * _moveSpeed * DebugConfigPanel.DebugEnemySpeedMultiplier;
             _lastAiUpdateFrame = _globalFrameCounter;
         }
     }

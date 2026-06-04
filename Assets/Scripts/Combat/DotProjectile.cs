@@ -273,6 +273,7 @@ public class PoisonBullet : MonoBehaviour
         var go = new GameObject("PoisonBullet");
         go.transform.position = pos; go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
+        var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.25f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
@@ -353,6 +354,7 @@ public class PoisonPotion : MonoBehaviour
         var go = new GameObject("PoisonPotion");
         go.transform.position = pos; go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
+        var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.1f, 0.8f, 0.1f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.8f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
@@ -597,6 +599,7 @@ public class BurnBullet : MonoBehaviour
         var go = new GameObject("BurnBullet");
         go.transform.position = pos; go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
+        var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(1f, 0.4f, 0f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.2f; // 很小的球
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
@@ -742,6 +745,7 @@ public class FrostBullet : MonoBehaviour
         var go = new GameObject("FrostBullet");
         go.transform.position = pos; go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go); // #17 Bullet Layer
+        var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.3f, 0.6f, 1f); sr.sortingOrder = 15;
         go.transform.localScale = Vector3.one * 0.5f;
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
@@ -756,31 +760,50 @@ public class FrostBullet : MonoBehaviour
 }
 
 /// <summary>
-/// 霜冻效果 — 冰冻 + 永久减速 + 每 2 秒霜伤
+/// 霜冻效果 — 冰冻 + 永久减速（30%基础 + 每层额外5%，最低90%）
+/// 删除霜伤效果，改为纯减速/控制型
 /// </summary>
 public class FrostEffect : MonoBehaviour
 {
     private float _freezeEndTime;
     public float _slowPercent;
-    public float _frostDps;
+    public float _frostDps;  // 保留字段兼容，但不再造成霜伤
     public bool _canCrit; public float _critChance, _critMult;
     private bool _frozen;
     private EnemyBase _enemyBase;
     private Damageable _damageable;
     private float _originalSpeed;
-    private float _lastFrostTick;
     private SpriteRenderer _sr;
     private Color _originalColor;
     private bool _speedCaptured; // 防止重复捕获原始速度
+    private int _frostStacks = 0; // 霜冻叠加层数
+
+    /// <summary>
+    /// 基础减速比例 = 30%
+    /// </summary>
+    private const float BASE_SLOW = 0.30f;
+    /// <summary>
+    /// 每层额外减速 = 5%
+    /// </summary>
+    private const float PER_STACK_SLOW = 0.05f;
+    /// <summary>
+    /// 最大减速比例 = 90%（即速度最低降到10%）
+    /// </summary>
+    private const float MAX_SLOW = 0.90f;
 
     public void ApplyFreeze(float freezeDuration, float slowPercent, float frostDps,
         bool canCrit, float critChance, float critMult)
     {
         _freezeEndTime = Time.time + freezeDuration;
-        _slowPercent = slowPercent;
-        _frostDps = frostDps;
+        _frostDps = frostDps; // 保留但不再使用霜伤
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
         _frozen = true;
+
+        // 叠加霜冻层数（每次命中的子弹增加1层）
+        _frostStacks++;
+
+        // 计算总减速：基础30% + 每层5%，上限90%
+        _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
 
         // 缓存敌人引用并冻住
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
@@ -796,6 +819,11 @@ public class FrostEffect : MonoBehaviour
     }
 
     /// <summary>
+    /// 获取当前霜冻层数
+    /// </summary>
+    public int FrostStacks => _frostStacks;
+
+    /// <summary>
     /// 对象池回收时重置状态（关键修复：防止跨局残留）
     /// </summary>
     private void OnEnable()
@@ -806,6 +834,7 @@ public class FrostEffect : MonoBehaviour
         _freezeEndTime = 0f;
         _speedCaptured = false;
         _slowPercent = 0f;
+        _frostStacks = 0;
     }
 
     private void Start()
@@ -814,7 +843,6 @@ public class FrostEffect : MonoBehaviour
         _damageable = GetComponent<Damageable>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
-        _lastFrostTick = Time.time;
     }
 
     private void Update()
@@ -829,7 +857,7 @@ public class FrostEffect : MonoBehaviour
         }
         else if (_frozen)
         {
-            // 解冻：永久减速
+            // 解冻：永久减速（30%基础 + 每层5%，上限90%）
             _frozen = false;
             if (_enemyBase != null)
             {
@@ -838,15 +866,7 @@ public class FrostEffect : MonoBehaviour
             if (_sr != null) _sr.color = Color.Lerp(_originalColor, new Color(0.5f, 0.7f, 1f), 0.3f);
         }
 
-        // 每 2 秒霜伤
-        if (Time.time - _lastFrostTick >= 2f)
-        {
-            _lastFrostTick = Time.time;
-            float dmg = _frostDps * 2f;
-            if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-            if (_damageable != null && _damageable.CurrentHp > 0)
-                _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(0.4f, 0.7f, 1f)); // 霜冻冰蓝色
-        }
+        // 不再造成霜伤 — 删除了每2秒霜伤逻辑
     }
 
     private void Cleanup()
@@ -877,6 +897,356 @@ public class FrostEffect : MonoBehaviour
     {
         RestoreSpeed();
         if (_sr != null) _sr.color = _originalColor;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 雷电子弹 + 静电效果 — 连锁闪电 + 暂停移动
+// ═══════════════════════════════════════════════════════════════
+
+/// <summary>
+/// 静电效果组件 — 挂在敌人身上，管理连锁层数和定时静电伤害
+/// 被雷电子弹命中的敌人获得此效果，连锁的敌人也会获得
+/// 每层降低0.1秒触发间隔，初始5秒，最低2秒
+/// </summary>
+public class StaticStackEffect : MonoBehaviour
+{
+    private int _stackCount = 0;
+    private float _baseInterval = 5.0f;
+    private float _stackReduction = 0.1f;
+    private float _minInterval = 2.0f;
+    private float _lastTickTime;
+    private float _stunEndTime;
+    private EnemyBase _enemyBase;
+    private float _originalSpeed;
+    private bool _speedCaptured;
+    private Damageable _damageable;
+    private SpriteRenderer _sr;
+    private Color _originalColor;
+
+    /// <summary>
+    /// 获取当前静电层数
+    /// </summary>
+    public int StackCount => _stackCount;
+
+    /// <summary>
+    /// 添加静电层数（连锁命中时调用）
+    /// </summary>
+    public void AddStack()
+    {
+        _stackCount++;
+        _lastTickTime = Time.time; // 重置计时器
+
+        // 暂停移动 0.5 秒
+        ApplyStun(0.5f);
+
+        DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s");
+    }
+
+    /// <summary>
+    /// 获取当前静电触发间隔
+    /// </summary>
+    public float GetInterval()
+    {
+        return Mathf.Max(_minInterval, _baseInterval - _stackCount * _stackReduction);
+    }
+
+    /// <summary>
+    /// 暂停移动指定时间
+    /// </summary>
+    private void ApplyStun(float duration)
+    {
+        _stunEndTime = Time.time + duration;
+
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
+        if (_enemyBase != null)
+        {
+            if (!_speedCaptured)
+            {
+                _originalSpeed = _enemyBase.MoveSpeed;
+                _speedCaptured = true;
+            }
+            _enemyBase.MoveSpeed = 0f;
+        }
+    }
+
+    private void OnEnable()
+    {
+        _stackCount = 0;
+        _lastTickTime = Time.time;
+        _stunEndTime = 0f;
+        _speedCaptured = false;
+        if (_sr != null) _sr.color = _originalColor;
+    }
+
+    private void Start()
+    {
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
+        _damageable = GetComponent<Damageable>();
+        _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _originalColor = _sr.color;
+        _lastTickTime = Time.time;
+    }
+
+    private void Update()
+    {
+        if (_stackCount <= 0) return;
+        if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
+
+        // 眩晕阶段
+        if (Time.time < _stunEndTime)
+        {
+            if (_enemyBase != null) _enemyBase.MoveSpeed = 0f;
+            // 视觉：电蓝色闪烁
+            if (_sr != null)
+            {
+                float flash = Mathf.Sin(Time.time * 20f) > 0 ? 0.7f : 0.3f;
+                _sr.color = Color.Lerp(_originalColor, new Color(0.3f, 0.8f, 1f), flash);
+            }
+        }
+        else if (_speedCaptured && _enemyBase != null)
+        {
+            // 恢复移动
+            _enemyBase.MoveSpeed = _originalSpeed;
+            _speedCaptured = false;
+            if (_sr != null) _sr.color = _originalColor;
+        }
+
+        // 定时静电伤害
+        float interval = GetInterval();
+        if (Time.time - _lastTickTime >= interval)
+        {
+            _lastTickTime = Time.time;
+            TriggerStaticDamage();
+        }
+    }
+
+    /// <summary>
+    /// 触发静电伤害 — 每次触发对敌人造成基于层数的伤害
+    /// </summary>
+    private void TriggerStaticDamage()
+    {
+        if (_damageable == null || _damageable.CurrentHp <= 0) return;
+
+        int damage = Mathf.Max(1, _stackCount * 2); // 每层2点伤害
+        _damageable.TakeDamage(damage, new Color(0.3f, 0.8f, 1f));
+
+        // 静电视觉：电弧爆炸
+        CombatManager.CreateExplosionEffect(transform.position, 1f, new Color(0.4f, 0.8f, 1f), 0.3f);
+        DamagePopup.Create(transform.position, damage, new Color(0.4f, 0.8f, 1f), false);
+
+        DebugHelper.Log($"[StaticStackEffect] Static discharge! {damage} damage, stacks={_stackCount}");
+    }
+
+    private void Cleanup()
+    {
+        if (_enemyBase != null && _speedCaptured)
+        {
+            _enemyBase.MoveSpeed = _originalSpeed;
+            _speedCaptured = false;
+        }
+        if (_sr != null) _sr.color = _originalColor;
+        Destroy(this);
+    }
+
+    private void OnDisable()
+    {
+        if (_enemyBase != null && _speedCaptured)
+        {
+            _enemyBase.MoveSpeed = _originalSpeed;
+            _speedCaptured = false;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (_enemyBase != null && _speedCaptured)
+            _enemyBase.MoveSpeed = _originalSpeed;
+        if (_sr != null) _sr.color = _originalColor;
+    }
+}
+
+/// <summary>
+/// 雷电子弹 — 命中敌人后连锁附近最多3个敌人
+/// 对被命中的敌人和连锁的敌人施加静电层数，暂停移动0.5秒
+/// </summary>
+public class LightningBullet : MonoBehaviour
+{
+    private float _speed = 16f;
+    private float _lifetime = 2f;
+    private int _impactDamage = 5;
+    private float _damageMultiplier = 1f;
+    private Vector2 _direction;
+    private float _spawnTime;
+    private int _maxChainCount = 3;
+    private float _chainRadius = 8f;
+    private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
+
+    public void Setup(float speed, int impactDmg, float dmgMult)
+    {
+        _speed = speed; _impactDamage = impactDmg; _damageMultiplier = dmgMult;
+    }
+
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+
+    private void Start() { _spawnTime = Time.time; }
+    private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
+    private void FixedUpdate() { GetComponent<Rigidbody2D>().linearVelocity = _direction * _speed; }
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (!other.CompareTag("Enemy")) return;
+        var dmg = other.GetComponent<Damageable>();
+        if (dmg != null && dmg.CurrentHp > 0)
+        {
+            // 直接伤害
+            dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+
+            // 确保敌人有 StatusEffectManager
+            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
+
+            // 施加静电效果 + 暂停移动
+            ApplyStaticToEnemy(other.gameObject);
+            _hitEnemies.Add(other.gameObject);
+
+            // 连锁闪电
+            ChainLightning(other.gameObject);
+        }
+        // 穿透检测
+        var penetrate = GetComponent<PenetrateHandler>();
+        if (penetrate != null && penetrate.TryPenetrate(other)) return;
+        // 反弹检测
+        var ricochet = GetComponent<RicochetHandler>();
+        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
+        Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// 对敌人施加静电效果
+    /// </summary>
+    private void ApplyStaticToEnemy(GameObject enemy)
+    {
+        var staticEffect = enemy.GetComponent<StaticStackEffect>();
+        if (staticEffect == null)
+            staticEffect = enemy.AddComponent<StaticStackEffect>();
+        staticEffect.AddStack();
+    }
+
+    /// <summary>
+    /// 连锁闪电 — 从命中的敌人出发，连锁附近最多3个敌人
+    /// 每个被连锁的敌人获得静电层数
+    /// </summary>
+    private void ChainLightning(GameObject origin)
+    {
+        var spawnMgr = GameReferences.SpawnManager;
+        IReadOnlyList<GameObject> enemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
+        if (enemies == null || enemies.Count == 0) return;
+
+        float chainRadiusSqr = _chainRadius * _chainRadius;
+        Vector2 originPos = origin.transform.position;
+
+        // 收集可连锁目标（按距离排序）
+        var candidates = new List<(GameObject enemy, float dist)>();
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var e = enemies[i];
+            if (e == null || e == origin || !e.activeInHierarchy) continue;
+            if (_hitEnemies.Contains(e)) continue;
+
+            var d = e.GetComponent<Damageable>();
+            if (d == null || d.CurrentHp <= 0) continue;
+
+            float distSqr = ((Vector2)e.transform.position - originPos).sqrMagnitude;
+            if (distSqr <= chainRadiusSqr)
+                candidates.Add((e, distSqr));
+        }
+
+        // 按距离排序
+        candidates.Sort((a, b) => a.dist.CompareTo(b.dist));
+
+        // 连锁最多 _maxChainCount 个敌人
+        int chained = 0;
+        Vector2 lastPos = originPos;
+        for (int i = 0; i < candidates.Count && chained < _maxChainCount; i++)
+        {
+            var target = candidates[i].enemy;
+            if (_hitEnemies.Contains(target)) continue;
+
+            _hitEnemies.Add(target);
+
+            // 连锁视觉：电弧连线
+            CreateChainLine(lastPos, target.transform.position);
+
+            // 对连锁目标造成伤害（50%衰减）
+            var dmg = target.GetComponent<Damageable>();
+            if (dmg != null && dmg.CurrentHp > 0)
+            {
+                float chainDmgMult = _damageMultiplier * Mathf.Pow(0.5f, chained + 1);
+                dmg.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(_impactDamage * chainDmgMult)));
+            }
+
+            // 确保敌人有 StatusEffectManager
+            DotBulletHelper.EnsureStatusEffectManager(target);
+
+            // 施加静电效果
+            ApplyStaticToEnemy(target);
+
+            // 视觉：电弧爆炸
+            CombatManager.CreateExplosionEffect(target.transform.position, 0.8f,
+                new Color(0.4f, 0.8f, 1f), 0.2f);
+
+            lastPos = target.transform.position;
+            chained++;
+        }
+
+        if (chained > 0)
+            DebugHelper.Log($"[LightningBullet] Chained to {chained} enemies");
+    }
+
+    /// <summary>
+    /// 创建电弧连线视觉效果
+    /// </summary>
+    private void CreateChainLine(Vector2 from, Vector2 to)
+    {
+        var lineObj = new GameObject("ChainLine");
+        lineObj.transform.position = from;
+        var lr = lineObj.AddComponent<LineRenderer>();
+
+        // 使用 Sprites/Default 材质
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.startColor = new Color(0.5f, 0.8f, 1f, 0.9f);
+        lr.endColor = new Color(0.3f, 0.6f, 1f, 0f);
+        lr.startWidth = 0.15f;
+        lr.endWidth = 0.05f;
+        lr.positionCount = 2;
+        lr.SetPosition(0, from);
+        lr.SetPosition(1, to);
+        lr.sortingOrder = 20;
+        Destroy(lineObj, 0.3f);
+    }
+
+    /// <summary>
+    /// 创建雷电子弹
+    /// </summary>
+    public static LightningBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
+        float dmgMult)
+    {
+        var go = new GameObject("LightningBullet");
+        go.transform.position = pos; go.tag = "Untagged";
+        PhysicsLayerSetup.SetAsBullet(go);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = DotSpriteCache.Get();
+        sr.color = new Color(0.3f, 0.8f, 1f);
+        sr.sortingOrder = 15;
+        go.transform.localScale = Vector3.one * 0.5f;
+        go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+        var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
+        // 电弧拖尾效果
+        DotBulletVisualEffects.AttachLightningTrail(go);
+        var b = go.AddComponent<LightningBullet>();
+        b.Setup(speed, impactDmg, dmgMult);
+        b.SetDirection(dir);
+        return b;
     }
 }
 
@@ -1227,6 +1597,7 @@ public static class DotBulletFactory
         Register(StatusEffectType.Poison, SpawnPoison);
         Register(StatusEffectType.Burn, SpawnBurn);
         Register(StatusEffectType.Frostbite, SpawnFrost);
+        Register(StatusEffectType.Static, SpawnStatic);
     }
 
     /// <summary>
@@ -1301,6 +1672,16 @@ public static class DotBulletFactory
     /// #16 如果 MagePassive 有反弹加成，为子弹附加 RicochetHandler
     /// #45 如果子弹速度加成>100%，为子弹附加 PenetrateHandler
     /// </summary>
+    private static GameObject SpawnStatic(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var go = LightningBullet.Create(pos, dir, 16f * bulletSpeedMult, gun.impactDamage,
+            dmgMult)?.gameObject;
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
+
     private static void AttachRicochetIfAvailable(GameObject bullet)
     {
         if (bullet == null) return;
@@ -1392,6 +1773,39 @@ public static class DotBulletVisualEffects
     {
         var spin = go.AddComponent<SpinEffect>();
         spin.Init(spinSpeed);
+    }
+
+    /// <summary>
+    /// 雷电子弹：电蓝色闪烁拖尾 + 电弧子物体
+    /// </summary>
+    public static void AttachLightningTrail(GameObject go)
+    {
+        // 电弧拖尾
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.2f;
+        trail.startWidth = 0.15f;
+        trail.endWidth = 0.02f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
+        trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
+        trail.numCapVertices = 2;
+        trail.minVertexDistance = 0.03f;
+        trail.sortingOrder = 14;
+
+        // 电弧发光子物体
+        var glow = new GameObject("StaticGlow");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = Vector3.zero;
+        glow.transform.localScale = Vector3.one * 1.5f;
+
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = DotSpriteCache.CircleSprite();
+        glowSr.color = new Color(0.3f, 0.7f, 1f, 0.25f);
+        glowSr.sortingOrder = 14;
+
+        // 电弧脉冲
+        var pulse = glow.AddComponent<FlamePulseEffect>();
+        pulse.Init(glowSr);
     }
 }
 

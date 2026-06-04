@@ -66,11 +66,12 @@ public class GameInputHandler : MonoBehaviour
             SkipWaves(5);
         }
 
-        // R 键重新加载场景
+        // R 键重新加载场景（必须完整重置所有状态，否则 ObjectPool 残留旧敌人）
         if (kb.rKey.wasPressedThisFrame)
         {
-            EventManager.ClearAll();
-            LevelUpUI.ResetMagnetMultiplier();
+            Time.timeScale = 1f;
+            if (GameManager.Instance != null) Destroy(GameManager.Instance.gameObject);
+            GameStateResetter.FullReset();
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 

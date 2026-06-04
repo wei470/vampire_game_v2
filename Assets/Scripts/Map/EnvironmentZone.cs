@@ -139,6 +139,14 @@ public class EnvironmentZone : MonoBehaviour
                 _zoneColor = new Color(1f, 0.5f, 0f, _zoneAlpha); // 橙红色
                 _effectStrength = _effectStrength <= 0 ? 15f : _effectStrength;
                 break;
+            case MapThemeData.EnvironmentZoneType.Speed:
+                _zoneColor = new Color(0.3f, 0.5f, 1f, _zoneAlpha); // 蓝色
+                _effectStrength = _effectStrength <= 0 ? 0.5f : _effectStrength;
+                break;
+            case MapThemeData.EnvironmentZoneType.DotEnhance:
+                _zoneColor = new Color(0.6f, 0f, 1f, _zoneAlpha); // 紫色
+                _effectStrength = _effectStrength <= 0 ? 0.3f : _effectStrength;
+                break;
         }
 
         // 如果没有 SpriteRenderer，添加一个
@@ -199,12 +207,18 @@ public class EnvironmentZone : MonoBehaviour
         // 立即应用进入效果
         switch (_zoneType)
         {
-            case MapThemeData.EnvironmentZoneType.Slow:
-                ApplySlow(other, true);
-                break;
-        }
+                case MapThemeData.EnvironmentZoneType.Slow:
+                    ApplySlow(other, true);
+                    break;
+                case MapThemeData.EnvironmentZoneType.Speed:
+                    ApplySpeed(other, true);
+                    break;
+                case MapThemeData.EnvironmentZoneType.DotEnhance:
+                    ApplyDotEnhance(other, true);
+                    break;
+            }
 
-        DebugHelper.Log($"[EnvironmentZone] {other.name} entered {_zoneType} zone");
+            DebugHelper.Log($"[EnvironmentZone] {other.name} entered {_zoneType} zone");
     }
 
     /// <summary>
@@ -219,12 +233,18 @@ public class EnvironmentZone : MonoBehaviour
         // 移除离开效果
         switch (_zoneType)
         {
-            case MapThemeData.EnvironmentZoneType.Slow:
-                ApplySlow(other, false);
-                break;
-        }
+                case MapThemeData.EnvironmentZoneType.Slow:
+                    ApplySlow(other, false);
+                    break;
+                case MapThemeData.EnvironmentZoneType.Speed:
+                    ApplySpeed(other, false);
+                    break;
+                case MapThemeData.EnvironmentZoneType.DotEnhance:
+                    ApplyDotEnhance(other, false);
+                    break;
+            }
 
-        DebugHelper.Log($"[EnvironmentZone] {other.name} exited {_zoneType} zone");
+            DebugHelper.Log($"[EnvironmentZone] {other.name} exited {_zoneType} zone");
     }
 
     /// <summary>
@@ -294,6 +314,44 @@ public class EnvironmentZone : MonoBehaviour
 
         int damage = Mathf.RoundToInt(_effectStrength * _tickInterval);
         damageable.TakeDamage(Mathf.Max(1, damage));
+    }
+
+    /// <summary>
+    /// #40 应用/移除加速效果
+    /// </summary>
+    private void ApplySpeed(Collider2D entity, bool apply)
+    {
+        var player = entity.GetComponent<PlayerController>();
+        if (player == null) return;
+        if (apply)
+        {
+            player.MoveSpeed *= (1f + _effectStrength);
+            DebugHelper.Log($"[EnvironmentZone] Applied speed boost +{_effectStrength * 100}%");
+        }
+        else
+        {
+            player.MoveSpeed /= (1f + _effectStrength);
+            DebugHelper.Log($"[EnvironmentZone] Removed speed boost");
+        }
+    }
+
+    /// <summary>
+    /// #40 应用/移除 DOT 增强效果
+    /// </summary>
+    private void ApplyDotEnhance(Collider2D entity, bool apply)
+    {
+        var sem = entity.GetComponent<StatusEffectManager>();
+        if (sem == null) return;
+        if (apply)
+        {
+            sem.DotDamageMultiplier *= (1f + _effectStrength);
+            DebugHelper.Log($"[EnvironmentZone] Applied DOT enhance +{_effectStrength * 100}%");
+        }
+        else
+        {
+            sem.DotDamageMultiplier /= (1f + _effectStrength);
+            DebugHelper.Log($"[EnvironmentZone] Removed DOT enhance");
+        }
     }
 
     /// <summary>

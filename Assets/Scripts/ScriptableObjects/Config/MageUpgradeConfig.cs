@@ -29,7 +29,7 @@ public class MageUpgradeConfig : ScriptableObject
             color = new Color(0.9f, 0.1f, 0.1f),
             cooldown = 1.0f,
             impactDmg = 3,
-            dotDps = 2f,
+            dotDps = 3f,
             dotDuration = 4f
         },
         new DotGunEntry
@@ -51,7 +51,7 @@ public class MageUpgradeConfig : ScriptableObject
             displayName = "燃烧 (Burn)",
             description = "🟠 快速橙色子弹 | DPS:2/s | 持续3秒\n叠加层数加速燃烧频率",
             color = new Color(1f, 0.4f, 0f),
-            cooldown = 0.2f,
+            cooldown = 1.0f,
             impactDmg = 2,
             dotDps = 2f,
             dotDuration = 3f
@@ -61,12 +61,24 @@ public class MageUpgradeConfig : ScriptableObject
             upgradeId = "frostbite",
             effectType = StatusEffectType.Frostbite,
             displayName = "霜冻 (Frostbite)",
-            description = "🔵 快速冰霜子弹 | 冰冻1秒\n永久减速30% + 每2秒霜伤",
+            description = "🔵 快速冰霜子弹 | 冰冻1秒\n永久减速30%，每层额外-5%\n最低降至90%减速",
             color = new Color(0.3f, 0.6f, 1f),
-            cooldown = 2.0f,
-            impactDmg = 6,
-            dotDps = 2f,
+            cooldown = 1.0f,
+            impactDmg = 4,
+            dotDps = 0f,
             dotDuration = 3f
+        },
+        new DotGunEntry
+        {
+            upgradeId = "static",
+            effectType = StatusEffectType.Static,
+            displayName = "雷电 (Static)",
+            description = "⚡ 连锁闪电 | 命中敌人后连锁附近最多3个敌人\n被连锁的敌人获得静电层数\n每层降低0.1秒触发间隔（初始5秒，最低2秒）\n暂停移动0.5秒",
+            color = new Color(0.3f, 0.8f, 1f),
+            cooldown = 1.0f,
+            impactDmg = 5,
+            dotDps = 0f,
+            dotDuration = 0f
         }
     };
 

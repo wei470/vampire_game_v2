@@ -67,6 +67,9 @@ public class MenuSceneBootstrap : MonoBehaviour
                 case "TestButton":
                     btn.onClick.AddListener(StartTestMode);
                     break;
+                case "DailyButton":
+                    btn.onClick.AddListener(StartDailyChallenge);
+                    break;
             }
         }
 
@@ -244,9 +247,48 @@ public class MenuSceneBootstrap : MonoBehaviour
             StartGame();
         }
 
-        if (kb.tKey.wasPressedThisFrame)
+            if (kb.tKey.wasPressedThisFrame)
         {
             StartTestMode();
+        }
+
+        // #43 按 D 键开始每日挑战
+        if (Keyboard.current.dKey.wasPressedThisFrame)
+        {
+            StartDailyChallenge();
+        }
+    }
+
+    /// <summary>
+    /// #43 每日挑战模式 — 激活今日挑战规则后开始游戏
+    /// </summary>
+    private void StartDailyChallenge()
+    {
+        var challenge = DailyChallengeSystem.GetTodayChallenge();
+        DebugHelper.Log($"[MenuBootstrap] Starting Daily Challenge (seed={challenge.seed})...");
+        DebugHelper.Log($"  Rule 1: {DailyChallengeSystem.GetRuleDescription(challenge.rule1)}");
+        DebugHelper.Log($"  Rule 2: {DailyChallengeSystem.GetRuleDescription(challenge.rule2)}");
+        DebugHelper.Log($"  Rule 3: {DailyChallengeSystem.GetRuleDescription(challenge.rule3)}");
+
+        // 激活每日挑战模式
+        DailyChallengeSystem.ActivateDailyChallenge();
+
+        EventManager.ClearAll();
+        LevelUpUI.ResetMagnetMultiplier();
+
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string path = SceneUtility.GetScenePathByBuildIndex(i);
+            if (path.Contains("GameScene"))
+            {
+                SceneManager.LoadScene(path);
+                return;
+            }
+        }
+
+        if (System.IO.File.Exists("Assets/Scenes/GameScene.unity"))
+        {
+            SceneManager.LoadScene("Assets/Scenes/GameScene.unity");
         }
     }
 

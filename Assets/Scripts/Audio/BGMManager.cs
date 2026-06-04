@@ -13,7 +13,7 @@ public class BGMManager : MonoBehaviour
     private bool _isPlaying = false;
 
     [Header("配置")]
-    [SerializeField] private float _volume = 0.5f;
+    [SerializeField] private float _volume = 0f; // 静音（开发阶段）
     [SerializeField] private bool _shuffle = true;
 
     private static BGMManager _instance;

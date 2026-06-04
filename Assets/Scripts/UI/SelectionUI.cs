@@ -58,11 +58,36 @@ public class SelectionUI : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             bool sel = i == si;
+            // #42 检查角色解锁状态
+            bool isLocked = false;
+            string lockLabel = "";
+            if (_selectPhase == SelectPhase.Character && i < _characters.Length && _characters[i] != null)
+            {
+                isLocked = !CharacterUnlockManager.IsCharacterUnlocked(_characters[i]);
+                if (isLocked) lockLabel = CharacterUnlockManager.GetUnlockConditionText(_characters[i]);
+            }
+
             Rect br = new Rect(0, i * sp, aw, btnH);
-            var bs = new GUIStyle(GUI.skin.button) { fontSize = 24, alignment = TextAnchor.MiddleLeft, normal = { textColor = sel ? UIColorTheme.AccentCyan : UIColorTheme.TextPrimary, background = sel ? _btnSelectedTex : _btnNormalTex }, hover = { textColor = UIColorTheme.AccentCyan, background = _btnHoverTex } };
-            if (sel) UIColorTheme.DrawButtonGlow(br);
+            // #42 锁定角色使用灰色样式
+            Color nameColor = isLocked ? new Color(0.4f, 0.4f, 0.4f) : (sel ? UIColorTheme.AccentCyan : UIColorTheme.TextPrimary);
+            var bs = new GUIStyle(GUI.skin.button) { fontSize = 24, alignment = TextAnchor.MiddleLeft, normal = { textColor = nameColor, background = sel ? _btnSelectedTex : _btnNormalTex }, hover = { textColor = isLocked ? nameColor : UIColorTheme.AccentCyan, background = _btnHoverTex } };
+            if (sel && !isLocked) UIColorTheme.DrawButtonGlow(br);
             GUI.color = Color.white;
-            if (GUI.Button(br, $"  {(i + 1)}. {GetItemName(i)}", bs)) SetSelection(i);
+
+            string btnLabel = $"  {(i + 1)}. {GetItemName(i)}";
+            if (isLocked) btnLabel = $"  🔒 {GetItemName(i)}";
+
+            if (GUI.Button(br, btnLabel, bs))
+            {
+                if (!isLocked) SetSelection(i);
+            }
+
+            // #42 锁定角色显示解锁条件
+            if (isLocked && !string.IsNullOrEmpty(lockLabel))
+            {
+                var lockStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, normal = { textColor = new Color(0.6f, 0.5f, 0.3f) } };
+                GUI.Label(new Rect(10, i * sp + btnH - 16, aw - 20, 16), lockLabel, lockStyle);
+            }
         }
     }
 

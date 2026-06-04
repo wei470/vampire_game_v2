@@ -1,4 +1,4 @@
-using UnityEngine;
+    using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
@@ -26,7 +26,8 @@ public enum StatusEffectType
     Contaminate,    // 污染 — 死亡时传播 DOT
     Erosion,        // 侵蚀 — 降低最大生命
     WindErosion,    // 风蚀 — DOT + 击退
-    Rend            // 撕裂 — 增强所有 DOT 伤害
+    Rend,           // 撕裂 — 增强所有 DOT 伤害
+    Static          // 雷电 — 连锁静电效果，暂停移动
 }
 
 /// <summary>
@@ -118,6 +119,17 @@ public class StatusEffectManager : MonoBehaviour
     /// 是否有任何 DOT 效果
     /// </summary>
     public bool HasAnyDot => _activeEffects.Count > 0;
+
+    /// <summary>
+    /// 清除所有 DOT 效果（CorrosiveEnemy 专用）
+    /// </summary>
+    public void ClearAllDotEffects()
+    {
+        _activeEffects.Clear();
+        // 恢复颜色
+        if (_sr != null && _originalColor != default)
+            _sr.color = _originalColor;
+    }
 
     private void Awake()
     {
@@ -286,6 +298,9 @@ public class StatusEffectManager : MonoBehaviour
 
         // ═══ #18 DOT 粒子视觉效果更新 ═══
         UpdateDotParticles();
+
+        // #33 Debug 面板：应用 DOT 伤害倍率
+        totalTickDamage *= DebugConfigPanel.DebugDotDamageMultiplier;
 
         // 对敌人造成 DOT 伤害
         if (totalTickDamage > 0 && _damageable != null && _damageable.CurrentHp > 0)

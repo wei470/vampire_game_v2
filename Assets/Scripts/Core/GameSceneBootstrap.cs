@@ -139,19 +139,32 @@ public class GameSceneBootstrap : MonoBehaviour
         _debugOverlay = gameObject.AddComponent<DebugOverlay>();
         _debugOverlay.Setup(_player, _spawnManager);
 
+        // #33 创建 DebugConfigPanel（热加载 + Debug 面板）
+        if (gameObject.GetComponent<DebugConfigPanel>() == null)
+            gameObject.AddComponent<DebugConfigPanel>();
+        DebugHelper.Log("[GameSceneBootstrap] Created DebugConfigPanel (F1=面板, F5=热加载)");
+
+        // #35 创建 DebugPoolMonitor（对象池监控面板）
+        if (gameObject.GetComponent<DebugPoolMonitor>() == null)
+            gameObject.AddComponent<DebugPoolMonitor>();
+        DebugHelper.Log("[GameSceneBootstrap] Created DebugPoolMonitor (F2=池监控)");
+
         // 创建 PauseMenuUI 组件
         _pauseMenuUI = gameObject.AddComponent<PauseMenuUI>();
         _inputHandler.SetPauseMenuUI(_pauseMenuUI);
 
         DebugHelper.Log("[GameSceneBootstrap] Showing selection flow...");
 
-        // 测试模式：跳过选择，直接用默认配置开始
+        // 测试模式：跳过选择，显示子弹选择 UI，用 Mage + Teleport 开始
         if (GameReferences.TestMode)
         {
-            _selectionUI.SetPreSelection(1, 0, 3);
-            _selectionUI.ConfirmSelection();
-            // 直接跳到最后一步（需要连续确认2次）
-            _selectionUI.ConfirmSelection();
+            // 跳过正常选择流程，标记选择已完成以隐藏 SelectionUI
+            _selectionDone = true;
+
+            // 创建 TestBulletSelectUI 让开发者选择初始子弹
+            var testBulletUI = gameObject.AddComponent<TestBulletSelectUI>();
+            testBulletUI.Setup(_mageUpgradeConfig, OnTestBulletSelectionConfirmed);
+            DebugHelper.Log("[GameSceneBootstrap] TestMode: Showing bullet selection UI");
         }
     }
 
@@ -394,6 +407,67 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         _selectionDone = true;
         ApplySelectionAndStartGame(selectedChar, selectedWeapon, selectedSkill);
+    }
+
+    /// <summary>
+    /// Test 模式子弹选择完成回调（由 TestBulletSelectUI 触发）
+    /// 强制使用 Mage + Teleport 技能，然后根据选择的子弹开始游戏
+    /// </summary>
+    private void OnTestBulletSelectionConfirmed(List<string> selectedBulletIds)
+    {
+        // 找到 Mage 角色的索引（index 1 = Char_mage）
+        int mageIndex = 0;
+        for (int i = 0; i < _characters.Length; i++)
+        {
+            if (_characters[i] != null &&
+                (_characters[i].characterId == "mage" || _characters[i].characterName.ToLower().Contains("mage")))
+            {
+                mageIndex = i;
+                break;
+            }
+        }
+
+        // 找到 Teleport 技能的索引
+        int teleportIndex = 0;
+        for (int i = 0; i < _skills.Length; i++)
+        {
+            if (_skills[i] != null && _skills[i].skillName.ToLower().Contains("teleport"))
+            {
+                teleportIndex = i;
+                break;
+            }
+        }
+
+        // 使用 Mage + 无武器(0) + Teleport 开始游戏
+        ApplySelectionAndStartGame(mageIndex, 0, teleportIndex);
+
+        // 清空 MagePassive 默认添加的毒子弹，然后用用户选择的子弹替代
+        var magePassive = _player?.GetComponent<MagePassive>();
+        if (magePassive != null)
+        {
+            magePassive.ClearAllDotGuns();
+
+            // 根据用户选择添加子弹
+            if (_mageUpgradeConfig != null && selectedBulletIds.Count > 0)
+            {
+                foreach (string bulletId in selectedBulletIds)
+                {
+                    var entry = _mageUpgradeConfig.GetDotGunEntry(bulletId);
+                    if (entry.HasValue)
+                    {
+                        var dg = entry.Value;
+                        magePassive.UnlockDotGun(dg.effectType, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
+                        DebugHelper.Log($"[GameSceneBootstrap] TestMode: Added bullet '{dg.displayName}'");
+                    }
+                }
+            }
+            else if (selectedBulletIds.Count == 0)
+            {
+                DebugHelper.Log("[GameSceneBootstrap] TestMode: No bullets selected, entering with empty loadout");
+            }
+        }
+
+        DebugHelper.Log($"[GameSceneBootstrap] TestMode: Game started with Mage + Teleport, {selectedBulletIds.Count} bullets");
     }
 
     /// <summary>
@@ -727,6 +801,10 @@ public class GameSceneBootstrap : MonoBehaviour
 
         // ── 暂停菜单 ──
         _pauseMenuUI.DrawPauseMenu();
+
+        // ── #39 波次挑战 UI ──
+        if (_spawnManager != null && _spawnManager.ChallengeSystem != null)
+            _spawnManager.ChallengeSystem.DrawChallengeUI();
 
         // ── 调试面板 ──
         _debugOverlay.DrawDebugGUI();

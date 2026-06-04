@@ -306,39 +306,3 @@ public class BossSlowMotionCoroutine : MonoBehaviour
     }
 }
 
-/// <summary>
-/// 屏幕震动组件 — 挂载到 Camera 上
-/// </summary>
-public class ScreenShake : MonoBehaviour
-{
-    private float _shakeDuration;
-    private float _shakeMagnitude;
-    private float _shakeEndTime;
-    private Vector3 _originalPos;
-    private bool _shaking;
-
-    public void Shake(float duration, float magnitude)
-    {
-        _shakeDuration = duration;
-        _shakeMagnitude = magnitude;
-        _shakeEndTime = Time.unscaledTime + duration;
-        _originalPos = transform.localPosition;
-        _shaking = true;
-    }
-
-    private void Update()
-    {
-        if (!_shaking) return;
-
-        if (Time.unscaledTime >= _shakeEndTime)
-        {
-            transform.localPosition = _originalPos;
-            _shaking = false;
-            return;
-        }
-
-        float remaining = _shakeEndTime - Time.unscaledTime;
-        float strength = remaining / _shakeDuration * _shakeMagnitude;
-        transform.localPosition = _originalPos + (Vector3)Random.insideUnitCircle * strength;
-    }
-}
