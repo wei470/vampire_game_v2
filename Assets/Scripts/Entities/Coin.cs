@@ -113,7 +113,7 @@ public class Coin : MonoBehaviour
 
         // 应用全局磁铁倍率 + 永久商店加成
         float permanentMult = SaveManager.Instance?.GetPermanentMultiplier("magnet_radius") ?? 1f;
-        float effectiveMagnetRange = _magnetRange * LevelUpUI.MagnetRangeMultiplier * permanentMult;
+        float effectiveMagnetRange = _magnetRange * MagnetMultiplierSystem.MagnetRangeMultiplier * permanentMult;
         float effectiveMagnetRangeSqr = effectiveMagnetRange * effectiveMagnetRange;
         if (distSqr < effectiveMagnetRangeSqr)
         {

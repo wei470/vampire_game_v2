@@ -8,6 +8,9 @@
 
 ---
 
+准备：
+阅读Ai_content.md和README.md，了解项目的大纲
+
 ## 1. 当前文件行数问题清单
 
 | 文件 | 行数 | 问题 |
@@ -121,19 +124,32 @@ DebugConfigLoader.cs       (~100行)  → JSON热加载
 ## 3. 重构优先级（按影响排序）
 
 ### P0 — 立即重构（上下文爆炸重灾区）
-1. **GameSceneBootstrap.cs** → 拆分为 4 文件
-2. **SpawnManager.cs** → 拆分为 4 文件
-3. **MagePassive.cs** → 拆分为 3 文件
+1. **GameSceneBootstrap.cs** → 拆分为 4 文件 ✅ 已完成（GameSceneBootstrap + GameDataLoader + GameStarter + GameHUDFactory）
+2. **SpawnManager.cs** → 拆分为 4 文件 ⚠️ 部分完成（SpawnManager + EnemyPrefabFactory + WaveConfigHelper，缺 EnemyWaveSpawner）
+3. **MagePassive.cs** → 拆分为 3 文件 ✅ 已完成（MagePassive + DetonateSystem）
 
 ### P1 — 尽快重构
-4. **LevelUpUI.cs** → 拆分为 3 文件
-5. **DotProjectile.cs** → 拆分为 6 文件
-6. **StatusEffectSystem.cs** → 拆分为 3 文件
+4. **LevelUpUI.cs** → 拆分为 3 文件 ✅ 已完成（LevelUpUI ~220行 + LevelUpOptionGenerator ~332行 + MagnetMultiplierSystem ~30行）
+5. **DotProjectile.cs** → 拆分为 6 文件 ✅ 已完成（BleedBullet + PoisonBullet + BurnBullet + FrostBullet + LightningBullet + DotBulletFactory）
+6. **StatusEffectSystem.cs** → 拆分为 3 文件 ✅ 已完成（StatusEffectSystem ~230行 + CurseSpreadSystem ~100行 + DotComboSystem ~100行）
 
 ### P2 — 后续重构
-7. **EventManager.cs** → 拆分为 2 文件
-8. **Damageable.cs** → 拆分为 2 文件
-9. **DebugConfigPanel.cs** → 拆分为 2 文件
+7. **EventManager.cs** → 拆分为 2 文件 ✅ 已完成（EventManager ~120行 + GenericEventBus ~50行）
+8. **Damageable.cs** (~330行) → 跳过（职责紧密，伤害公式仅一行 max(1,dmg-armor)，拆分增加复杂度）
+9. **DebugConfigPanel.cs** (~439行) → 跳过（#if UNITY_EDITOR 包裹，纯 GUI 代码，不涉及核心逻辑）
+
+### P3 — 额外发现的大文件（fixme.md 原计划外）
+10. **BossEnemy.cs** (~746行) → 需拆分
+11. **EnemyHealthBar.cs** (~680行) → 需拆分
+12. **SaveManager.cs** (~595行) → 需拆分
+13. **DebugPoolMonitor.cs** (~484行) → 需拆分
+14. **MageStatsHUD.cs** (~483行) → 需拆分
+15. **DecorationSpawner.cs** (~470行) → 需拆分
+16. **SelectionFlowManager.cs** (~453行) → 需拆分
+17. **EnvironmentZone.cs** (~422行) → 需拆分
+18. **DamageMeter.cs** (~409行) → 需拆分
+19. **WeaponController.cs** (~359行) → 需拆分
+20. **SFXManager.cs** (~348行) → 需拆分
 
 ---
 

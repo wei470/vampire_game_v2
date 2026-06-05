@@ -15,7 +15,7 @@ public static class GameStateResetter
         // 0. 强制销毁场景中所有敌人（在销毁 ObjectPool 之前！）
         // 这是防止敌人跨局残留的关键步骤
         int enemyCount = 0;
-        foreach (var enemy in Object.FindObjectsByType<EnemyBase>(FindObjectsSortMode.None))
+        foreach (var enemy in Object.FindObjectsByType<EnemyBase>())
         {
             if (enemy != null)
             {
@@ -24,7 +24,7 @@ public static class GameStateResetter
             }
         }
         // 也销毁所有 Boss
-        foreach (var boss in Object.FindObjectsByType<BossEnemy>(FindObjectsSortMode.None))
+        foreach (var boss in Object.FindObjectsByType<BossEnemy>())
         {
             if (boss != null)
             {
@@ -44,7 +44,7 @@ public static class GameStateResetter
         EventManager.ClearAll();
 
         // 2. 重置升级相关静态状态
-        LevelUpUI.ResetMagnetMultiplier();
+        MagnetMultiplierSystem.Reset();
 
         // 3. 重置全局引用缓存（防止旧玩家引用残留）
         GameReferences.Reset();

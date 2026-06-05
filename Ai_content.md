@@ -11,11 +11,20 @@
 ```
 Assets/Scripts/
 ├ Core/        ← 单例、事件、对象池、引用、输入、存档、Debug
+│  ├── GameSceneBootstrap.cs  (~210行) 协调器：组件组装+生命周期
+│  ├── GameDataLoader.cs      (~160行) 数据加载：角色/武器/技能/Mage配置
+│  ├── GameStarter.cs         (~200行) 游戏启动：应用配置+预热池+开始游戏
+│  ├── GameHUDFactory.cs      (~110行) HUD工厂：创建所有游戏内HUD组件
 ├ Combat/      ← 武器、弹幕、伤害、DOT子弹、状态效果
 │ └ StatusEffects/
 ├ Entities/    ← 可伤害实体、掉落物、经验/金币
 ├ Enemies/     ← 14种敌人子类 + Boss + 能力框架
+│  ├── SpawnManager.cs        (~220行) 波次管理协调器
+│  ├── EnemyPrefabFactory.cs  (~260行) 敌人预制体创建+池键映射
+│  ├── WaveConfigHelper.cs    (~120行) 波次配置+难度倍率计算
 ├ Player/      ← 控制器、等级、技能管理、MagePassive
+│  ├── MagePassive.cs         (~550行) DOT枪+升级+协同+进化
+│  ├── DetonateSystem.cs      (~430行) 引爆系统（蓄力/连锁/余烬/碎裂）
 ├ Skills/      ← 8种主动技能
 ├ UI/          ← 所有UI组件
 ├ Map/         ← 地图主题、装饰、环境区域
@@ -87,7 +96,9 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - 子弹增强(3)：急速/弹幕/反弹
 
 ## 7. 状态效果系统
-- **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff
+- **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff（~230行）
+- **CurseSpreadSystem** 静态类，敌人死亡时传播DOT（~100行）
+- **DotComboSystem** DOT组合效果：碎冰/爆燃/脓毒（~100行）
 - 独立组件：BleedEffect, BurnStackEffect, PoisonStackEffect, FrostEffect
 - 诅咒传播：敌人死亡时自动传播DOT给附近敌人
 
@@ -113,22 +124,34 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 ### 最常修改
 | 文件 | 说明 |
 |------|------|
-| GameSceneBootstrap | 游戏启动+升级注入 |
-| EventManager | 全局事件+泛型事件 |
+| GameSceneBootstrap | 协调器（~236行）：组件组装+生命周期 |
+| GameDataLoader | 数据加载（~160行）：角色/武器/技能/Mage配置 |
+| GameStarter | 游戏启动（~212行）：应用配置+预热池+开始游戏 |
+| GameHUDFactory | HUD工厂（~110行）：创建游戏内HUD组件 |
+| SpawnManager | 波次管理（~342行）：协调波次+生成+状态 |
+| EnemyPrefabFactory | 敌人工厂（~231行）：预制体创建+池键映射 |
+| WaveConfigHelper | 波次配置（~120行）：难度曲线+配置加载 |
+| MagePassive | DOT枪（~428行）：DOT枪管理+升级+协同+进化 |
+| DetonateSystem | 引爆系统（~359行）：蓄力/连锁/余烬/碎裂 |
+| LevelUpUI | 升级UI协调（~220行）：显示+选择+应用 |
+| LevelUpOptionGenerator | 升级选项生成（~332行）：选项生成+Build路线+推荐 |
+| MagnetMultiplierSystem | 磁铁倍率（~30行）：全局磁铁范围倍率管理 |
+| StatusEffectSystem | DOT管理（~230行）：核心管理+引爆+视觉 |
+| CurseSpreadSystem | 诅咒传播（~100行）：死亡时传播DOT给附近敌人 |
+| DotComboSystem | DOT组合（~100行）：碎冰/爆燃/脓毒协同 |
+| EventManager | 全局事件（~120行）：事件声明+触发+清理 |
+| GenericEventBus | 泛型事件（~50行）：类型安全的发布/订阅 |
 | GameReferences | 全局引用缓存 |
 | CombatManager | 伤害管理 |
-| SpawnManager | 敌人生成 |
-| MagePassive | DOT枪系统+引爆 |
 | DotProjectile | 4种DOT子弹+效果 |
-| StatusEffectSystem | DOT管理+诅咒传播 |
-| LevelUpUI | 升级界面 |
-| Damageable | 可伤害实体 |
 | PoolHelper | 对象池辅助 |
+| Damageable | 可伤害实体（~330行，未拆分：职责紧密） |
+| DebugConfigPanel | Debug面板（~439行，未拆分：#if UNITY_EDITOR 包裹） |
 
 ### 不应轻易修改
 Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 
-## 13. 修改规范
+## 14. 修改规范
 
 ### 必须遵守
 1. 所有伤害经 `CombatManager`，生命周期走 `ObjectPool`/`PoolHelper`
@@ -147,7 +170,7 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - 新增掉落物 → KillRewarder + GameSceneBootstrap 池预热
 
 ### 场景重置规范
-返回菜单必须：EventManager.ClearAll() → LevelUpUI.ResetMagnetMultiplier() → GameReferences.Reset() → ResetCharacter() → 销毁所有单例
+返回菜单必须：EventManager.ClearAll() → MagnetMultiplierSystem.Reset() → GameReferences.Reset() → ResetCharacter() → 销毁所有单例
 
 ### 关键 Bug 注意
 - PoisonBullet/FrostBullet 必须有 _lifetime 超时销毁
@@ -159,5 +182,5 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **SpawnManager.StartFirstWave() 必须重置状态**：调用前必须 `StopAllCoroutines()` + 重置 `_currentWave=0, _enemiesAlive=0, _isSpawning=false, _waveInProgress=false` + 清除 `_activeEnemies`。否则重启/新局会导致：①上一局敌人残留场景朝远处移动 ②新敌人不生成 ③永远卡在第一波。这是 LoadScene 不销毁场景内 SpawnManager 残留状态导致的。
 - **所有重启路径必须调用 `GameStateResetter.FullReset()`**：R键(GameInputHandler)、GameOverUI重启、PauseMenuUI返回菜单等。`FullReset()` 会在销毁 ObjectPool 之前 `DestroyImmediate` 所有敌人。**仅调用 `EventManager.ClearAll()` + `LoadScene()` 是不够的！**
 - **ObjectPool 是 DontDestroyOnLoad 单例**：`LoadScene(buildIndex)` 重建同一场景时，ObjectPool 会跨场景存活，池中的旧敌人会残留。必须通过 `GameStateResetter.FullReset()` 销毁 ObjectPool 单例。
-- **重启后对象池必须重新预热**：`FullReset()` 销毁 ObjectPool 后，重启场景时 `GameSceneBootstrap.WarmUpObjectPools()` 可能在 `SpawnManager.Start()` 之前运行（因为 `GameSceneBootstrap.Start()` 会先禁用 SpawnManager），此时敌人预制体字段为 null，池预热被跳过。`SpawnManager.StartFirstWave()` 必须在 `EnsureEnemyPrefabs()` 之后调用 `EnsureEnemyPoolsWarmedUp()` 确保池中有可激活的敌人实例。否则 `PoolHelper.SpawnOrInstantiate()` 回退到 `Object.Instantiate()` 创建的是非激活的预制体副本，表现为"不刷怪"。
-- **代码量过大问题（待重构）**：多个核心文件超过 500 行（GameSceneBootstrap 814行、SpawnManager 860行），导致 AI 读取修复时上下文爆炸。详见 `fixme.md`。
+- **重启后对象池必须重新预热**：`FullReset()` 销毁 ObjectPool 后，重启场景时 `GameStarter.WarmUpObjectPools()`（由 GameSceneBootstrap 调用）可能在 `SpawnManager.Start()` 之前运行（因为 `GameSceneBootstrap.Start()` 会先禁用 SpawnManager），此时敌人预制体字段为 null，池预热被跳过。`SpawnManager.StartFirstWave()` 必须在 `EnsureEnemyPrefabs()` 之后调用 `EnsureEnemyPoolsWarmedUp()` 确保池中有可激活的敌人实例。否则 `PoolHelper.SpawnOrInstantiate()` 回退到 `Object.Instantiate()` 创建的是非激活的预制体副本，表现为"不刷怪"。
+- **代码量过大问题（重构完成）**：P0/P1/P2 全部完成。详见 `fixme.md`。新增文件：MagnetMultiplierSystem、LevelUpOptionGenerator、CurseSpreadSystem、DotComboSystem、GenericEventBus。LevelUpUI 从958行精简到220行，StatusEffectSystem 从906行精简到230行，EventManager 从358行精简到120行。

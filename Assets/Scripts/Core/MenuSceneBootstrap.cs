@@ -219,7 +219,7 @@ public class MenuSceneBootstrap : MonoBehaviour
         GameReferences.TestMode = true;
 
         EventManager.ClearAll();
-        LevelUpUI.ResetMagnetMultiplier();
+        MagnetMultiplierSystem.Reset();
 
         for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
         {
@@ -274,7 +274,7 @@ public class MenuSceneBootstrap : MonoBehaviour
         DailyChallengeSystem.ActivateDailyChallenge();
 
         EventManager.ClearAll();
-        LevelUpUI.ResetMagnetMultiplier();
+        MagnetMultiplierSystem.Reset();
 
         for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
         {
@@ -297,7 +297,7 @@ public class MenuSceneBootstrap : MonoBehaviour
         DebugHelper.Log("[MenuBootstrap] Starting game...");
 
         EventManager.ClearAll();
-        LevelUpUI.ResetMagnetMultiplier();
+        MagnetMultiplierSystem.Reset();
 
         for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
         {

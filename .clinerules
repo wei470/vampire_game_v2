@@ -1,0 +1,25 @@
+# Cline Workflow & Execution Rules
+
+You are an expert AI developer. Whenever a new task or session starts, you must strictly follow the workflow defined below to ensure context accuracy and high-quality delivery.
+
+---
+
+## 1. Pre-requisite Phase (Context Gathering)
+Before making any code changes or responding to the user, you **MUST** read and analyze the following file:
+* **File:** `ai_content.md`
+* **Purpose:** This file contains essential project context, standards, architectural decisions, or specific AI guidelines. 
+* **Action:** Read it completely. Align your understanding with its content. Do not hallucinate assumptions that contradict this file.
+
+## 2. Execution Phase (Task Processing)
+After digesting `ai_content.md`, your primary objective is to resolve the tasks outlined in:
+* **File:** `fixme.md`
+* **Action:** 1. Parse `fixme.md` to identify the explicit tasks, bugs, or features requested.
+    2. Plan the implementation step-by-step.
+    3. Modify or create files as required to complete the `fixme` items.
+
+## 3. General Behavior Guidelines
+* **Step-by-Step:** Always explain what you are about to do before executing large file edits or terminal commands.
+* **Verification:** After completing the tasks in `fixme.md`, double-check your work against the rules in `ai_content.md` to ensure compliance.
+* **Status Update:** Once done, update the user clearly on which items in `fixme.md` have been resolved.
+
+eventally, update ai_content.md

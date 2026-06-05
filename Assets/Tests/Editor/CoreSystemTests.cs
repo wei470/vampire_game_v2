@@ -172,22 +172,21 @@ public class CoreSystemTests
         Assert.IsTrue(interfaceType.IsInterface);
     }
 
-    // ═══ LevelUpUI MagnetMultiplier 测试 ═══
+    // ═══ MagnetMultiplier 测试 ═══
 
     [Test]
-    public void LevelUpUI_MagnetMultiplier_DefaultsToOne()
+    public void MagnetMultiplier_DefaultsToOne()
     {
-        LevelUpUI.ResetMagnetMultiplier();
-        Assert.AreEqual(1f, LevelUpUI.MagnetRangeMultiplier);
+        MagnetMultiplierSystem.Reset();
+        Assert.AreEqual(1f, MagnetMultiplierSystem.MagnetRangeMultiplier);
     }
 
     [Test]
-    public void LevelUpUI_MagnetMultiplier_ResetWorks()
+    public void MagnetMultiplier_ResetWorks()
     {
-        // 通过反射修改（因为 setter 是 private）
-        // 这里只测试 ResetMagnetMultiplier
-        LevelUpUI.ResetMagnetMultiplier();
-        Assert.AreEqual(1f, LevelUpUI.MagnetRangeMultiplier);
+        MagnetMultiplierSystem.ApplyMagnetRangeUp();
+        MagnetMultiplierSystem.Reset();
+        Assert.AreEqual(1f, MagnetMultiplierSystem.MagnetRangeMultiplier);
     }
 }
 #endif

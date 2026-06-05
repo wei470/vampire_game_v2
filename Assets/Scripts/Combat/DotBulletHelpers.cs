@@ -1,0 +1,228 @@
+using UnityEngine;
+
+/// <summary>
+/// DOT 子弹通用工具类 — 确保 StatusEffectManager 存在
+/// 从 DotProjectile.cs 拆分而来
+/// </summary>
+public static class DotBulletHelper
+{
+    /// <summary>
+    /// 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
+    /// </summary>
+    public static void EnsureStatusEffectManager(GameObject enemy)
+    {
+        var sem = enemy.GetComponent<StatusEffectManager>();
+        if (sem == null)
+            sem = enemy.AddComponent<StatusEffectManager>();
+
+        var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+        if (magePassive != null)
+        {
+            sem.DotDurationMultiplier = magePassive.GetDotDurationMultiplier();
+            sem.DotFrequencyBonus = magePassive.DotFrequencyBonus;
+            sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
+            sem.WindErosionKnockback = magePassive.KnockbackBonus;
+        }
+    }
+}
+
+/// <summary>
+/// DOT 子弹 Sprite 缓存 — 运行时生成椭圆/圆形 Sprite
+/// </summary>
+public static class DotSpriteCache
+{
+    private static Sprite _cachedSprite;
+    private static Sprite _cachedCircle;
+
+    public static Sprite Get()
+    {
+        if (_cachedSprite != null) return _cachedSprite;
+        int w = 16, h = 8;
+        var tex = new Texture2D(w, h);
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++)
+            {
+                float cx = (x - 7.5f) / 7.5f;
+                float cy = (y - 3.5f) / 3.5f;
+                tex.SetPixel(x, y, cx * cx + cy * cy <= 1f ? Color.white : new Color(0, 0, 0, 0));
+            }
+        tex.Apply();
+        _cachedSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 10f);
+        return _cachedSprite;
+    }
+
+    public static Sprite CircleSprite()
+    {
+        if (_cachedCircle != null) return _cachedCircle;
+        int size = 64;
+        var tex = new Texture2D(size, size);
+        float center = size / 2f;
+        for (int x = 0; x < size; x++)
+            for (int y = 0; y < size; y++)
+            {
+                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center)) / center;
+                tex.SetPixel(x, y, dist <= 1f ? new Color(1, 1, 1, 1f - dist) : new Color(0, 0, 0, 0));
+            }
+        tex.Apply();
+        _cachedCircle = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 10f);
+        return _cachedCircle;
+    }
+}
+
+/// <summary>
+/// #8 DOT 子弹视觉特效组件
+/// </summary>
+public static class DotBulletVisualEffects
+{
+    public static void AttachTrail(GameObject go, Color trailColor, float trailTime, float startWidth)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = trailTime;
+        trail.startWidth = startWidth;
+        trail.endWidth = 0f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = trailColor;
+        trail.endColor = new Color(trailColor.r, trailColor.g, trailColor.b, 0f);
+        trail.numCapVertices = 2;
+        trail.minVertexDistance = 0.05f;
+        trail.sortingOrder = 14;
+    }
+
+    public static void AttachFlameEffect(GameObject go)
+    {
+        var glow = new GameObject("FlameGlow");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = Vector3.zero;
+        glow.transform.localScale = Vector3.one * 1.8f;
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = DotSpriteCache.CircleSprite();
+        glowSr.color = new Color(1f, 0.6f, 0f, 0.3f);
+        glowSr.sortingOrder = 14;
+        var pulse = glow.AddComponent<FlamePulseEffect>();
+        pulse.Init(glowSr);
+    }
+
+    public static void AttachFrostTrail(GameObject go)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.3f;
+        trail.startWidth = 0.2f;
+        trail.endWidth = 0.05f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = new Color(0.5f, 0.8f, 1f, 0.7f);
+        trail.endColor = new Color(0.5f, 0.8f, 1f, 0f);
+        trail.numCapVertices = 3;
+        trail.minVertexDistance = 0.03f;
+        trail.sortingOrder = 14;
+        go.AddComponent<FrostGhostSpawner>();
+    }
+
+    public static void AttachSpinEffect(GameObject go, float spinSpeed)
+    {
+        go.AddComponent<SpinEffect>().Init(spinSpeed);
+    }
+
+    public static void AttachLightningTrail(GameObject go)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.2f;
+        trail.startWidth = 0.15f;
+        trail.endWidth = 0.02f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
+        trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
+        trail.numCapVertices = 2;
+        trail.minVertexDistance = 0.03f;
+        trail.sortingOrder = 14;
+
+        var glow = new GameObject("StaticGlow");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = Vector3.zero;
+        glow.transform.localScale = Vector3.one * 1.5f;
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = DotSpriteCache.CircleSprite();
+        glowSr.color = new Color(0.3f, 0.7f, 1f, 0.25f);
+        glowSr.sortingOrder = 14;
+        var pulse = glow.AddComponent<FlamePulseEffect>();
+        pulse.Init(glowSr);
+    }
+}
+
+/// <summary>
+/// 火焰脉冲效果 — 燃烧子弹的光晕闪烁
+/// </summary>
+public class FlamePulseEffect : MonoBehaviour
+{
+    private SpriteRenderer _sr;
+    private float _baseAlpha = 0.3f;
+    private float _pulseSpeed = 12f;
+
+    public void Init(SpriteRenderer sr) { _sr = sr; }
+
+    private void Update()
+    {
+        if (_sr == null) return;
+        float pulse = Mathf.Sin(Time.time * _pulseSpeed) * 0.15f;
+        var c = _sr.color;
+        c.a = _baseAlpha + pulse;
+        _sr.color = c;
+        transform.localScale = Vector3.one * (1.8f + Mathf.Sin(Time.time * _pulseSpeed * 0.7f) * 0.3f);
+    }
+}
+
+/// <summary>
+/// 霜冻残影生成器
+/// </summary>
+public class FrostGhostSpawner : MonoBehaviour
+{
+    private float _spawnInterval = 0.08f;
+    private float _ghostLifetime = 0.25f;
+    private float _lastSpawn;
+    private static Sprite _ghostSprite;
+
+    private void Update()
+    {
+        if (Time.time - _lastSpawn < _spawnInterval) return;
+        _lastSpawn = Time.time;
+        var ghost = new GameObject("FrostGhost");
+        ghost.transform.position = transform.position;
+        ghost.transform.localScale = Vector3.one * 0.3f;
+        var sr = ghost.AddComponent<SpriteRenderer>();
+        if (_ghostSprite == null) _ghostSprite = DotSpriteCache.Get();
+        sr.sprite = _ghostSprite;
+        sr.color = new Color(0.5f, 0.8f, 1f, 0.5f);
+        sr.sortingOrder = 13;
+        ghost.AddComponent<GhostFadeOut>().Init(_ghostLifetime);
+    }
+}
+
+/// <summary>
+/// 残影淡出组件
+/// </summary>
+public class GhostFadeOut : MonoBehaviour
+{
+    private float _lifetime;
+    private float _spawnTime;
+    private SpriteRenderer _sr;
+
+    public void Init(float lifetime) { _lifetime = lifetime; _spawnTime = Time.time; _sr = GetComponent<SpriteRenderer>(); }
+
+    private void Update()
+    {
+        float elapsed = Time.time - _spawnTime;
+        if (elapsed >= _lifetime) { Destroy(gameObject); return; }
+        float t = 1f - (elapsed / _lifetime);
+        if (_sr != null) { var c = _sr.color; c.a = 0.5f * t; _sr.color = c; }
+        transform.localScale = Vector3.one * (0.3f * t);
+    }
+}
+
+/// <summary>
+/// 旋转效果 — 中毒药瓶飞行时旋转
+/// </summary>
+public class SpinEffect : MonoBehaviour
+{
+    private float _spinSpeed = 360f;
+    public void Init(float speed) { _spinSpeed = speed; }
+    private void Update() { transform.Rotate(0, 0, _spinSpeed * Time.deltaTime); }
+}
