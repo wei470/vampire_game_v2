@@ -314,6 +314,10 @@ public class SpawnManager : MonoBehaviour
         // 确保敌人预制体已创建（Start() 可能因组件被禁用而未执行）
         EnsureEnemyPrefabs();
 
+        // 确保对象池已预热（GameSceneBootstrap.WarmUpObjectPools 可能在
+        // SpawnManager.Start() 之前运行，导致池中没有敌人实例）
+        EnsureEnemyPoolsWarmedUp();
+
         // 强制重新获取玩家引用（防止上一局的 stale 引用）
         _playerTransform = null;
         var player = GameReferences.Player;
@@ -817,6 +821,25 @@ public class SpawnManager : MonoBehaviour
             if (enemy != null) Destroy(enemy);
         }
         _activeEnemies.Clear();
+    }
+
+    /// <summary>
+    /// 确保敌人对象池已预热（重启后 ObjectPool 可能是新建的空池）
+    /// </summary>
+    private void EnsureEnemyPoolsWarmedUp()
+    {
+        if (ObjectPool.Instance == null) return;
+
+        PoolHelper.WarmUpEnemyPools(
+            _basicEnemyPrefab, _rangedEnemyPrefab,
+            _tankEnemyPrefab, _fastEnemyPrefab,
+            _throwerEnemyPrefab, _healerEnemyPrefab,
+            _enhancerEnemyPrefab, _splitterEnemyPrefab,
+            _summonerEnemyPrefab, _chargerEnemyPrefab,
+            _shielderEnemyPrefab, _stealthEnemyPrefab,
+            _burstEnemyPrefab, _chainHealerEnemyPrefab);
+
+        DebugHelper.Log("[SpawnManager] EnsureEnemyPoolsWarmedUp: Enemy pools re-warmed after restart");
     }
 
     private void OnDrawGizmosSelected()
