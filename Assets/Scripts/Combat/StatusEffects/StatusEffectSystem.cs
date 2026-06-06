@@ -1,52 +1,12 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// 状态效果类型枚举（14 种 Mage 专属升级对应）
-/// </summary>
-public enum StatusEffectType
-{
-    Bleed, Poison, Burn, Frostbite, Corrosion, Curse, Agony, Wither,
-    Immolate, Radiate, Contaminate, Erosion, WindErosion, Rend, Static
-}
-
-/// <summary>
-/// 单个状态效果实例
-/// </summary>
-[System.Serializable]
-public class StatusEffect
-{
-    public StatusEffectType type;
-    public float damagePerSecond;
-    public float remainingDuration;
-    public float totalDuration;
-    public int stackCount;
-    public bool canCrit;
-    public float critChance;
-    public float critMultiplier;
-
-    public void Refresh(float dps, float duration, bool stackDps = false)
-    {
-        if (stackDps) { stackCount++; damagePerSecond += dps; }
-        else { damagePerSecond = Mathf.Max(damagePerSecond, dps); }
-        remainingDuration = Mathf.Max(remainingDuration, duration);
-        totalDuration = remainingDuration;
-    }
-}
-
-/// <summary>
-/// 引爆结果数据
-/// </summary>
-public struct DetonateResult
-{
-    public int totalDamage;
-    public int poisonStacks, burnStacks, bleedStacks, frostStacks;
-    public bool hadBurn, hadFrost, hadPoison;
-}
+// StatusEffectType, StatusEffect, DetonateResult → 见 StatusEffectData.cs
 
 /// <summary>
 /// 状态效果管理器 — 挂载到敌人身上，管理所有活跃 DOT/Debuff
 /// 诅咒传播委托 CurseSpreadSystem，组合效果委托 DotComboSystem
+/// 视觉效果委托 DotVisualEffectManager
 /// </summary>
 public class StatusEffectManager : MonoBehaviour
 {
@@ -278,48 +238,16 @@ public class StatusEffectManager : MonoBehaviour
     { if (WindErosionKnockback <= 0 || Time.time - _lastVortexTime < VORTEX_INTERVAL) return;
       _lastVortexTime = Time.time; WindErosionVortex.Create(transform.position, 1.5f, 2f, 3f, 0.2f); }
 
-    // 视觉更新
+    // 视觉更新（委托给 DotVisualEffectManager）
     private void UpdateVisual()
     {
-        if (_sr == null || _activeEffects.Count == 0) return;
-        Color ec = _originalColor;
-        var p = _activeEffects[0];
-        switch (p.type)
-        {
-            case StatusEffectType.Bleed: case StatusEffectType.Rend: ec = Color.Lerp(_originalColor, new Color(0.8f, 0.1f, 0.1f), 0.6f); break;
-            case StatusEffectType.Poison: ec = Color.Lerp(_originalColor, new Color(0.1f, 0.9f, 0.1f), 0.6f); break;
-            case StatusEffectType.Burn: case StatusEffectType.Immolate: ec = Color.Lerp(_originalColor, new Color(1f, 0.4f, 0f), 0.6f); break;
-            case StatusEffectType.Frostbite: ec = Color.Lerp(_originalColor, new Color(0.3f, 0.6f, 1f), 0.6f); break;
-            case StatusEffectType.Corrosion: case StatusEffectType.Erosion: ec = Color.Lerp(_originalColor, new Color(0.5f, 0.8f, 0.2f), 0.6f); break;
-            case StatusEffectType.Curse: case StatusEffectType.Wither: ec = Color.Lerp(_originalColor, new Color(0.4f, 0f, 0.6f), 0.6f); break;
-            case StatusEffectType.Agony: ec = Color.Lerp(_originalColor, new Color(0.6f, 0f, 0.3f), 0.6f); break;
-            case StatusEffectType.Radiate: ec = Color.Lerp(_originalColor, new Color(0f, 1f, 0.5f), 0.6f); break;
-            case StatusEffectType.Contaminate: ec = Color.Lerp(_originalColor, new Color(0.3f, 0.5f, 0.3f), 0.6f); break;
-            case StatusEffectType.WindErosion: ec = Color.Lerp(_originalColor, new Color(0.7f, 0.85f, 1f), 0.6f); break;
-        }
-        float pulse = Mathf.Sin(Time.time * 6f) * 0.15f;
-        _sr.color = Color.Lerp(ec, _originalColor, 0.3f + pulse);
+        DotVisualEffectManager.UpdateVisual(_sr, _activeEffects, _originalColor);
     }
 
-    // DOT粒子视觉
+    // DOT粒子视觉（委托给 DotVisualEffectManager）
     private void UpdateDotParticles()
     {
-        bool hasBleed = false, hasPoison = false, hasBurn = false, hasFrost = false;
-        for (int i = 0; i < _activeEffects.Count; i++)
-        { switch (_activeEffects[i].type)
-          { case StatusEffectType.Bleed: hasBleed = true; break;
-            case StatusEffectType.Poison: hasPoison = true; break;
-            case StatusEffectType.Burn: case StatusEffectType.Immolate: hasBurn = true; break;
-            case StatusEffectType.Frostbite: hasFrost = true; break; } }
-        if (!hasBleed && GetComponent<BleedEffect>() != null) hasBleed = true;
-        if (!hasPoison && GetComponent<PoisonStackEffect>() != null) hasPoison = true;
-        if (!hasBurn && GetComponent<BurnStackEffect>() != null) hasBurn = true;
-        if (!hasFrost && GetComponent<FrostEffect>() != null) hasFrost = true;
-        if (!hasBleed && !hasPoison && !hasBurn && !hasFrost)
-        { if (_dotVFX != null) { Destroy(_dotVFX); _dotVFX = null; } return; }
-        if (_dotVFX == null) _dotVFX = GetComponent<DotParticleVFX>();
-        if (_dotVFX == null) _dotVFX = gameObject.AddComponent<DotParticleVFX>();
-        _dotVFX.UpdateEffects(hasBleed, hasPoison, hasBurn, hasFrost);
+        DotVisualEffectManager.UpdateDotParticles(gameObject, _activeEffects, ref _dotVFX);
     }
 
     private void OnDestroy()

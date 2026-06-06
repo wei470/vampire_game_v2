@@ -24,7 +24,9 @@ public class LightningBullet : MonoBehaviour
     public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private void FixedUpdate() { GetComponent<Rigidbody2D>().linearVelocity = _direction * _speed; }
+    private Rigidbody2D _cachedRb;
+    private void Awake() { _cachedRb = GetComponent<Rigidbody2D>(); }
+    private void FixedUpdate() { _cachedRb.linearVelocity = _direction * _speed; }
 
     private void OnTriggerEnter2D(Collider2D other)
     {

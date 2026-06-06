@@ -154,6 +154,7 @@ public class WeaponController : MonoBehaviour
         var data = _currentWeapon;
         int count = data.projectileCount;
         float spread = data.spreadAngle;
+        Vector2 pos = transform.position;
 
         for (int i = 0; i < count; i++)
         {
@@ -164,128 +165,38 @@ public class WeaponController : MonoBehaviour
             {
                 float angleStep = spread / (count - 1);
                 float angle = -spread / 2f + angleStep * i;
-                fireDir = RotateVector2(direction, angle);
+                fireDir = WeaponProjectileFactory.RotateVector2(direction, angle);
             }
 
             switch (data.projectileType)
             {
                 case WeaponData.ProjectileType.Bullet:
-                    SpawnBullet(fireDir, data);
+                    WeaponProjectileFactory.SpawnBullet(pos, fireDir, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.ChainLightning:
-                    SpawnLightning(fireDir, data);
+                    WeaponProjectileFactory.SpawnLightning(pos, fireDir, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.Shockwave:
-                    SpawnShockwave(data);
+                    WeaponProjectileFactory.SpawnShockwave(pos, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.HomingMissile:
-                    SpawnHomingMissile(fireDir, data);
+                    WeaponProjectileFactory.SpawnHomingMissile(pos, fireDir, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.MineTrap:
-                    SpawnMineTrap(data);
+                    WeaponProjectileFactory.SpawnMineTrap(pos, GetFireDirection(), CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.Flamethrower:
-                    SpawnFireZone(fireDir, data);
+                    WeaponProjectileFactory.SpawnFireZone(pos, fireDir, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.FrostOrb:
-                    SpawnFrostOrb(fireDir, data);
+                    WeaponProjectileFactory.SpawnFrostOrb(pos, fireDir, CurrentDamage, data);
                     break;
                 case WeaponData.ProjectileType.VenomDart:
-                    SpawnVenomDart(fireDir, data);
+                    WeaponProjectileFactory.SpawnVenomDart(pos, fireDir, CurrentDamage, data);
                     break;
             }
         }
     }
-
-    #region 投射物生成方法
-
-    private void SpawnBullet(Vector2 dir, WeaponData data)
-    {
-        Bullet.CreateDefault(
-            transform.position, dir,
-            CurrentDamage, data.projectileSpeed,
-            data.projectileLifetime, data.pierce
-        );
-    }
-
-    private void SpawnLightning(Vector2 dir, WeaponData data)
-    {
-        LightningBolt.CreateDefault(
-            transform.position, dir,
-            CurrentDamage, data.chainCount,
-            data.chainRadius, data.projectileLifetime
-        );
-    }
-
-    private void SpawnShockwave(WeaponData data)
-    {
-        ShockwaveProjectile.CreateDefault(
-            transform.position,
-            CurrentDamage, 8f, data.zoneRadius > 0 ? data.zoneRadius : 5f,
-            data.projectileLifetime
-        );
-    }
-
-    private void SpawnHomingMissile(Vector2 dir, WeaponData data)
-    {
-        HomingProjectile.CreateDefault(
-            transform.position, dir,
-            CurrentDamage, data.projectileSpeed,
-            data.homingTurnSpeed, data.projectileLifetime
-        );
-    }
-
-    private void SpawnMineTrap(WeaponData data)
-    {
-        // 在玩家位置或前方放置地雷
-        Vector2 pos = transform.position + (Vector3)(GetFireDirection() * 1.5f);
-        MineTrap.CreateDefault(
-            pos,
-            CurrentDamage, 2f, data.zoneRadius > 0 ? data.zoneRadius : 3f,
-            data.projectileLifetime > 0 ? data.projectileLifetime : 10f
-        );
-    }
-
-    private void SpawnFireZone(Vector2 dir, WeaponData data)
-    {
-        Vector2 targetPos = (Vector2)transform.position + dir * 8f;
-        var zone = FireZone.CreateDefault(
-            transform.position,
-            CurrentDamage,
-            data.zoneLifetime > 0 ? data.zoneLifetime : 3f,
-            data.zoneRadius > 0 ? data.zoneRadius : 1.5f,
-            data.tickInterval > 0 ? data.tickInterval : 0.5f
-        );
-        zone.SetTargetPosition(targetPos);
-    }
-
-    private void SpawnFrostOrb(Vector2 dir, WeaponData data)
-    {
-        Vector2 targetPos = (Vector2)transform.position + dir * 6f;
-        FrostOrb.CreateDefault(
-            transform.position, targetPos,
-            CurrentDamage, Mathf.RoundToInt(data.dotDamage > 0 ? data.dotDamage : 3),
-            data.slowAmount > 0 ? data.slowAmount : 0.5f,
-            data.slowDuration > 0 ? data.slowDuration : 1.5f,
-            data.zoneLifetime > 0 ? data.zoneLifetime : 4f,
-            data.frostRadius > 0 ? data.frostRadius : 2.5f
-        );
-    }
-
-    private void SpawnVenomDart(Vector2 dir, WeaponData data)
-    {
-        VenomDart.CreateDefault(
-            transform.position, dir,
-            CurrentDamage,
-            data.dotDamage > 0 ? data.dotDamage : 3f,
-            data.dotDuration > 0 ? data.dotDuration : 3f,
-            data.projectileSpeed,
-            data.projectileLifetime,
-            data.pierce
-        );
-    }
-
-    #endregion
 
     #region 默认发射（无 WeaponData）
 
@@ -299,7 +210,7 @@ public class WeaponController : MonoBehaviour
         }
         else
         {
-            bulletGo = CreateDefaultProjectileGO();
+            bulletGo = WeaponProjectileFactory.CreateDefaultProjectileGO(transform.position);
         }
 
         var proj = bulletGo.GetComponent<Projectile>();
@@ -310,51 +221,6 @@ public class WeaponController : MonoBehaviour
             proj.SetKnockback(_knockbackForce);
             proj.SetDirection(direction);
         }
-    }
-
-    private GameObject CreateDefaultProjectileGO()
-    {
-        var go = new GameObject("Projectile");
-        go.transform.position = transform.position;
-        go.tag = "Untagged";
-
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = CreateProjectileSprite();
-        sr.color = new Color(0.3f, 0.8f, 1f);
-        sr.sortingOrder = 15;
-
-        var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
-
-        var col = go.AddComponent<BoxCollider2D>();
-        col.isTrigger = true;
-        col.size = new Vector2(0.5f, 0.3f);
-
-        go.AddComponent<Projectile>();
-
-        return go;
-    }
-
-    /// <summary>
-    /// 创建椭圆形投射物 Sprite（16x8）
-    /// </summary>
-    private static Sprite _cachedProjectileSprite;
-    private static Sprite CreateProjectileSprite()
-    {
-        if (_cachedProjectileSprite != null) return _cachedProjectileSprite;
-
-        var tex = new Texture2D(16, 8);
-        for (int x = 0; x < 16; x++)
-            for (int y = 0; y < 8; y++)
-            {
-                float cx = (x - 7.5f) / 7.5f;
-                float cy = (y - 3.5f) / 3.5f;
-                float dist = cx * cx + cy * cy;
-                tex.SetPixel(x, y, dist <= 1f ? Color.white : new Color(0, 0, 0, 0));
-            }
-        tex.Apply();
-        _cachedProjectileSprite = Sprite.Create(tex, new Rect(0, 0, 16, 8), new Vector2(0.5f, 0.5f), 10f);
-        return _cachedProjectileSprite;
     }
 
     #endregion
@@ -370,16 +236,6 @@ public class WeaponController : MonoBehaviour
         _pierce = pierce;
     }
 
-    /// <summary>
-    /// 旋转向量
-    /// </summary>
-    private Vector2 RotateVector2(Vector2 v, float degrees)
-    {
-        float rad = degrees * Mathf.Deg2Rad;
-        float cos = Mathf.Cos(rad);
-        float sin = Mathf.Sin(rad);
-        return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
-    }
 
     /// <summary>
     /// 刷新当前武器属性（武器升级后调用）

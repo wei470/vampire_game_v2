@@ -59,11 +59,10 @@ public class SFXManager : MonoBehaviour
     [SerializeField] private AudioClip _waveCompleteSound;
 
     // ════════════════════════════════════════════════════════════════
-    // 对象池
+    // 音效池
     // ════════════════════════════════════════════════════════════════
 
-    private List<AudioSource> _pool;
-    private Transform _poolParent;
+    private SFXPoolHelper _poolHelper;
 
     // ════════════════════════════════════════════════════════════════
     // 冷却控制（防止音效轰炸）
@@ -90,7 +89,7 @@ public class SFXManager : MonoBehaviour
         _instance = this;
         DontDestroyOnLoad(gameObject);
 
-        InitPool();
+        _poolHelper = new SFXPoolHelper(_poolSize, transform, _masterVolume, _sfxVolume);
         RegisterEvents();
     }
 
@@ -104,52 +103,6 @@ public class SFXManager : MonoBehaviour
     // 初始化
     // ════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// 初始化 AudioSource 对象池
-    /// </summary>
-    private void InitPool()
-    {
-        _pool = new List<AudioSource>(_poolSize);
-        _poolParent = new GameObject("SFX_Pool").transform;
-        _poolParent.SetParent(transform);
-
-        for (int i = 0; i < _poolSize; i++)
-        {
-            _pool.Add(CreateAudioSource());
-        }
-    }
-
-    /// <summary>
-    /// 创建一个 AudioSource 组件
-    /// </summary>
-    private AudioSource CreateAudioSource()
-    {
-        var go = new GameObject("SFX_AudioSource");
-        go.transform.SetParent(_poolParent);
-        var source = go.AddComponent<AudioSource>();
-        source.playOnAwake = false;
-        source.loop = false;
-        source.spatialBlend = 0f; // 2D 音效
-        return source;
-    }
-
-    /// <summary>
-    /// 从池中获取一个空闲的 AudioSource
-    /// </summary>
-    private AudioSource GetSource()
-    {
-        for (int i = 0; i < _pool.Count; i++)
-        {
-            if (!_pool[i].isPlaying)
-                return _pool[i];
-        }
-
-        // 池满了，扩展一个
-        var newSource = CreateAudioSource();
-        _pool.Add(newSource);
-        DebugHelper.Log($"[SFXManager] Pool expanded to {_pool.Count}");
-        return newSource;
-    }
 
     // ════════════════════════════════════════════════════════════════
     // 事件注册
@@ -296,13 +249,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void Play(AudioClip clip, float volumeScale = 1f)
     {
-        if (clip == null) return;
-
-        var source = GetSource();
-        source.clip = clip;
-        source.volume = _masterVolume * _sfxVolume * volumeScale;
-        source.pitch = 1f + Random.Range(-0.05f, 0.05f); // 微量随机音高变化，避免机械感
-        source.Play();
+        _poolHelper.Play(clip, volumeScale);
     }
 
     /// <summary>
@@ -310,13 +257,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void Play(AudioClip clip, float volumeScale, float pitch)
     {
-        if (clip == null) return;
-
-        var source = GetSource();
-        source.clip = clip;
-        source.volume = _masterVolume * _sfxVolume * volumeScale;
-        source.pitch = pitch;
-        source.Play();
+        _poolHelper.Play(clip, volumeScale, pitch);
     }
 
     /// <summary>
@@ -324,16 +265,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlayAtPosition(AudioClip clip, Vector3 position, float volumeScale = 1f)
     {
-        if (clip == null) return;
-
-        var source = GetSource();
-        source.transform.position = position;
-        source.spatialBlend = 1f; // 3D
-        source.clip = clip;
-        source.volume = _masterVolume * _sfxVolume * volumeScale;
-        source.pitch = 1f + Random.Range(-0.05f, 0.05f);
-        source.Play();
-        source.spatialBlend = 0f; // 播放后重置为 2D
+        _poolHelper.PlayAtPosition(clip, position, volumeScale);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -346,6 +278,7 @@ public class SFXManager : MonoBehaviour
     public void SetMasterVolume(float vol)
     {
         _masterVolume = Mathf.Clamp01(vol);
+        _poolHelper?.SetVolume(_masterVolume, _sfxVolume);
     }
 
     /// <summary>
@@ -354,6 +287,7 @@ public class SFXManager : MonoBehaviour
     public void SetSFXVolume(float vol)
     {
         _sfxVolume = Mathf.Clamp01(vol);
+        _poolHelper?.SetVolume(_masterVolume, _sfxVolume);
     }
 
     /// <summary>
@@ -375,10 +309,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     private void PlayWithCooldown(ref float lastTime, float cooldown, AudioClip clip, float volumeScale)
     {
-        if (clip == null) return;
-        if (Time.unscaledTime - lastTime < cooldown) return;
-        lastTime = Time.unscaledTime;
-        Play(clip, volumeScale);
+        _poolHelper.PlayWithCooldown(ref lastTime, cooldown, clip, volumeScale);
     }
 
     /// <summary>
@@ -386,11 +317,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void StopAll()
     {
-        for (int i = 0; i < _pool.Count; i++)
-        {
-            if (_pool[i].isPlaying)
-                _pool[i].Stop();
-        }
+        _poolHelper.StopAll();
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 # 🧠 AI 速查手册 — Vampire Survivors Unity 移植版
 
-> 每次开新 AI 窗口先读此文件，快速掌握项目架构和修改规范。
+> 每次开新 AI 窗口先读此文件。
 
 ## 1. 项目概述
 - **引擎**：Unity 6 (URP) | **语言**：C# | **类型**：2D 俯视角射击生存
@@ -11,20 +11,20 @@
 ```
 Assets/Scripts/
 ├ Core/        ← 单例、事件、对象池、引用、输入、存档、Debug
-│  ├── GameSceneBootstrap.cs  (~210行) 协调器：组件组装+生命周期
-│  ├── GameDataLoader.cs      (~160行) 数据加载：角色/武器/技能/Mage配置
-│  ├── GameStarter.cs         (~200行) 游戏启动：应用配置+预热池+开始游戏
-│  ├── GameHUDFactory.cs      (~110行) HUD工厂：创建所有游戏内HUD组件
+│  ├── GameSceneBootstrap.cs  协调器：组件组装+生命周期
+│  ├── GameDataLoader.cs      数据加载：角色/武器/技能/Mage配置
+│  ├── GameStarter.cs         游戏启动：应用配置+预热池+开始游戏
+│  ├── GameHUDFactory.cs      HUD工厂：创建所有游戏内HUD组件
 ├ Combat/      ← 武器、弹幕、伤害、DOT子弹、状态效果
 │ └ StatusEffects/
 ├ Entities/    ← 可伤害实体、掉落物、经验/金币
 ├ Enemies/     ← 14种敌人子类 + Boss + 能力框架
-│  ├── SpawnManager.cs        (~220行) 波次管理协调器
-│  ├── EnemyPrefabFactory.cs  (~260行) 敌人预制体创建+池键映射
-│  ├── WaveConfigHelper.cs    (~120行) 波次配置+难度倍率计算
+│  ├── SpawnManager.cs        波次管理协调器
+│  ├── EnemyPrefabFactory.cs  敌人预制体创建+池键映射
+│  ├── WaveConfigHelper.cs    波次配置+难度倍率计算
 ├ Player/      ← 控制器、等级、技能管理、MagePassive
-│  ├── MagePassive.cs         (~550行) DOT枪+升级+协同+进化
-│  ├── DetonateSystem.cs      (~430行) 引爆系统（蓄力/连锁/余烬/碎裂）
+│  ├── MagePassive.cs         DOT枪+升级+协同+进化
+│  ├── DetonateSystem.cs      引爆系统（蓄力/连锁/余烬/碎裂）
 ├ Skills/      ← 8种主动技能
 ├ UI/          ← 所有UI组件
 ├ Map/         ← 地图主题、装饰、环境区域
@@ -96,11 +96,10 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - 子弹增强(3)：急速/弹幕/反弹
 
 ## 7. 状态效果系统
-- **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff（~230行）
-- **CurseSpreadSystem** 静态类，敌人死亡时传播DOT（~100行）
-- **DotComboSystem** DOT组合效果：碎冰/爆燃/脓毒（~100行）
+- **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff
+- **CurseSpreadSystem** 静态类，敌人死亡时传播DOT
+- **DotComboSystem** DOT组合效果：碎冰/爆燃/脓毒
 - 独立组件：BleedEffect, BurnStackEffect, PoisonStackEffect, FrostEffect
-- 诅咒传播：敌人死亡时自动传播DOT给附近敌人
 
 ## 8. 敌人系统
 - 14种 + 4种Boss变体，由 SpriteFactory 运行时生成形状
@@ -135,18 +134,11 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 | DetonateSystem | 引爆系统（~359行）：蓄力/连锁/余烬/碎裂 |
 | LevelUpUI | 升级UI协调（~220行）：显示+选择+应用 |
 | LevelUpOptionGenerator | 升级选项生成（~332行）：选项生成+Build路线+推荐 |
-| MagnetMultiplierSystem | 磁铁倍率（~30行）：全局磁铁范围倍率管理 |
 | StatusEffectSystem | DOT管理（~230行）：核心管理+引爆+视觉 |
 | CurseSpreadSystem | 诅咒传播（~100行）：死亡时传播DOT给附近敌人 |
 | DotComboSystem | DOT组合（~100行）：碎冰/爆燃/脓毒协同 |
 | EventManager | 全局事件（~120行）：事件声明+触发+清理 |
-| GenericEventBus | 泛型事件（~50行）：类型安全的发布/订阅 |
-| GameReferences | 全局引用缓存 |
-| CombatManager | 伤害管理 |
-| DotProjectile | 4种DOT子弹+效果 |
-| PoolHelper | 对象池辅助 |
 | Damageable | 可伤害实体（~330行，未拆分：职责紧密） |
-| DebugConfigPanel | Debug面板（~439行，未拆分：#if UNITY_EDITOR 包裹） |
 
 ### 不应轻易修改
 Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
@@ -179,8 +171,50 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - 攻速公式：`1f - bonus`，最低0.2
 - DOT子弹命中必须调 DotBulletHelper.EnsureStatusEffectManager()
 - InputSystem：使用 `Keyboard.current.xxxKey.wasPressedThisFrame`，禁止 `Input.GetKeyDown`
-- **SpawnManager.StartFirstWave() 必须重置状态**：调用前必须 `StopAllCoroutines()` + 重置 `_currentWave=0, _enemiesAlive=0, _isSpawning=false, _waveInProgress=false` + 清除 `_activeEnemies`。否则重启/新局会导致：①上一局敌人残留场景朝远处移动 ②新敌人不生成 ③永远卡在第一波。这是 LoadScene 不销毁场景内 SpawnManager 残留状态导致的。
-- **所有重启路径必须调用 `GameStateResetter.FullReset()`**：R键(GameInputHandler)、GameOverUI重启、PauseMenuUI返回菜单等。`FullReset()` 会在销毁 ObjectPool 之前 `DestroyImmediate` 所有敌人。**仅调用 `EventManager.ClearAll()` + `LoadScene()` 是不够的！**
-- **ObjectPool 是 DontDestroyOnLoad 单例**：`LoadScene(buildIndex)` 重建同一场景时，ObjectPool 会跨场景存活，池中的旧敌人会残留。必须通过 `GameStateResetter.FullReset()` 销毁 ObjectPool 单例。
-- **重启后对象池必须重新预热**：`FullReset()` 销毁 ObjectPool 后，重启场景时 `GameStarter.WarmUpObjectPools()`（由 GameSceneBootstrap 调用）可能在 `SpawnManager.Start()` 之前运行（因为 `GameSceneBootstrap.Start()` 会先禁用 SpawnManager），此时敌人预制体字段为 null，池预热被跳过。`SpawnManager.StartFirstWave()` 必须在 `EnsureEnemyPrefabs()` 之后调用 `EnsureEnemyPoolsWarmedUp()` 确保池中有可激活的敌人实例。否则 `PoolHelper.SpawnOrInstantiate()` 回退到 `Object.Instantiate()` 创建的是非激活的预制体副本，表现为"不刷怪"。
-- **代码量过大问题（重构完成）**：P0/P1/P2 全部完成。详见 `fixme.md`。新增文件：MagnetMultiplierSystem、LevelUpOptionGenerator、CurseSpreadSystem、DotComboSystem、GenericEventBus。LevelUpUI 从958行精简到220行，StatusEffectSystem 从906行精简到230行，EventManager 从358行精简到120行。
+- **SpawnManager.StartFirstWave() 必须重置状态**：调用前必须 `StopAllCoroutines()` + 重置 `_currentWave=0, _enemiesAlive=0, _isSpawning=false, _waveInProgress=false` + 清除 `_activeEnemies`
+- **所有重启路径必须调用 `GameStateResetter.FullReset()`**：R键、GameOverUI重启、PauseMenuUI返回菜单等。仅 `EventManager.ClearAll()` + `LoadScene()` 不够！
+- **ObjectPool 是 DontDestroyOnLoad 单例**：LoadScene 重建场景时池中旧敌人会残留，必须通过 `GameStateResetter.FullReset()` 销毁。
+- **重启后对象池必须重新预热**：`FullReset()` 销毁 ObjectPool 后，`SpawnManager.StartFirstWave()` 必须在 `EnsureEnemyPrefabs()` 之后调用 `EnsureEnemyPoolsWarmedUp()` 确保池中有可激活的敌人实例。
+
+## 15. 重构进度 — 全部完成 ✅
+
+> **V1+V2 重构已全部完成**，V3 性能优化已全部完成，fixme.md 已删除。
+
+### V3 性能优化总结
+- **1.1 DOT子弹 FixedUpdate GetComponent 缓存**：BleedBullet/BurnBullet/FrostBullet/LightningBullet 在 OnEnable 中缓存 Rigidbody2D
+- **1.2 DetonateSystem GetComponent 优化**：所有 `GetComponent` → `TryGetComponent`，缓存 ScreenShake 引用
+- **1.3 CurseSpreadSystem GetComponent 优化**：源DOT组件单次获取（检查+缓存合并），目标组件改用 TryGetComponent
+
+### V4 文件拆分总结
+- **MageStatsHUD(509)** → MageStatsHUD(~170) + MageStatsHUDRenderer(~280) 静态绘制类
+- **DotStatusIndicator(493)** → DotStatusIndicator(~310) + DotStatusIconManager(~180) 图标管理器
+- **AchievementUI(387)** → AchievementUI(~190) + AchievementNotificationRenderer(~190) 通知渲染器
+
+### 重构总结
+
+**V1 阶段**（7次拆分）：
+- GameSceneBootstrap → Bootstrap + GameDataLoader + GameStarter + GameHUDFactory
+- SpawnManager → SpawnManager + EnemyPrefabFactory + WaveConfigHelper
+- MagePassive → MagePassive + DetonateSystem
+- LevelUpUI → LevelUpUI + LevelUpOptionGenerator + MagnetMultiplierSystem
+- DotProjectile → BleedBullet + PoisonBullet + BurnBullet + FrostBullet + LightningBullet + DotBulletFactory
+- StatusEffectSystem → StatusEffectSystem + CurseSpreadSystem + DotComboSystem
+- EventManager → EventManager + GenericEventBus
+
+**V2 阶段**（P4-P6，14次拆分）：
+- BossEnemy → BossEnemy + BossAbilities + BossFactory
+- EnemyHealthBar → EnemyHealthBar + HealthBarSpriteHelper + DotStatusIndicator
+- SaveManager → SaveManager + SaveData + PermanentUpgradeStore
+- MagePassive → MagePassive + MageUpgradeApplier
+- StatusEffectSystem → StatusEffectSystem + StatusEffectData + DotVisualEffectManager
+- SpawnManager → SpawnManager + EnemyScalingHelper
+- LevelUpOptionGenerator → LevelUpOptionGenerator + BuildPathRecommender
+- MageStatsHUD → MageStatsHUD + MageStatsDataCollector
+- DecorationSpawner → DecorationSpawner + DecorationSpriteHelper
+- SelectionFlowManager → SelectionFlowManager + SelectionDataLoader
+- EnvironmentZone → EnvironmentZone + EnvironmentZoneEffect
+- DamageMeter → DamageMeter + DamageBreakdownUI
+- WeaponController → WeaponController + WeaponProjectileFactory
+- SFXManager → SFXManager + SFXPoolHelper
+
+**跳过的文件**：ObjectPool(核心单例)、DebugPoolMonitor(编辑器代码)、P7文件(250-330行，结构清晰无需拆分)

@@ -49,10 +49,24 @@ public class DetonateSystem : MonoBehaviour
 
     // ── 引用 ──
     private MagePassive _magePassive;
+    private ScreenShake _cachedScreenShake;
 
     public void Init(MagePassive magePassive)
     {
         _magePassive = magePassive;
+        CacheScreenShake();
+    }
+
+    private void CacheScreenShake()
+    {
+        var cam = GameReferences.MainCamera;
+        if (cam != null) cam.TryGetComponent(out _cachedScreenShake);
+    }
+
+    private ScreenShake GetScreenShake()
+    {
+        if (_cachedScreenShake == null) CacheScreenShake();
+        return _cachedScreenShake;
     }
 
     /// <summary>
@@ -168,30 +182,28 @@ public class DetonateSystem : MonoBehaviour
             Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
             if (delta.sqrMagnitude > radiusSqr) continue;
 
-            var d = enemy.GetComponent<Damageable>();
-            if (d == null || d.CurrentHp <= 0) continue;
+            if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
 
             bool hadEffect = false;
             int enemyDmg = 0;
 
-            var sem = enemy.GetComponent<StatusEffectManager>();
-            if (sem != null && sem.HasAnyDot)
+            if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
             {
-            DetonateResult detResult;
+                DetonateResult detResult;
                 int dmg = sem.Detonate(_detonateMultiplier, critChance, critMult, out detResult);
                 if (dmg > 0) { totalDamage += dmg; enemyDmg += dmg; hadEffect = true; }
                 if (detResult.hadBurn) { anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, detResult.burnStacks); }
                 if (detResult.hadFrost) { anyFrost = true; maxFrostStacks = Mathf.Max(maxFrostStacks, detResult.frostStacks); }
             }
 
-            var bleed = enemy.GetComponent<BleedEffect>();
-            if (bleed != null) { int extra = Mathf.RoundToInt(d.MaxHp * 0.2f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
+            if (enemy.TryGetComponent<BleedEffect>(out var bleed))
+            { int extra = Mathf.RoundToInt(d.MaxHp * 0.2f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
 
-            var burn = enemy.GetComponent<BurnStackEffect>();
-            if (burn != null) { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, burn.StackCount); }
+            if (enemy.TryGetComponent<BurnStackEffect>(out var burn))
+            { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, burn.StackCount); }
 
-            var poison = enemy.GetComponent<PoisonStackEffect>();
-            if (poison != null) { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
+            if (enemy.TryGetComponent<PoisonStackEffect>(out var poison))
+            { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
 
             if (hadEffect)
             {
@@ -213,16 +225,12 @@ public class DetonateSystem : MonoBehaviour
             DamagePopup.CreateDetonateTotal(transform.position, totalDamage, enemiesHit);
         }
 
-        var cam = GameReferences.MainCamera;
-        if (cam != null)
+        var shake = GetScreenShake();
+        if (shake != null)
         {
-            var shake = cam.GetComponent<ScreenShake>();
-            if (shake != null)
-            {
-                float intensity = Mathf.Clamp(1.5f + enemiesHit * 0.2f, 1.5f, 4f);
-                float duration = Mathf.Clamp(0.5f + enemiesHit * 0.05f, 0.5f, 1.2f);
-                shake.Shake(intensity, duration);
-            }
+            float intensity = Mathf.Clamp(1.5f + enemiesHit * 0.2f, 1.5f, 4f);
+            float duration = Mathf.Clamp(0.5f + enemiesHit * 0.05f, 0.5f, 1.2f);
+            shake.Shake(intensity, duration);
         }
 
         if (SFXManager.Instance != null) SFXManager.Instance.PlayDetonate();
@@ -255,11 +263,9 @@ public class DetonateSystem : MonoBehaviour
             if (enemy == null || !enemy.activeInHierarchy) continue;
             Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
             if (delta.sqrMagnitude > originalRadiusSqr) continue;
-            var d = enemy.GetComponent<Damageable>();
-            if (d == null || d.CurrentHp <= 0) continue;
+            if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
 
-            var sem = enemy.GetComponent<StatusEffectManager>();
-            if (sem != null && sem.HasAnyDot)
+            if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
             {
                 DetonateResult detResult;
                 int dmg = sem.Detonate(_detonateMultiplier * _chainDamageRatio, critChance, critMult, out detResult);
@@ -268,10 +274,10 @@ public class DetonateSystem : MonoBehaviour
                     DamagePopup.Create(enemy.transform.position, dmg, new Color(0.6f, 0.1f, 0.9f), false); }
             }
 
-            var bleed = enemy.GetComponent<BleedEffect>();
-            var burnC = enemy.GetComponent<BurnStackEffect>();
-            var poison = enemy.GetComponent<PoisonStackEffect>();
-            if ((bleed != null || burnC != null || poison != null) && d != null && d.CurrentHp > 0)
+            bool hasAnyDotEffect = enemy.TryGetComponent<BleedEffect>(out _)
+                                 || enemy.TryGetComponent<BurnStackEffect>(out _)
+                                 || enemy.TryGetComponent<PoisonStackEffect>(out _);
+            if (hasAnyDotEffect && d.CurrentHp > 0)
             {
                 int extra = Mathf.RoundToInt(d.MaxHp * 0.1f * _detonateMultiplier * _chainDamageRatio);
                 if (extra > 0) { d.TakeDamage(extra); chainDamage += extra; chainHits++; }
@@ -281,8 +287,8 @@ public class DetonateSystem : MonoBehaviour
         if (chainHits > 0)
         {
             DebugHelper.Log($"[DetonateSystem] ⛓️ CHAIN DETONATE #{currentChain + 1}! Hit {chainHits} enemies for {chainDamage}");
-            var cam = GameReferences.MainCamera;
-            if (cam != null) { var shake = cam.GetComponent<ScreenShake>(); if (shake != null) shake.Shake(1f + currentChain * 0.5f, 0.3f + currentChain * 0.1f); }
+            var shake2 = GetScreenShake();
+            if (shake2 != null) shake2.Shake(1f + currentChain * 0.5f, 0.3f + currentChain * 0.1f);
             if (currentChain + 1 < _maxChainCount)
             {
                 List<Vector3> chainSources = new List<Vector3>();
@@ -314,12 +320,10 @@ public class DetonateSystem : MonoBehaviour
                 if (enemy == null || !enemy.activeInHierarchy || alreadyHit.Contains(enemy)) continue;
                 Vector2 delta = (Vector2)(enemy.transform.position - sources[s]);
                 if (delta.sqrMagnitude > chainRadiusSqr) continue;
-                var d = enemy.GetComponent<Damageable>();
-                if (d == null || d.CurrentHp <= 0) continue;
+                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
                 alreadyHit.Add(enemy);
 
-                var sem = enemy.GetComponent<StatusEffectManager>();
-                if (sem != null && sem.HasAnyDot)
+                if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
                 {
                     DetonateResult detResult;
                     float chainMult = _detonateMultiplier * _chainDamageRatio * Mathf.Pow(0.7f, chainLevel);
@@ -333,8 +337,8 @@ public class DetonateSystem : MonoBehaviour
 
         if (chainHits > 0)
         {
-            var cam = GameReferences.MainCamera;
-            if (cam != null) { var shake = cam.GetComponent<ScreenShake>(); if (shake != null) shake.Shake(0.8f + chainLevel * 0.3f, 0.2f + chainLevel * 0.1f); }
+            var shake3 = GetScreenShake();
+            if (shake3 != null) shake3.Shake(0.8f + chainLevel * 0.3f, 0.2f + chainLevel * 0.1f);
             if (chainLevel + 1 < _maxChainCount && nextChainTargets.Count > 0)
             {
                 List<Vector3> nextSources = new List<Vector3>();
@@ -359,8 +363,8 @@ public class DetonateSystem : MonoBehaviour
             if (enemy == null || !enemy.activeInHierarchy) continue;
             Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
             if (delta.sqrMagnitude > radiusSqr) continue;
-            var sem = enemy.GetComponent<StatusEffectManager>();
-            if (sem == null) sem = enemy.gameObject.AddComponent<StatusEffectManager>();
+            if (!enemy.TryGetComponent<StatusEffectManager>(out var sem))
+                sem = enemy.gameObject.AddComponent<StatusEffectManager>();
             sem.ApplyEffect(StatusEffectType.Frostbite, duration, 2f);
         }
     }
@@ -400,14 +404,13 @@ public class DetonateSystem : MonoBehaviour
             if (enemy == null || !enemy.activeInHierarchy) continue;
             Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
             if (delta.sqrMagnitude > shatterRadiusSqr) continue;
-            var d = enemy.GetComponent<Damageable>();
-            if (d == null || d.CurrentHp <= 0) continue;
+            if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
             int finalDmg = shatterDmg;
             if (Random.value < critChance) finalDmg = Mathf.RoundToInt(finalDmg * critMult);
             d.TakeDamage(finalDmg);
             targetsHit++;
-            var sem = enemy.GetComponent<StatusEffectManager>();
-            if (sem == null) sem = enemy.gameObject.AddComponent<StatusEffectManager>();
+            if (!enemy.TryGetComponent<StatusEffectManager>(out var sem))
+                sem = enemy.gameObject.AddComponent<StatusEffectManager>();
             sem.ApplyEffect(StatusEffectType.Frostbite, 1f, 2f);
         }
         if (targetsHit > 0)

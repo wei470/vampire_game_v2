@@ -276,27 +276,10 @@ public class SpawnManager : MonoBehaviour
         var enemy = PoolHelper.SpawnOrInstantiate(poolKey, prefab, spawnPos, Quaternion.identity);
         if (enemy == null) return;
 
-        var enemyBase = enemy.GetComponent<EnemyBase>();
-        if (enemyBase != null)
-        {
-            var dmg = enemy.GetComponent<Damageable>();
-            if (dmg != null)
-            {
-                float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
-                int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * HpMultiplier * WeakenMultiplier * challengeHp);
-                dmg.SetMaxHp(scaledMaxHp);
-            }
-
-            float weaken = WeakenMultiplier;
-            float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
-            enemyBase.MoveSpeed *= weaken * 0.5f * challengeSpd;
-
-            int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
-            if (eliteArmor > 0 && dmg != null)
-                dmg.SetArmor(dmg.Armor + eliteArmor);
-
-            enemyBase.SetTarget(_playerTransform);
-        }
+        float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
+        float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
+        int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
+        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor);
 
         _activeEnemies.Add(enemy);
         _enemiesAlive = _activeEnemies.Count;
@@ -311,24 +294,8 @@ public class SpawnManager : MonoBehaviour
         var enemy = PoolHelper.SpawnOrInstantiate(poolKey, prefab, spawnPos, Quaternion.identity);
         if (enemy == null) return;
 
-        var enemyBase = enemy.GetComponent<EnemyBase>();
-        if (enemyBase != null)
-        {
-            var dmg = enemy.GetComponent<Damageable>();
-            if (dmg != null)
-            {
-                int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * HpMultiplier * WeakenMultiplier);
-                dmg.SetMaxHp(scaledMaxHp);
-            }
-
-            float weaken = WeakenMultiplier;
-            float speedMult = weaken * 0.5f;
-            if (_currentSpecialWave == EnemyWaveConfig.SpecialWaveType.SpeedSurge)
-                speedMult *= 2f;
-
-            enemyBase.MoveSpeed *= speedMult;
-            enemyBase.SetTarget(_playerTransform);
-        }
+        bool isSpeedSurge = _currentSpecialWave == EnemyWaveConfig.SpecialWaveType.SpeedSurge;
+        EnemyScalingHelper.ApplySpecialScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, isSpeedSurge);
 
         _activeEnemies.Add(enemy);
         _enemiesAlive = _activeEnemies.Count;

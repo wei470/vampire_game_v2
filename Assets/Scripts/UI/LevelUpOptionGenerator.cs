@@ -116,7 +116,7 @@ public class LevelUpOptionGenerator
                     if (alreadyOwned) continue;
                 }
 
-                BuildRoute route = ClassifyUpgradeRoute(upgrade.upgradeId);
+                BuildRoute route = BuildPathRecommender.ClassifyUpgradeRoute(upgrade.upgradeId);
                 allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade, buildRoute = route });
             }
         }

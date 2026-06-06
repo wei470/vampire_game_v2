@@ -2,11 +2,12 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// Mage 角色专属被动能力系统（~550行）
+/// Mage 角色专属被动能力系统
 /// 
 /// 职责拆分：
 /// - DetonateSystem: 引爆系统（蓄力/连锁/余烬/碎裂）
-/// - MagePassive: DOT枪管理 + 升级 + 协同 + 进化 + 子弹发射
+/// - MageUpgradeApplier: 升级效果应用 + 协同 + 进化 + 里程碑
+/// - MagePassive: DOT枪管理 + 属性访问 + 子弹发射
 /// </summary>
 public class MagePassive : MonoBehaviour
 {
@@ -36,6 +37,7 @@ public class MagePassive : MonoBehaviour
 
     // ── 里程碑系统 ──
     private bool _elementMasterTriggered = false;
+    public bool ElementMasterTriggered { get => _elementMasterTriggered; set => _elementMasterTriggered = value; }
 
     // ── 协同系统 ──
     private HashSet<string> _activeSynergies = new HashSet<string>();
@@ -145,10 +147,8 @@ public class MagePassive : MonoBehaviour
     private void Awake()
     {
         _weaponController = GetComponent<WeaponController>();
-        // 添加引爆系统组件
         _detonateSystem = gameObject.AddComponent<DetonateSystem>();
         _detonateSystem.Init(this);
-        // Mage 默认自带毒子弹
         UnlockDotGun(StatusEffectType.Poison, new Color(0.1f, 0.8f, 0.2f), 1.5f, 0, 2f, 5f);
     }
 
@@ -168,7 +168,7 @@ public class MagePassive : MonoBehaviour
                 _dotGuns[i] = gun;
                 DebugHelper.Log($"[MagePassive] Upgraded {type} DOT gun to Lv{gun.upgradeLevel}");
                 if (gun.upgradeLevel >= 5 && !_evolvedTypes.Contains(type))
-                    TriggerEvolution(type);
+                    MageUpgradeApplier.CheckEvolution(this, type);
                 return;
             }
         }
@@ -180,7 +180,7 @@ public class MagePassive : MonoBehaviour
             lastFireTime = Time.time, upgradeLevel = 1
         });
         DebugHelper.Log($"[MagePassive] Unlocked {type} DOT gun! (color={color})");
-        CheckMilestones();
+        MageUpgradeApplier.CheckMilestones(this);
     }
 
     public void EnhanceAllDotGuns(float dpsMultiplier)
@@ -201,10 +201,8 @@ public class MagePassive : MonoBehaviour
 
     private void Update()
     {
-        // 蓄力输入委托给 DetonateSystem
         _detonateSystem.UpdateChargeInput();
 
-        // 自动发射 DOT 子弹
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameManager.GameState.Playing)
             return;
 
@@ -317,161 +315,11 @@ public class MagePassive : MonoBehaviour
         else if (col != null && col is CircleCollider2D circle) circle.radius *= (1f + _bulletSizeBonus);
     }
 
-    // ── 进化系统 ──
-
-    private void TriggerEvolution(StatusEffectType type)
-    {
-        _evolvedTypes.Add(type);
-        var evo = GetEvolutionInfo(type);
-        DebugHelper.Log($"[MagePassive] ✦ EVOLVED: {evo.name}!");
-        var player = GameReferences.Player;
-        if (player != null)
-            DamagePopup.Create(player.transform.position + Vector3.up * 3f, 0, new Color(1f, 0.85f, 0f), false, $"✦ EVOLVED: {evo.name}!");
-        if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
-        ApplyEvolutionBonus(type);
-    }
-
-    private (string name, string description) GetEvolutionInfo(StatusEffectType type)
-    {
-        switch (type)
-        {
-            case StatusEffectType.Bleed: return ("血之狂潮 (Blood Tide)", "流血 DPS x2");
-            case StatusEffectType.Poison: return ("瘟疫之源 (Plague Source)", "中毒子弹 DPS +50%");
-            case StatusEffectType.Burn: return ("地狱之火 (Hellfire)", "燃烧 DPS +80%");
-            case StatusEffectType.Frostbite: return ("绝对零度 (Absolute Zero)", "霜冻 DPS +100%");
-            default: return ("Unknown", "");
-        }
-    }
-
-    private void ApplyEvolutionBonus(StatusEffectType type)
-    {
-        float mult = 1f;
-        switch (type)
-        {
-            case StatusEffectType.Bleed: mult = 2f; break;
-            case StatusEffectType.Poison: mult = 1.5f; break;
-            case StatusEffectType.Burn: mult = 1.8f; break;
-            case StatusEffectType.Frostbite: mult = 2f; break;
-        }
-        for (int i = 0; i < _dotGuns.Count; i++)
-        {
-            var gun = _dotGuns[i];
-            if (gun.effectType == type) { gun.dotDps *= mult; _dotGuns[i] = gun; break; }
-        }
-    }
-
-    // ── 里程碑 ──
-
-    private void CheckMilestones()
-    {
-        if (!_elementMasterTriggered && _dotGuns.Count >= 4)
-        {
-            _elementMasterTriggered = true;
-            DebugHelper.Log("[MagePassive] ★ MILESTONE: Element Master! All DOT damage +20%");
-            var player = GameReferences.Player;
-            if (player != null) DamagePopup.Create(player.transform.position + Vector3.up * 2f, 0, new Color(1f, 0.85f, 0f), false, "★ ELEMENT MASTER");
-            SyncDotDamageMultiplierToAll();
-        }
-    }
-
-    // ── 协同系统 ──
-
-    private enum SynergyType { Plague, FrozenBlade, BulletStorm, JudgmentDay }
-
-    private void CheckSynergies()
-    {
-        bool hasPoison = false, hasBurn = false, hasCorrosion = false;
-        for (int i = 0; i < _dotGuns.Count; i++)
-        {
-            if (_dotGuns[i].effectType == StatusEffectType.Poison) hasPoison = true;
-            if (_dotGuns[i].effectType == StatusEffectType.Burn) hasBurn = true;
-        }
-        hasCorrosion = _corrosionArmorReduction > 0.101f;
-        TryActivateSynergy("plague", SynergyType.Plague, hasPoison && hasBurn && hasCorrosion);
-
-        bool hasBleed = false, hasFrost = false, hasCurse = false;
-        for (int i = 0; i < _dotGuns.Count; i++)
-        {
-            if (_dotGuns[i].effectType == StatusEffectType.Bleed) hasBleed = true;
-            if (_dotGuns[i].effectType == StatusEffectType.Frostbite) hasFrost = true;
-        }
-        hasCurse = _curseSpreadTargets > 1;
-        TryActivateSynergy("frozen_blade", SynergyType.FrozenBlade, hasBleed && hasFrost && hasCurse);
-
-        bool hasBarrage = _bulletCountBonus > 0;
-        bool hasHaste = _attackSpeedBonus > 0.001f;
-        bool hasRicochet = _ricochetChance > 0.001f;
-        TryActivateSynergy("bullet_storm", SynergyType.BulletStorm, hasBarrage && hasHaste && hasRicochet);
-
-        bool hasRadiate = _detonateSystem != null && _detonateSystem.DetonateMultiplier > 3.01f;
-        bool hasContaminate = _detonateSystem != null && _detonateSystem.DetonateCooldown < 11.99f;
-        bool hasErosion = _erosionDamagePercent > 0.001f;
-        TryActivateSynergy("judgment_day", SynergyType.JudgmentDay, hasRadiate && hasContaminate && hasErosion);
-    }
-
-    private void TryActivateSynergy(string synergyId, SynergyType type, bool conditionMet)
-    {
-        if (!conditionMet || _activeSynergies.Contains(synergyId)) return;
-        _activeSynergies.Add(synergyId);
-        var player = GameReferences.Player;
-        if (player != null)
-        {
-            string name = GetSynergyName(type);
-            Color color = GetSynergyColor(type);
-            DamagePopup.Create(player.transform.position + Vector3.up * 2.5f, 0, color, false, $"✦ SYNERGY: {name}!");
-        }
-        if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
-        DebugHelper.Log($"[MagePassive] ✦ SYNERGY ACTIVATED: {GetSynergyName(type)}!");
-    }
-
-    private string GetSynergyName(SynergyType type)
-    {
-        switch (type) { case SynergyType.Plague: return "瘟疫"; case SynergyType.FrozenBlade: return "冰封血刃"; case SynergyType.BulletStorm: return "弹雨风暴"; case SynergyType.JudgmentDay: return "末日审判"; default: return "Unknown"; }
-    }
-
-    private Color GetSynergyColor(SynergyType type)
-    {
-        switch (type) { case SynergyType.Plague: return new Color(0.1f, 0.9f, 0.3f); case SynergyType.FrozenBlade: return new Color(0.4f, 0.7f, 1f); case SynergyType.BulletStorm: return new Color(1f, 0.9f, 0.2f); case SynergyType.JudgmentDay: return new Color(1f, 0.3f, 0.1f); default: return Color.white; }
-    }
-
-    private void ActivateJudgmentDay() { _judgmentDayEndTime = Time.time + 3f; }
-
-    // ═══ 统一升级应用接口 ═══
+    // ═══ 升级应用（委托给 MageUpgradeApplier）═══
 
     public bool ApplyUpgrade(string upgradeId)
     {
-        if (_upgradeConfig == null) { DebugHelper.LogError("[MagePassive] MageUpgradeConfig not set!"); return false; }
-
-        var dotGunEntry = _upgradeConfig.GetDotGunEntry(upgradeId);
-        if (dotGunEntry.HasValue)
-        {
-            var dg = dotGunEntry.Value;
-            UnlockDotGun(dg.effectType, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
-            CheckSynergies();
-            return true;
-        }
-
-        var upgradeEntry = _upgradeConfig.GetUpgradeEntry(upgradeId);
-        if (!upgradeEntry.HasValue) { DebugHelper.LogWarning($"[MagePassive] Unknown upgradeId '{upgradeId}'"); return false; }
-
-        var ue = upgradeEntry.Value;
-        switch (ue.category)
-        {
-            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction: _corrosionArmorReduction += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotSpread: _curseSpreadTargets += (int)ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotFrequency: _dotFrequencyBonus += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotCritBurst: _dotCritBurstChance += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier: if (_detonateSystem != null) _detonateSystem.DetonateMultiplier += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DetonateAbility: if (_detonateSystem != null) _detonateSystem.DetonateCooldownValue *= (1f - ue.value1); break;
-            case CharacterUpgradeOption.UpgradeCategory.DotTrigger: _erosionTriggerCount = Mathf.Max(2, _erosionTriggerCount - (int)ue.value1); _erosionDamagePercent += ue.value2; break;
-            case CharacterUpgradeOption.UpgradeCategory.AttackSpeed: _attackSpeedBonus += ue.value1; _bulletSpeedBonus += ue.value2; break;
-            case CharacterUpgradeOption.UpgradeCategory.BulletCount: _bulletCountBonus += (int)ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.Ricochet: _ricochetChance += ue.value1; if (_ricochetChance > 1f) { _ricochetMaxBounces += 1; _ricochetChance -= 1f; } break;
-            case CharacterUpgradeOption.UpgradeCategory.BulletSize: _bulletSizeBonus += ue.value1; _knockbackBonus += ue.value2; break;
-        }
-
-        CheckSynergies();
-        return true;
+        return MageUpgradeApplier.ApplyUpgrade(this, upgradeId);
     }
 
     public struct DotGunState

@@ -51,22 +51,9 @@ public class AchievementUI : MonoBehaviour
     private bool _tookDamageThisWave;
     private Texture2D _overlayTex, _panelBgTex;
 
-    // #29 成就通知队列系统
-    private struct NotificationEntry
-    {
-        public string name;
-        public string description;
-        public string bonusText;
-        public float showTime;
-    }
+    // 通知队列系统（委托给 AchievementNotificationRenderer）
     private Queue<NotificationEntry> _notificationQueue = new Queue<NotificationEntry>();
     private NotificationEntry? _currentNotification;
-    private float _notifSlideOffset; // 滑入动画偏移
-    private const float NOTIF_DISPLAY_TIME = 4f;
-    private const float NOTIF_SLIDE_IN_TIME = 0.3f;
-    private const float NOTIF_SLIDE_OUT_TIME = 0.5f;
-    private const float NOTIF_WIDTH = 380f;
-    private const float NOTIF_HEIGHT = 80f;
     private Texture2D _notifBgTex;
     private Texture2D _notifBorderTex;
 
@@ -92,7 +79,7 @@ public class AchievementUI : MonoBehaviour
         a.unlocked = true; a.unlockTime = Time.unscaledTime;
 
         // #29 构建通知文本（#38 增强：显示具体永久加成数值）
-        string bonusText = FormatBonusText(a.bonusKey, a.bonusValue);
+        string bonusText = AchievementNotificationRenderer.FormatBonusText(a.bonusKey, a.bonusValue);
 
         _notificationQueue.Enqueue(new NotificationEntry
         {
@@ -112,9 +99,8 @@ public class AchievementUI : MonoBehaviour
     public void DrawAchievementUI()
     {
         InitTextures();
-        // #29 通知队列系统
-        UpdateNotificationQueue();
-        if (_currentNotification.HasValue) DrawNotificationCard();
+        AchievementNotificationRenderer.UpdateNotificationQueue(_notificationQueue, ref _currentNotification);
+        if (_currentNotification.HasValue) AchievementNotificationRenderer.DrawNotificationCard(_currentNotification.Value, _notifBgTex, _notifBorderTex);
         if (_showPanel) DrawAchievementPanel();
     }
 
@@ -126,160 +112,7 @@ public class AchievementUI : MonoBehaviour
         if (_notifBorderTex == null) _notifBorderTex = UIColorTheme.MakeTexture(new Color(1f, 0.85f, 0.2f, 0.8f));
     }
 
-    /// <summary>
-    /// #29 通知队列更新 — 逐个显示，间隔 0.5 秒
-    /// </summary>
-    private void UpdateNotificationQueue()
-    {
-        float now = Time.unscaledTime;
-
-        // 当前通知处理
-        if (_currentNotification.HasValue)
-        {
-            var n = _currentNotification.Value;
-            float elapsed = now - n.showTime;
-            float totalDuration = NOTIF_SLIDE_IN_TIME + NOTIF_DISPLAY_TIME + NOTIF_SLIDE_OUT_TIME;
-            if (elapsed >= totalDuration)
-            {
-                _currentNotification = null;
-                // 队列中下一个延迟 0.5 秒
-            }
-            return;
-        }
-
-        // 取队列中下一个
-        if (_notificationQueue.Count > 0)
-        {
-            var next = _notificationQueue.Dequeue();
-            next.showTime = now;
-            _currentNotification = next;
-        }
-    }
-
-    /// <summary>
-    /// #29 成就通知卡片 — 右上角滑入/滑出，金色边框
-    /// </summary>
-    private void DrawNotificationCard()
-    {
-        var n = _currentNotification.Value;
-        float elapsed = Time.unscaledTime - n.showTime;
-
-        // 计算滑入/滑出动画
-        float slideX;
-        float alpha;
-        if (elapsed < NOTIF_SLIDE_IN_TIME)
-        {
-            // 滑入：从右侧滑入
-            float t = elapsed / NOTIF_SLIDE_IN_TIME;
-            float eased = 1f - (1f - t) * (1f - t); // 缓入
-            slideX = (1f - eased) * NOTIF_WIDTH;
-            alpha = eased;
-        }
-        else if (elapsed > NOTIF_SLIDE_IN_TIME + NOTIF_DISPLAY_TIME)
-        {
-            // 滑出：向上滑出
-            float outElapsed = elapsed - NOTIF_SLIDE_IN_TIME - NOTIF_DISPLAY_TIME;
-            float t = outElapsed / NOTIF_SLIDE_OUT_TIME;
-            float eased = t * t; // 缓出
-            slideX = 0f;
-            alpha = 1f - eased;
-        }
-        else
-        {
-            slideX = 0f;
-            alpha = 1f;
-        }
-
-        if (alpha <= 0.01f) return;
-
-        // 位置：右上角
-        float x = Screen.width - NOTIF_WIDTH - 15f + slideX;
-        float y = 80f;
-
-        GUI.color = new Color(1f, 1f, 1f, alpha);
-
-        // 背景
-        GUI.DrawTexture(new Rect(x, y, NOTIF_WIDTH, NOTIF_HEIGHT), _notifBgTex);
-
-        // 金色边框
-        DrawNotifBorder(new Rect(x, y, NOTIF_WIDTH, NOTIF_HEIGHT), alpha);
-
-        // 左侧金色条纹
-        GUI.color = new Color(1f, 0.85f, 0.2f, 0.9f * alpha);
-        GUI.DrawTexture(new Rect(x, y, 4f, NOTIF_HEIGHT), _notifBorderTex);
-
-        // 成就图标（🏆）
-        var iconStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 28,
-            alignment = TextAnchor.MiddleCenter,
-            normal = { textColor = new Color(1f, 0.85f, 0.2f, alpha) }
-        };
-        GUI.Label(new Rect(x + 10, y + 10, 40, 40), "🏆", iconStyle);
-
-        // 成就名称
-        var nameStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 18,
-            fontStyle = FontStyle.Bold,
-            normal = { textColor = new Color(1f, 0.95f, 0.6f, alpha) }
-        };
-        GUI.Label(new Rect(x + 55, y + 8, NOTIF_WIDTH - 70, 24), n.name, nameStyle);
-
-        // 描述
-        var descStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 14,
-            normal = { textColor = new Color(0.7f, 0.8f, 0.9f, alpha) }
-        };
-        GUI.Label(new Rect(x + 55, y + 32, NOTIF_WIDTH - 70, 20), n.description, descStyle);
-
-        // 永久加成
-        if (!string.IsNullOrEmpty(n.bonusText))
-        {
-            var bonusStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                fontStyle = FontStyle.Italic,
-                normal = { textColor = new Color(0.3f, 1f, 0.5f, alpha) }
-            };
-            GUI.Label(new Rect(x + 55, y + 52, NOTIF_WIDTH - 70, 18), $"✨ {n.bonusText}", bonusStyle);
-        }
-
-        GUI.color = Color.white;
-    }
-
-    private void DrawNotifBorder(Rect r, float alpha)
-    {
-        GUI.color = new Color(1f, 0.85f, 0.2f, 0.4f * alpha);
-        float t = 1f;
-        GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), _notifBorderTex);
-        GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), _notifBorderTex);
-        GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), _notifBorderTex);
-        GUI.color = Color.white;
-    }
-
-    // 保留旧方法兼容性
-    private void DrawUnlockToast() { }
-
-    /// <summary>
-    /// #38 格式化永久加成描述文本
-    /// </summary>
-    private static string FormatBonusText(string bonusKey, float bonusValue)
-    {
-        if (string.IsNullOrEmpty(bonusKey) || bonusValue <= 0f) return "";
-
-        switch (bonusKey)
-        {
-            case "crit_chance": return $"暴击率 +{bonusValue * 100:F0}%，永久生效";
-            case "max_hp_bonus": return $"最大生命 +{bonusValue:F0}，永久生效";
-            case "damage_bonus": return $"伤害 +{bonusValue * 100:F0}%，永久生效";
-            case "dot_damage_bonus": return $"DOT伤害 +{bonusValue * 100:F0}%，永久生效";
-            case "detonate_bonus": return $"引爆伤害 +{bonusValue * 100:F0}%，永久生效";
-            case "coin_bonus": return $"金币获取 +{bonusValue * 100:F0}%，永久生效";
-            default: return $"Bonus: +{bonusValue}，永久生效";
-        }
-    }
+    // 通知绘制和加成格式化已委托给 AchievementNotificationRenderer
 
     /// <summary>
     /// #38 获取所有已解锁成就的永久加成汇总
@@ -333,7 +166,7 @@ public class AchievementUI : MonoBehaviour
         {
             GUI.color = a.unlocked ? UIColorTheme.AccentCyan : UIColorTheme.TextSecondary;
             string s = a.unlocked ? "✅" : "🔒";
-            string bonus = a.unlocked ? FormatBonusText(a.bonusKey, a.bonusValue) : "";
+            string bonus = a.unlocked ? AchievementNotificationRenderer.FormatBonusText(a.bonusKey, a.bonusValue) : "";
             string line = $"{s}  {a.name}  —  {a.description}";
             if (!string.IsNullOrEmpty(bonus)) line += $"\n      ✨ {bonus}";
             GUILayout.Label(line);
@@ -356,7 +189,7 @@ public class AchievementUI : MonoBehaviour
         {
             float capped = Mathf.Min(kvp.Value, MAX_SINGLE_BONUS);
             totalBonus += capped;
-            string display = FormatBonusText(kvp.Key, capped);
+                string display = AchievementNotificationRenderer.FormatBonusText(kvp.Key, capped);
             if (!string.IsNullOrEmpty(display))
             {
                 GUI.Label(new Rect(bx, by, w / 2f - 20, 16), $"• {display}", bonusLineStyle);

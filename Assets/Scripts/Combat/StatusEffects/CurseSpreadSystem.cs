@@ -24,21 +24,21 @@ public static class CurseSpreadSystem
     /// </summary>
     public static void SpreadContaminate(StatusEffectManager source)
     {
-        var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
-        if (magePassive == null) return;
+        var player = GameReferences.Player;
+        if (player == null || !player.TryGetComponent<MagePassive>(out var magePassive)) return;
         int spreadTargets = magePassive.CurseSpreadTargets;
         if (spreadTargets <= 1) return;
 
         float range = source.ContaminateRange > 0 ? source.ContaminateRange : 5f;
         var go = source.gameObject;
 
-        // 检查是否有任何DOT效果
+        // 缓存源DOT组件并检查是否有任何DOT效果
         bool hasAnyDot = source.ActiveEffects.Count > 0;
-        bool hasBleed = go.GetComponent<BleedEffect>() != null;
-        bool hasBurn = go.GetComponent<BurnStackEffect>() != null;
-        bool hasPoison = go.GetComponent<PoisonStackEffect>() != null;
-        bool hasFrost = go.GetComponent<FrostEffect>() != null;
-        if (!hasAnyDot && !hasBleed && !hasBurn && !hasPoison && !hasFrost) return;
+        go.TryGetComponent<BleedEffect>(out var srcBleed);
+        go.TryGetComponent<BurnStackEffect>(out var srcBurn);
+        go.TryGetComponent<PoisonStackEffect>(out var srcPoison);
+        go.TryGetComponent<FrostEffect>(out var srcFrost);
+        if (!hasAnyDot && srcBleed == null && srcBurn == null && srcPoison == null && srcFrost == null) return;
 
         // 找到范围内的敌人
         Collider2D[] hits = Physics2D.OverlapCircleAll(go.transform.position, range);
@@ -50,18 +50,11 @@ public static class CurseSpreadSystem
             validTargets.Add(hit);
         }
 
-        // 缓存源DOT组件
-        var srcBleed = go.GetComponent<BleedEffect>();
-        var srcBurn = go.GetComponent<BurnStackEffect>();
-        var srcPoison = go.GetComponent<PoisonStackEffect>();
-        var srcFrost = go.GetComponent<FrostEffect>();
-
         int spreadCount = validTargets.Count;
         for (int i = 0; i < spreadCount; i++)
         {
             var hit = validTargets[i];
-            var otherManager = hit.GetComponent<StatusEffectManager>();
-            if (otherManager == null)
+            if (!hit.TryGetComponent<StatusEffectManager>(out var otherManager))
                 otherManager = hit.gameObject.AddComponent<StatusEffectManager>();
 
             // 传播 StatusEffectManager 中的 DOT（继承10%层数/伤害）
@@ -74,15 +67,15 @@ public static class CurseSpreadSystem
             // 传播独立DOT组件
             if (srcBleed != null)
             {
-                var otherBleed = hit.GetComponent<BleedEffect>();
-                if (otherBleed == null) otherBleed = hit.gameObject.AddComponent<BleedEffect>();
+                if (!hit.TryGetComponent<BleedEffect>(out var otherBleed))
+                    otherBleed = hit.gameObject.AddComponent<BleedEffect>();
                 otherBleed.Refresh(srcBleed._dps * 0.1f, srcBleed._duration * 0.1f,
                     srcBleed._canCrit, srcBleed._critChance, srcBleed._critMult);
             }
             if (srcBurn != null)
             {
-                var otherBurn = hit.GetComponent<BurnStackEffect>();
-                if (otherBurn == null) otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
+                if (!hit.TryGetComponent<BurnStackEffect>(out var otherBurn))
+                    otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
                 int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * 0.1f));
                 for (int s = 0; s < stacks; s++)
                     otherBurn.AddStack(srcBurn._baseDps * 0.1f, srcBurn._duration * 0.1f,
@@ -90,16 +83,16 @@ public static class CurseSpreadSystem
             }
             if (srcPoison != null)
             {
-                var otherPoison = hit.GetComponent<PoisonStackEffect>();
-                if (otherPoison == null) otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
+                if (!hit.TryGetComponent<PoisonStackEffect>(out var otherPoison))
+                    otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
                 int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * 0.1f));
                 for (int s = 0; s < pStacks; s++)
                     otherPoison.AddStack(2f, 0f, srcPoison._canCrit, srcPoison._critChance, srcPoison._critMult);
             }
             if (srcFrost != null)
             {
-                var otherFrost = hit.GetComponent<FrostEffect>();
-                if (otherFrost == null) otherFrost = hit.gameObject.AddComponent<FrostEffect>();
+                if (!hit.TryGetComponent<FrostEffect>(out var otherFrost))
+                    otherFrost = hit.gameObject.AddComponent<FrostEffect>();
                 otherFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * 0.1f,
                     srcFrost._frostDps * 0.1f, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
             }

@@ -85,60 +85,8 @@ public class SelectionFlowManager : MonoBehaviour
     /// </summary>
     private void LoadDataAssets()
     {
-        // 加载角色数据
-        var charAssets = Resources.LoadAll<CharacterData>("");
-        if (charAssets.Length == 0)
-        {
-            // 尝试从 AssetDatabase 加载（编辑器模式）
-            _characters = new CharacterData[]
-            {
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_warrior.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_mage.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_ranger.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_vampire.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_assassin.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_paladin.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_necromancer.asset"),
-                LoadAsset<CharacterData>("Assets/ScriptableObjects/Characters/Char_berserker.asset"),
-            };
-        }
-        else
-        {
-            _characters = charAssets;
-        }
-
-        // 加载武器数据（从 WeaponController 获取或手动分配）
-        if (_weapons == null || _weapons.Length == 0 || _weapons[0] == null)
-        {
-            var weaponController = GameReferences.Player?.GetComponent<WeaponController>();
-            if (weaponController != null)
-            {
-                // 武器数据在 WeaponController 中，这里获取引用
-                // 运行时通过 WeaponController.Weapons 获取
-            }
-        }
-
-        // 加载技能数据
-        _skills = new SkillData[]
-        {
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_WindWave.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_Berserk.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_TheWorld.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_Teleport.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_DeathAura.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_LightningStorm.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_GravityWell.asset"),
-            LoadAsset<SkillData>("Assets/ScriptableObjects/Skills/Skill_FrostNova.asset"),
-        };
-    }
-
-    private T LoadAsset<T>(string path) where T : UnityEngine.Object
-    {
-#if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<T>(path);
-#else
-        return null;
-#endif
+        _characters = SelectionDataLoader.LoadCharacters();
+        _skills = SelectionDataLoader.LoadSkills();
     }
 
     /// <summary>
@@ -278,17 +226,7 @@ public class SelectionFlowManager : MonoBehaviour
     /// </summary>
     private WeaponData[] GetWeaponDataArray()
     {
-        if (_weapons != null && _weapons.Length > 0 && _weapons[0] != null)
-            return _weapons;
-
-        // 从 WeaponController 获取
-        var wc = GameReferences.Player?.GetComponent<WeaponController>();
-        if (wc != null)
-        {
-            return wc.GetAllWeaponData();
-        }
-
-        return new WeaponData[0];
+        return SelectionDataLoader.GetWeaponDataArray(_weapons);
     }
 
     /// <summary>

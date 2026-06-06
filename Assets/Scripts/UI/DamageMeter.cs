@@ -15,6 +15,7 @@ using System.Text;
 /// - 总伤害 / 平均 DPS
 ///
 /// 使用方式：由 GameSceneBootstrap 自动创建，挂在同一 GameObject 上。
+/// GUI绘制委托给 DamageBreakdownUI。
 /// </summary>
 public class DamageMeter : MonoBehaviour
 {
@@ -56,7 +57,6 @@ public class DamageMeter : MonoBehaviour
     private Dictionary<DamageSource, SourceStats> _stats = new Dictionary<DamageSource, SourceStats>();
     private float _combatStartTime;
     private bool _isTracking = false;
-    private StringBuilder _sb = new StringBuilder(512);
 
     // #41 额外统计追踪
     private long _maxSingleDetonateDamage = 0;   // 最高单次引爆伤害
@@ -68,7 +68,7 @@ public class DamageMeter : MonoBehaviour
     private long _damageSinceLastDpsCalc = 0;    // 上次计算后的伤害增量
 
     // ════════════════════════════════════════════════════════════════
-    // 单例（非 MonoBehaviour 单例，使用静态引用）
+    // 单例
     // ════════════════════════════════════════════════════════════════
 
     private static DamageMeter _instance;
@@ -260,7 +260,7 @@ public class DamageMeter : MonoBehaviour
     }
 
     /// <summary>
-    /// #41 生成统计摘要文本（供分享按钮使用）
+    /// 生成统计摘要文本（供分享按钮使用）
     /// </summary>
     public string GenerateStatsSummary()
     {
@@ -270,12 +270,12 @@ public class DamageMeter : MonoBehaviour
 
         var sb = new StringBuilder();
         sb.AppendLine("═══ Vampire Survivors 战斗统计 ═══");
-        sb.AppendLine($"⏱ 存活时间: {FormatTime(elapsed)}");
-        sb.AppendLine($"⚔ 总伤害: {FormatDamage(totalDmg)}");
-        sb.AppendLine($"📊 平均DPS: {FormatDamage((long)avgDps)}/s");
+        sb.AppendLine($"⏱ 存活时间: {DamageBreakdownUI.FormatTime(elapsed)}");
+        sb.AppendLine($"⚔ 总伤害: {DamageBreakdownUI.FormatDamage(totalDmg)}");
+        sb.AppendLine($"📊 平均DPS: {DamageBreakdownUI.FormatDamage((long)avgDps)}/s");
         sb.AppendLine($"💀 击杀数: {_totalKills} | Boss: {_bossKills}");
-        sb.AppendLine($"💥 最高引爆: {FormatDamage(_maxSingleDetonateDamage)}");
-        sb.AppendLine($"🔥 最高DPS: {FormatDamage((long)_maxDpsPeak)}/s");
+        sb.AppendLine($"💥 最高引爆: {DamageBreakdownUI.FormatDamage(_maxSingleDetonateDamage)}");
+        sb.AppendLine($"🔥 最高DPS: {DamageBreakdownUI.FormatDamage((long)_maxDpsPeak)}/s");
         sb.AppendLine($"☠ DOT总触发: {_totalDotTicks}次");
         sb.AppendLine();
         sb.AppendLine("─ 伤害分布 ─");
@@ -284,7 +284,7 @@ public class DamageMeter : MonoBehaviour
         foreach (var kvp in _stats)
         {
             float pct = td > 0 ? (float)kvp.Value.totalDamage / td * 100f : 0f;
-            sb.AppendLine($"  {GetSourceName(kvp.Key)}: {FormatDamage(kvp.Value.totalDamage)} ({pct:F1}%)");
+            sb.AppendLine($"  {DamageBreakdownUI.GetSourceName(kvp.Key)}: {DamageBreakdownUI.FormatDamage(kvp.Value.totalDamage)} ({pct:F1}%)");
         }
         return sb.ToString();
     }
@@ -325,146 +325,7 @@ public class DamageMeter : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!ShowPanel || _stats.Count == 0) return;
-
-        float panelW = 320f;
-        float panelH = 400f;
-        float margin = 20f;
-        float panelX = Screen.width - panelW - margin;
-        float panelY = margin;
-
-        // 背景
-        GUI.color = new Color(0f, 0f, 0f, 0.85f);
-        GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), Texture2D.whiteTexture);
-        GUI.color = Color.white;
-
-        // 标题
-        var titleStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 20,
-            fontStyle = FontStyle.Bold,
-            normal = { textColor = UIColorTheme.AccentCyan },
-            alignment = TextAnchor.MiddleCenter
-        };
-        GUI.Label(new Rect(panelX, panelY + 5, panelW, 30), "⚔ DAMAGE METER", titleStyle);
-
-        // 统计时间
-        float elapsed = _isTracking ? (Time.time - _combatStartTime) : 0f;
-        var timeStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 14,
-            normal = { textColor = UIColorTheme.TextSecondary },
-            alignment = TextAnchor.MiddleCenter
-        };
-        GUI.Label(new Rect(panelX, panelY + 30, panelW, 20), $"Combat Time: {FormatTime(elapsed)}", timeStyle);
-
-        // 各来源统计
-        float y = panelY + 55f;
-        long totalDamage = TotalDamage;
-        float totalDps = elapsed > 0 ? totalDamage / elapsed : 0f;
-
-        // 按总伤害排序
-        var sorted = new List<KeyValuePair<DamageSource, SourceStats>>(_stats);
-        sorted.Sort((a, b) => b.Value.totalDamage.CompareTo(a.Value.totalDamage));
-
-        foreach (var kvp in sorted)
-        {
-            var source = kvp.Key;
-            var stats = kvp.Value;
-            float percent = totalDamage > 0 ? (float)stats.totalDamage / totalDamage * 100f : 0f;
-            float dps = elapsed > 0 ? stats.totalDamage / elapsed : 0f;
-
-            // 来源名称 + 颜色
-            var sourceName = GetSourceName(source);
-            var sourceColor = GetSourceColor(source);
-
-            // 进度条背景
-            float barW = panelW - 20f;
-            float barH = 18f;
-            float barX = panelX + 10f;
-
-            GUI.color = new Color(0.2f, 0.2f, 0.2f, 0.6f);
-            GUI.DrawTexture(new Rect(barX, y, barW, barH), Texture2D.whiteTexture);
-
-            // 进度条填充
-            float fillW = barW * (percent / 100f);
-            GUI.color = new Color(sourceColor.r, sourceColor.g, sourceColor.b, 0.7f);
-            GUI.DrawTexture(new Rect(barX, y, fillW, barH), Texture2D.whiteTexture);
-
-            // 文字
-            GUI.color = sourceColor;
-            var labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 13,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = Color.white }
-            };
-            GUI.Label(new Rect(barX + 5f, y, barW - 10f, barH),
-                $"{sourceName}: {FormatDamage(stats.totalDamage)} ({percent:F1}%) | {FormatDamage((long)dps)}/s",
-                labelStyle);
-
-            y += barH + 4f;
-        }
-
-        // 底部总统计
-        y += 10f;
-        var totalStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 16,
-            fontStyle = FontStyle.Bold,
-            normal = { textColor = UIColorTheme.GoldText },
-            alignment = TextAnchor.MiddleCenter
-        };
-        GUI.Label(new Rect(panelX, y, panelW, 25), $"Total: {FormatDamage(totalDamage)} | {FormatDamage((long)totalDps)}/s", totalStyle);
-
-        GUI.color = Color.white;
-    }
-
-    // ════════════════════════════════════════════════════════════════
-    // 工具方法
-    // ════════════════════════════════════════════════════════════════
-
-    private string GetSourceName(DamageSource source)
-    {
-        return source switch
-        {
-            DamageSource.Bleed => "🔴 Bleed",
-            DamageSource.Poison => "🟢 Poison",
-            DamageSource.Burn => "🟠 Burn",
-            DamageSource.Frostbite => "🔵 Frost",
-            DamageSource.Detonate => "💥 Detonate",
-            DamageSource.Bullet => "⚡ Bullet",
-            DamageSource.Skill => "✦ Skill",
-            _ => "? Other"
-        };
-    }
-
-    private Color GetSourceColor(DamageSource source)
-    {
-        return source switch
-        {
-            DamageSource.Bleed => new Color(0.9f, 0.1f, 0.1f),
-            DamageSource.Poison => new Color(0.1f, 0.9f, 0.2f),
-            DamageSource.Burn => new Color(1f, 0.5f, 0f),
-            DamageSource.Frostbite => new Color(0.3f, 0.6f, 1f),
-            DamageSource.Detonate => new Color(1f, 0.3f, 0.8f),
-            DamageSource.Bullet => new Color(0.3f, 0.8f, 1f),
-            DamageSource.Skill => new Color(1f, 1f, 0.3f),
-            _ => Color.gray
-        };
-    }
-
-    private string FormatDamage(long dmg)
-    {
-        if (dmg >= 1_000_000) return $"{dmg / 1_000_000f:F1}M";
-        if (dmg >= 1_000) return $"{dmg / 1_000f:F1}K";
-        return dmg.ToString();
-    }
-
-    private string FormatTime(float seconds)
-    {
-        int mins = Mathf.FloorToInt(seconds / 60f);
-        int secs = Mathf.FloorToInt(seconds % 60f);
-        return $"{mins:00}:{secs:00}";
+        if (!ShowPanel) return;
+        DamageBreakdownUI.DrawPanel(_stats, _combatStartTime, _isTracking, TotalDamage);
     }
 }
