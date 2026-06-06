@@ -28,8 +28,13 @@ public class DotStatusIndicator
     private SpriteRenderer _burnStackIndicator;
     private SpriteRenderer _bleedComponentIndicator;
     private SpriteRenderer _frostComponentIndicator;
-    // 中毒层数文字显示
+    private SpriteRenderer _staticComponentIndicator;
+    // 各 DOT 层数文字显示
     private TextMesh _poisonStackText;
+    private TextMesh _burnStackText;
+    private TextMesh _bleedStackText;
+    private TextMesh _frostStackText;
+    private TextMesh _staticStackText;
 
     // DOT 图标管理器（委托给 DotStatusIconManager）
     private DotStatusIconManager _iconManager;
@@ -76,23 +81,14 @@ public class DotStatusIndicator
         _burnStackIndicator = CreateSingleIndicator("BurnStack", new Color(1f, 0.5f, 0f));
         _bleedComponentIndicator = CreateSingleIndicator("BleedComp", new Color(0.9f, 0.1f, 0.1f));
         _frostComponentIndicator = CreateSingleIndicator("FrostComp", new Color(0.3f, 0.6f, 1f));
+        _staticComponentIndicator = CreateSingleIndicator("StaticComp", new Color(0.4f, 0.8f, 1f));
 
-        // 创建中毒层数文字
-        var poisonTextObj = new GameObject("PoisonCount");
-        poisonTextObj.transform.SetParent(_dotContainer);
-        poisonTextObj.transform.localPosition = new Vector3(0f, DOT_INDICATOR_HEIGHT + 0.1f, 0f);
-        _poisonStackText = poisonTextObj.AddComponent<TextMesh>();
-        _poisonStackText.text = "";
-        _poisonStackText.fontSize = 40;
-        _poisonStackText.fontStyle = FontStyle.Bold;
-        _poisonStackText.characterSize = 0.08f;
-        _poisonStackText.alignment = TextAlignment.Center;
-        _poisonStackText.anchor = TextAnchor.MiddleCenter;
-        _poisonStackText.color = new Color(0.2f, 1f, 0.3f);
-        _poisonStackText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        var mr = poisonTextObj.GetComponent<MeshRenderer>();
-        if (mr != null) mr.sortingOrder = 13;
-        _poisonStackText.gameObject.SetActive(false);
+        // 创建所有 DOT 层数文字
+        _poisonStackText = CreateStackText("PoisonCount", new Color(0.2f, 1f, 0.3f));
+        _burnStackText = CreateStackText("BurnCount", new Color(1f, 0.6f, 0.1f));
+        _bleedStackText = CreateStackText("BleedCount", new Color(1f, 0.2f, 0.2f));
+        _frostStackText = CreateStackText("FrostCount", new Color(0.5f, 0.8f, 1f));
+        _staticStackText = CreateStackText("StaticCount", new Color(0.5f, 0.9f, 1f));
 
         // 创建 DOT 图标系统（委托给 DotStatusIconManager）
         _iconManager = new DotStatusIconManager();
@@ -111,8 +107,12 @@ public class DotStatusIndicator
         bool hasPoisonStack = false;
         int poisonStacks = 0;
         bool hasBurnStack = false;
+        int burnStacks = 0;
         bool hasBleedComponent = false;
         bool hasFrostComponent = false;
+        int frostStacks = 0;
+        bool hasStaticComponent = false;
+        int staticStacks = 0;
 
         var semActiveTypes = new HashSet<StatusEffectType>();
 
@@ -123,9 +123,6 @@ public class DotStatusIndicator
             hasPoisonStack = true;
             poisonStacks = poison.StackCount;
         }
-
-        int burnStacks = 0;
-        int frostStacks = 0;
 
         // 检查 BurnStackEffect（燃烧）
         var burn = target.GetComponent<BurnStackEffect>();
@@ -143,7 +140,18 @@ public class DotStatusIndicator
         // 检查 FrostEffect（霜冻）
         var frost = target.GetComponent<FrostEffect>();
         if (frost != null)
+        {
             hasFrostComponent = true;
+            frostStacks = frost.FrostStacks;
+        }
+
+        // 检查 StaticStackEffect（静电）
+        var staticEffect = target.GetComponent<StaticStackEffect>();
+        if (staticEffect != null && staticEffect.StackCount > 0)
+        {
+            hasStaticComponent = true;
+            staticStacks = staticEffect.StackCount;
+        }
 
         // 检查 StatusEffectManager 中的所有 DOT
         var sem = target.GetComponent<StatusEffectManager>();
@@ -164,34 +172,44 @@ public class DotStatusIndicator
             float widthScale = Mathf.Clamp01(poisonStacks / 10f);
             indicatorEntries.Add(new IndicatorEntry("PoisonStack", true,
                 new Color(0.1f, 0.9f, 0.2f), Mathf.Max(0.3f, widthScale), true, 6f));
+            UpdateStackText(_poisonStackText, poisonStacks, new Color(0.2f, 1f, 0.3f), new Color(0.8f, 1f, 0.1f), 15f);
+        }
+        else { HideStackText(_poisonStackText); }
 
-            if (_poisonStackText != null)
-            {
-                _poisonStackText.gameObject.SetActive(true);
-                _poisonStackText.text = "x" + poisonStacks;
-                float intensity = Mathf.Clamp01(poisonStacks / 15f);
-                _poisonStackText.color = Color.Lerp(new Color(0.2f, 1f, 0.3f), new Color(0.8f, 1f, 0.1f), intensity);
-            }
-        }
-        else
-        {
-            if (_poisonStackText != null) _poisonStackText.gameObject.SetActive(false);
-        }
         if (hasBleedComponent)
         {
             indicatorEntries.Add(new IndicatorEntry("BleedComp", true,
                 new Color(0.9f, 0.1f, 0.1f), 1f, false, 0f));
+            UpdateStackText(_bleedStackText, 1, new Color(1f, 0.2f, 0.2f), new Color(1f, 0.5f, 0.5f), 5f);
         }
+        else { HideStackText(_bleedStackText); }
+
         if (hasBurnStack)
         {
+            float widthScale = Mathf.Clamp01(burnStacks / 10f);
             indicatorEntries.Add(new IndicatorEntry("BurnStack", true,
-                new Color(1f, 0.5f, 0f), 1f, true, 10f));
+                new Color(1f, 0.5f, 0f), Mathf.Max(0.3f, widthScale), true, 10f));
+            UpdateStackText(_burnStackText, burnStacks, new Color(1f, 0.6f, 0.1f), new Color(1f, 0.8f, 0.2f), 10f);
         }
+        else { HideStackText(_burnStackText); }
+
         if (hasFrostComponent)
         {
+            float widthScale = Mathf.Clamp01(frostStacks / 10f);
             indicatorEntries.Add(new IndicatorEntry("FrostComp", true,
-                new Color(0.3f, 0.6f, 1f), 1f, false, 0f));
+                new Color(0.3f, 0.6f, 1f), Mathf.Max(0.3f, widthScale), false, 0f));
+            UpdateStackText(_frostStackText, frostStacks, new Color(0.5f, 0.8f, 1f), new Color(0.7f, 0.9f, 1f), 8f);
         }
+        else { HideStackText(_frostStackText); }
+
+        if (hasStaticComponent)
+        {
+            float widthScale = Mathf.Clamp01(staticStacks / 10f);
+            indicatorEntries.Add(new IndicatorEntry("StaticComp", true,
+                new Color(0.4f, 0.8f, 1f), Mathf.Max(0.3f, widthScale), true, 12f));
+            UpdateStackText(_staticStackText, staticStacks, new Color(0.5f, 0.9f, 1f), new Color(0.8f, 1f, 1f), 10f);
+        }
+        else { HideStackText(_staticStackText); }
 
         // StatusEffectManager 指示器（排除已被独立组件覆盖的类型）
         foreach (var type in semActiveTypes)
@@ -245,6 +263,7 @@ public class DotStatusIndicator
                 case "BurnStack": sr = _burnStackIndicator; break;
                 case "BleedComp": sr = _bleedComponentIndicator; break;
                 case "FrostComp": sr = _frostComponentIndicator; break;
+                case "StaticComp": sr = _staticComponentIndicator; break;
             }
 
             // 如果不是独立组件，使用 SEM 指示器
@@ -295,6 +314,12 @@ public class DotStatusIndicator
         if (_burnStackIndicator != null) _burnStackIndicator.enabled = false;
         if (_bleedComponentIndicator != null) _bleedComponentIndicator.enabled = false;
         if (_frostComponentIndicator != null) _frostComponentIndicator.enabled = false;
+        if (_staticComponentIndicator != null) _staticComponentIndicator.enabled = false;
+        HideStackText(_poisonStackText);
+        HideStackText(_burnStackText);
+        HideStackText(_bleedStackText);
+        HideStackText(_frostStackText);
+        HideStackText(_staticStackText);
         foreach (var kvp in _semIndicators)
             kvp.Value.enabled = false;
 
@@ -339,5 +364,39 @@ public class DotStatusIndicator
     private void SetIndicatorActive(SpriteRenderer sr, bool active)
     {
         if (sr != null) sr.enabled = active;
+    }
+
+    private TextMesh CreateStackText(string name, Color color)
+    {
+        var textObj = new GameObject(name);
+        textObj.transform.SetParent(_dotContainer);
+        textObj.transform.localPosition = new Vector3(0f, DOT_INDICATOR_HEIGHT + 0.1f, 0f);
+        var tm = textObj.AddComponent<TextMesh>();
+        tm.text = "";
+        tm.fontSize = 40;
+        tm.fontStyle = FontStyle.Bold;
+        tm.characterSize = 0.08f;
+        tm.alignment = TextAlignment.Center;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.color = color;
+        tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var mr = textObj.GetComponent<MeshRenderer>();
+        if (mr != null) mr.sortingOrder = 13;
+        tm.gameObject.SetActive(false);
+        return tm;
+    }
+
+    private void UpdateStackText(TextMesh tm, int stacks, Color baseColor, Color maxColor, float maxStacks)
+    {
+        if (tm == null) return;
+        tm.gameObject.SetActive(true);
+        tm.text = "x" + stacks;
+        float intensity = Mathf.Clamp01(stacks / maxStacks);
+        tm.color = Color.Lerp(baseColor, maxColor, intensity);
+    }
+
+    private void HideStackText(TextMesh tm)
+    {
+        if (tm != null) tm.gameObject.SetActive(false);
     }
 }

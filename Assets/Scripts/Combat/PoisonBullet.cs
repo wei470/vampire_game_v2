@@ -25,7 +25,8 @@ public class PoisonBullet : MonoBehaviour
         _explosionRadius = explosionRadius; _damageMultiplier = dmgMult;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
+    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (!_exploded && Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
     private void FixedUpdate() { if (!_exploded) GetComponent<Rigidbody2D>().linearVelocity = _direction * _speed; }

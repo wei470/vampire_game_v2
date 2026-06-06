@@ -25,7 +25,8 @@ public class FrostBullet : MonoBehaviour
         _damageMultiplier = dmgMult;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
+    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
     private Rigidbody2D _rb;
@@ -38,11 +39,11 @@ public class FrostBullet : MonoBehaviour
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
         {
-            dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // 霜冻子弹不造成伤害，只施加减速
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             var frost = other.GetComponent<FrostEffect>();
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
-            frost.ApplyFreeze(_freezeDuration, _slowPercent, _frostDps * _damageMultiplier, _canCrit, _critChance, _critMult);
+            frost.ApplyFreeze(_freezeDuration, _slowPercent, 0f, false, 0f, 0f);
         }
         var penetrate = GetComponent<PenetrateHandler>();
         if (penetrate != null && penetrate.TryPenetrate(other)) return;
@@ -72,15 +73,14 @@ public class FrostBullet : MonoBehaviour
 }
 
 /// <summary>
-/// 霜冻效果 — 冰冻 + 永久减速（30%基础 + 每层额外5%，最低90%）
+/// 霜冻效果 — 永久减速（30%基础 + 每层额外5%，最高90%减速），持续直到敌人死亡
+/// 不再冻住敌人，只降低移动速度并叠层
 /// </summary>
 public class FrostEffect : MonoBehaviour
 {
-    private float _freezeEndTime;
     public float _slowPercent;
     public float _frostDps;
     public bool _canCrit; public float _critChance, _critMult;
-    private bool _frozen;
     private EnemyBase _enemyBase;
     private Damageable _damageable;
     private float _originalSpeed;
@@ -93,13 +93,14 @@ public class FrostEffect : MonoBehaviour
     private const float PER_STACK_SLOW = 0.05f;
     private const float MAX_SLOW = 0.90f;
 
+    /// <summary>
+    /// 施加霜冻减速（永久直到敌人死亡）
+    /// </summary>
     public void ApplyFreeze(float freezeDuration, float slowPercent, float frostDps,
         bool canCrit, float critChance, float critMult)
     {
-        _freezeEndTime = Time.time + freezeDuration;
-        _frostDps = frostDps;
+        _frostDps = Mathf.Max(_frostDps, frostDps);
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
-        _frozen = true;
         _frostStacks++;
         _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
 
@@ -111,8 +112,13 @@ public class FrostEffect : MonoBehaviour
                 _originalSpeed = _enemyBase.MoveSpeed;
                 _speedCaptured = true;
             }
-            _enemyBase.MoveSpeed = 0f;
+            // 永久减速，不设时间限制
+            _enemyBase.MoveSpeed = _originalSpeed * (1f - _slowPercent);
         }
+
+        // 永久视觉效果：蓝白色调
+        if (_sr != null)
+            _sr.color = Color.Lerp(_originalColor, new Color(0.5f, 0.7f, 1f), 0.3f);
     }
 
     public int FrostStacks => _frostStacks;
@@ -120,11 +126,10 @@ public class FrostEffect : MonoBehaviour
     private void OnEnable()
     {
         RestoreSpeed();
-        _frozen = false;
-        _freezeEndTime = 0f;
         _speedCaptured = false;
         _slowPercent = 0f;
         _frostStacks = 0;
+        _frostDps = 0f;
     }
 
     private void Start()
@@ -137,19 +142,15 @@ public class FrostEffect : MonoBehaviour
 
     private void Update()
     {
+        // 敌人死亡时清理
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        if (_frozen && Time.time < _freezeEndTime)
+        // 确保速度保持正确（防止其他系统覆盖）
+        if (_enemyBase != null && _speedCaptured)
         {
-            if (_sr != null) _sr.color = new Color(0.3f, 0.5f, 1f);
-            if (_enemyBase != null) _enemyBase.MoveSpeed = 0f;
-        }
-        else if (_frozen)
-        {
-            _frozen = false;
-            if (_enemyBase != null)
-                _enemyBase.MoveSpeed = _originalSpeed * (1f - _slowPercent);
-            if (_sr != null) _sr.color = Color.Lerp(_originalColor, new Color(0.5f, 0.7f, 1f), 0.3f);
+            float targetSpeed = _originalSpeed * (1f - _slowPercent);
+            if (Mathf.Abs(_enemyBase.MoveSpeed - targetSpeed) > 0.01f)
+                _enemyBase.MoveSpeed = targetSpeed;
         }
     }
 

@@ -23,7 +23,8 @@ public class BurnBullet : MonoBehaviour
         _burnDuration = burnDuration; _damageMultiplier = dmgMult;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
+    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
     private Rigidbody2D _rb;
@@ -104,7 +105,8 @@ public class BurnStackEffect : MonoBehaviour
 
     private void Update()
     {
-        if (Time.time > _endTime || _stacks <= 0) { _stacks = 0; if (_sr != null) _sr.color = _originalColor; Destroy(this); return; }
+        // 永久持续，直到敌人死亡
+        if (_damageable == null || _damageable.CurrentHp <= 0 || _stacks <= 0) { _stacks = 0; if (_sr != null) _sr.color = _originalColor; Destroy(this); return; }
 
         if (_sr != null)
         {

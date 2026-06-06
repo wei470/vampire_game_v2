@@ -229,9 +229,43 @@ public class MagePassive : MonoBehaviour
 
     private Vector2 GetFireDirection()
     {
-        if (!GameInputHandler.MouseValid) return (Vector2)transform.right;
-        Vector2 mousePos = GameInputHandler.MouseWorldPosition;
-        return ((Vector2)mousePos - (Vector2)transform.position).normalized;
+        // 直接从 InputSystem 读取鼠标坐标并转换为世界坐标（避免依赖缓存导致帧延迟/偏移）
+        var mouse = UnityEngine.InputSystem.Mouse.current;
+        if (mouse != null)
+        {
+            var cam = GameReferences.MainCamera;
+            if (cam == null) cam = Camera.main;
+            if (cam != null)
+            {
+                Vector3 screenPos = mouse.position.ReadValue();
+                // 使用相机到 z=0 平面的距离
+                screenPos.z = Mathf.Abs(cam.transform.position.z);
+                Vector3 worldPos = cam.ScreenToWorldPoint(screenPos);
+                Vector2 dir = ((Vector2)worldPos - (Vector2)transform.position);
+                if (dir.sqrMagnitude > 0.01f) return dir.normalized;
+            }
+        }
+
+        // 备用：朝最近的敌人方向
+        var spawnMgr = GameReferences.SpawnManager;
+        if (spawnMgr != null && spawnMgr.ActiveEnemies != null)
+        {
+            float minDist = float.MaxValue;
+            Vector2 nearest = Vector2.zero;
+            for (int i = 0; i < spawnMgr.ActiveEnemies.Count; i++)
+            {
+                var e = spawnMgr.ActiveEnemies[i];
+                if (e == null) continue;
+                var eb = e.GetComponent<EnemyBase>();
+                if (eb == null || !eb.Alive) continue;
+                float d = Vector2.Distance(transform.position, e.transform.position);
+                if (d < minDist) { minDist = d; nearest = e.transform.position; }
+            }
+            if (minDist < float.MaxValue)
+                return (nearest - (Vector2)transform.position).normalized;
+        }
+
+        return (Vector2)transform.right;
     }
 
     private void SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)

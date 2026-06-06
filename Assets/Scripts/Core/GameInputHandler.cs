@@ -132,7 +132,8 @@ public class GameInputHandler : MonoBehaviour
         if (cam == null) { MouseValid = false; return; }
 
         Vector3 screenPos = mouse.position.ReadValue();
-        screenPos.z = -cam.transform.position.z;
+        // 使用相机到 z=0 平面的绝对距离（与 MagePassive 保持一致）
+        screenPos.z = Mathf.Abs(cam.transform.position.z);
         MouseWorldPosition = cam.ScreenToWorldPoint(screenPos);
         MouseValid = true;
     }

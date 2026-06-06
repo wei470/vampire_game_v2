@@ -21,7 +21,8 @@ public class LightningBullet : MonoBehaviour
     {
         _speed = speed; _impactDamage = impactDmg; _damageMultiplier = dmgMult;
     }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
+    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
     private Rigidbody2D _cachedRb;
@@ -34,7 +35,7 @@ public class LightningBullet : MonoBehaviour
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
         {
-            dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // 雷电不造成直接伤害，只叠静电层数
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             ApplyStaticToEnemy(other.gameObject);
             _hitEnemies.Add(other.gameObject);
@@ -89,13 +90,7 @@ public class LightningBullet : MonoBehaviour
 
             CreateChainLine(lastPos, target.transform.position);
 
-            var dmg = target.GetComponent<Damageable>();
-            if (dmg != null && dmg.CurrentHp > 0)
-            {
-                float chainDmgMult = _damageMultiplier * Mathf.Pow(0.5f, chained + 1);
-                dmg.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(_impactDamage * chainDmgMult)));
-            }
-
+            // 连锁只叠静电，不造成伤害
             DotBulletHelper.EnsureStatusEffectManager(target);
             ApplyStaticToEnemy(target);
             CombatManager.CreateExplosionEffect(target.transform.position, 0.8f, new Color(0.4f, 0.8f, 1f), 0.2f);
@@ -146,15 +141,20 @@ public class LightningBullet : MonoBehaviour
 }
 
 /// <summary>
-/// 静电效果组件 — 挂在敌人身上，管理连锁层数和定时静电伤害
-/// 每层降低0.1秒触发间隔，初始5秒，最低2秒
+/// 静电效果组件 — 挂在敌人身上，管理静电层数
+/// - 基础每3秒触发一次静电，暂停敌人行动0.5秒
+/// - 每层缩短0.1秒间隔，最低2秒（10层叠满）
+/// - 雷电子弹不造成直接伤害，只通过静电定时触发造成伤害
 /// </summary>
 public class StaticStackEffect : MonoBehaviour
 {
     private int _stackCount = 0;
-    private float _baseInterval = 5.0f;
-    private float _stackReduction = 0.1f;
-    private float _minInterval = 2.0f;
+    private const float BASE_INTERVAL = 3.0f;
+    private const float STACK_REDUCTION = 0.1f;
+    private const float MIN_INTERVAL = 2.0f;
+    private const float STUN_DURATION = 0.5f;
+    private const int MAX_STACKS = 10;
+    private const int BASE_DISCHARGE_DAMAGE = 3;
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;
@@ -166,17 +166,22 @@ public class StaticStackEffect : MonoBehaviour
 
     public int StackCount => _stackCount;
 
+    /// <summary>
+    /// 添加一层静电
+    /// </summary>
     public void AddStack()
     {
-        _stackCount++;
-        _lastTickTime = Time.time;
-        ApplyStun(0.5f);
+        _stackCount = Mathf.Min(_stackCount + 1, MAX_STACKS);
+        ApplyStun(STUN_DURATION);
         DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s");
     }
 
+    /// <summary>
+    /// 获取当前静电触发间隔（基础3秒，每层-0.1秒，最低2秒）
+    /// </summary>
     public float GetInterval()
     {
-        return Mathf.Max(_minInterval, _baseInterval - _stackCount * _stackReduction);
+        return Mathf.Max(MIN_INTERVAL, BASE_INTERVAL - _stackCount * STACK_REDUCTION);
     }
 
     private void ApplyStun(float duration)
@@ -217,6 +222,7 @@ public class StaticStackEffect : MonoBehaviour
         if (_stackCount <= 0) return;
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
+        // 硬直期间暂停移动 + 闪烁效果
         if (Time.time < _stunEndTime)
         {
             if (_enemyBase != null) _enemyBase.MoveSpeed = 0f;
@@ -228,27 +234,38 @@ public class StaticStackEffect : MonoBehaviour
         }
         else if (_speedCaptured && _enemyBase != null)
         {
+            // 硬直结束，恢复移动速度
             _enemyBase.MoveSpeed = _originalSpeed;
             _speedCaptured = false;
             if (_sr != null) _sr.color = _originalColor;
         }
 
+        // 定时触发静电
         float interval = GetInterval();
         if (Time.time - _lastTickTime >= interval)
         {
             _lastTickTime = Time.time;
-            TriggerStaticDamage();
+            TriggerStaticDischarge();
         }
     }
 
-    private void TriggerStaticDamage()
+    /// <summary>
+    /// 触发静电放电：造成伤害 + 暂停行动0.5秒
+    /// </summary>
+    private void TriggerStaticDischarge()
     {
         if (_damageable == null || _damageable.CurrentHp <= 0) return;
-        int damage = Mathf.Max(1, _stackCount * 2);
+
+        // 造成伤害
+        int damage = BASE_DISCHARGE_DAMAGE + _stackCount;
         _damageable.TakeDamage(damage, new Color(0.3f, 0.8f, 1f));
         CombatManager.CreateExplosionEffect(transform.position, 1f, new Color(0.4f, 0.8f, 1f), 0.3f);
         DamagePopup.Create(transform.position, damage, new Color(0.4f, 0.8f, 1f), false);
-        DebugHelper.Log($"[StaticStackEffect] Static discharge! {damage} damage, stacks={_stackCount}");
+
+        // 暂停行动
+        ApplyStun(STUN_DURATION);
+
+        DebugHelper.Log($"[StaticStackEffect] Static discharge! {damage} damage, stacks={_stackCount}, next in {GetInterval():F1}s");
     }
 
     private void Cleanup()

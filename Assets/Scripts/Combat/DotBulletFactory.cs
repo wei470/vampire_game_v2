@@ -251,7 +251,8 @@ public class DotHomingBullet : MonoBehaviour
             case StatusEffectType.Frostbite:
                 var frost = enemy.GetComponent<FrostEffect>();
                 if (frost == null) frost = enemy.AddComponent<FrostEffect>();
-                frost.ApplyFreeze(1f, 0.3f, _gun.dotDps * _dmgMult, _canCrit, _critChance, _critMult);
+                // 霜冻不造成伤害，只施加减速
+                frost.ApplyFreeze(1f, 0.3f, 0f, false, 0f, 0f);
                 break;
         }
     }

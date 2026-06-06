@@ -25,7 +25,8 @@ public class BleedBullet : MonoBehaviour
         _canCrit = canCrit; _critChance = critChance; _critMultiplier = critMult;
     }
 
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; }
+    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
+    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
 
     private void Start() { _spawnTime = Time.time; }
     private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
@@ -93,7 +94,7 @@ public class BleedEffect : MonoBehaviour
     public void Refresh(float dps, float duration, bool canCrit, float critChance, float critMult)
     {
         _dps = Mathf.Max(_dps, dps);
-        _duration = duration;
+        _duration = duration; // 保留参数兼容，但不用于超时判断
         _startTime = Time.time;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
@@ -107,7 +108,8 @@ public class BleedEffect : MonoBehaviour
 
     private void Update()
     {
-        if (Time.time - _startTime > _duration) { Destroy(this); return; }
+        // 永久持续，直到敌人死亡
+        if (_damageable == null || _damageable.CurrentHp <= 0) { Destroy(this); return; }
 
         float moved = Vector3.Distance(transform.position, _lastPosition);
         _lastPosition = transform.position;
