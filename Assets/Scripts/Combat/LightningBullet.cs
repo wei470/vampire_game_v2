@@ -16,6 +16,7 @@ public class LightningBullet : MonoBehaviour
     private int _maxChainCount = 3;
     private float _chainRadius = 8f;
     private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
+    private bool _consumed = false;
 
     public void Setup(float speed, int impactDmg, float dmgMult)
     {
@@ -31,6 +32,7 @@ public class LightningBullet : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
+        if (_consumed) return;
         if (!other.CompareTag("Enemy")) return;
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
@@ -41,10 +43,11 @@ public class LightningBullet : MonoBehaviour
             _hitEnemies.Add(other.gameObject);
             ChainLightning(other.gameObject);
         }
+        _consumed = true;
         var penetrate = GetComponent<PenetrateHandler>();
-        if (penetrate != null && penetrate.TryPenetrate(other)) return;
+        if (penetrate != null && penetrate.TryPenetrate(other)) { _consumed = false; return; }
         var ricochet = GetComponent<RicochetHandler>();
-        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
+        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) { _consumed = false; return; }
         Destroy(gameObject);
     }
 
@@ -172,7 +175,8 @@ public class StaticStackEffect : MonoBehaviour
     public void AddStack()
     {
         _stackCount = Mathf.Min(_stackCount + 1, MAX_STACKS);
-        // 不再在叠层时立即触发硬直，只在定时放电时才暂停
+        // 重置放电计时器，确保叠层后不会立即触发放电
+        _lastTickTime = Time.time;
         DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s");
     }
 
