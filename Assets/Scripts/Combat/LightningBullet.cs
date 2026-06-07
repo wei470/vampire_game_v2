@@ -172,7 +172,7 @@ public class StaticStackEffect : MonoBehaviour
     public void AddStack()
     {
         _stackCount = Mathf.Min(_stackCount + 1, MAX_STACKS);
-        ApplyStun(STUN_DURATION);
+        // 不再在叠层时立即触发硬直，只在定时放电时才暂停
         DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s");
     }
 
