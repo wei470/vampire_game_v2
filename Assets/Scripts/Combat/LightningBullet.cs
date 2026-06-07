@@ -145,19 +145,26 @@ public class LightningBullet : MonoBehaviour
 
 /// <summary>
 /// 静电效果组件 — 挂在敌人身上，管理静电层数
-/// - 基础每3秒触发一次静电，暂停敌人行动0.5秒
-/// - 每层缩短0.1秒间隔，最低2秒（10层叠满）
-/// - 雷电子弹不造成直接伤害，只通过静电定时触发造成伤害
+///
+/// 命中逻辑：
+/// - 无层数时：立刻触发1秒静电 + 施加1层
+/// - 有层数时：触发0.1秒静电 + 施加1层 + 重新计算冷却
+///
+/// 定时逻辑：
+/// - 基础每5秒触发一次静电放电
+/// - 每层减少0.2秒，最低2秒（15层叠满）
+/// - 伤害：固定为0（纯控制效果）
 /// </summary>
 public class StaticStackEffect : MonoBehaviour
 {
     private int _stackCount = 0;
-    private const float BASE_INTERVAL = 3.0f;
-    private const float STACK_REDUCTION = 0.1f;
+    private const float BASE_INTERVAL = 5.0f;
+    private const float STACK_REDUCTION = 0.2f;
     private const float MIN_INTERVAL = 2.0f;
-    private const float STUN_DURATION = 0.5f;
-    private const int MAX_STACKS = 10;
-    private const int BASE_DISCHARGE_DAMAGE = 3;
+    private const float STUN_DURATION_HIT = 0.1f;
+    private const float STUN_DURATION_DISCHARGE = 0.5f;
+    private const float STUN_DURATION_FIRST = 1.0f;
+    private const int MAX_STACKS = 15;
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;
@@ -170,18 +177,33 @@ public class StaticStackEffect : MonoBehaviour
     public int StackCount => _stackCount;
 
     /// <summary>
-    /// 添加一层静电
+    /// 添加一层静电并触发效果
+    /// - 无层数时：立刻触发1秒静电 + 施加1层
+    /// - 有层数时：触发0.1秒静电 + 施加1层 + 重新计算冷却
     /// </summary>
     public void AddStack()
     {
+        bool isFirstStack = (_stackCount == 0);
         _stackCount = Mathf.Min(_stackCount + 1, MAX_STACKS);
-        // 重置放电计时器，确保叠层后不会立即触发放电
+
+        if (isFirstStack)
+        {
+            // 首次命中：立刻触发1秒静电
+            ApplyStun(STUN_DURATION_FIRST);
+        }
+        else
+        {
+            // 已有层数：触发0.1秒静电（短暂打断）
+            ApplyStun(STUN_DURATION_HIT);
+        }
+
+        // 重新计算冷却（重置定时器）
         _lastTickTime = Time.time;
-        DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s");
+        DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s, First={isFirstStack}");
     }
 
     /// <summary>
-    /// 获取当前静电触发间隔（基础3秒，每层-0.1秒，最低2秒）
+    /// 获取当前静电触发间隔（基础5秒，每层-0.2秒，最低2秒）
     /// </summary>
     public float GetInterval()
     {
@@ -244,7 +266,7 @@ public class StaticStackEffect : MonoBehaviour
             if (_sr != null) _sr.color = _originalColor;
         }
 
-        // 定时触发静电
+        // 定时触发静电放电
         float interval = GetInterval();
         if (Time.time - _lastTickTime >= interval)
         {
@@ -254,22 +276,19 @@ public class StaticStackEffect : MonoBehaviour
     }
 
     /// <summary>
-    /// 触发静电放电：造成伤害 + 暂停行动0.5秒
+    /// 定时触发放电：0.5秒静电（无伤害，纯控制）
     /// </summary>
     private void TriggerStaticDischarge()
     {
         if (_damageable == null || _damageable.CurrentHp <= 0) return;
 
-        // 造成伤害
-        int damage = BASE_DISCHARGE_DAMAGE + _stackCount;
-        _damageable.TakeDamage(damage, new Color(0.3f, 0.8f, 1f));
+        // 暂停行动0.5秒
+        ApplyStun(STUN_DURATION_DISCHARGE);
+
+        // 视觉特效
         CombatManager.CreateExplosionEffect(transform.position, 1f, new Color(0.4f, 0.8f, 1f), 0.3f);
-        DamagePopup.Create(transform.position, damage, new Color(0.4f, 0.8f, 1f), false);
 
-        // 暂停行动
-        ApplyStun(STUN_DURATION);
-
-        DebugHelper.Log($"[StaticStackEffect] Static discharge! {damage} damage, stacks={_stackCount}, next in {GetInterval():F1}s");
+        DebugHelper.Log($"[StaticStackEffect] Static discharge! stacks={_stackCount}, next in {GetInterval():F1}s");
     }
 
     private void Cleanup()
