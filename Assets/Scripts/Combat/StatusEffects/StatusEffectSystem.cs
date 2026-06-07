@@ -128,6 +128,10 @@ public class StatusEffectManager : MonoBehaviour
             if (effect.remainingDuration <= 0) { _activeEffects.RemoveAt(i); continue; }
 
             float tickDmg = effect.damagePerSecond * _tickInterval;
+            // 应用DOT组合倍率
+            if (effect.type == StatusEffectType.Bleed) tickDmg *= _comboSystem.GetBleedDamageMult();
+            if (effect.type == StatusEffectType.Poison) tickDmg *= _comboSystem.GetPoisonDamageMult();
+            if (effect.type == StatusEffectType.Static) tickDmg *= _comboSystem.SuperconductMult;
             if (_dotResistance != null) tickDmg *= _dotResistance.GetDamageMultiplier(effect.type);
             if (RendDamageBonus > 0) tickDmg *= (1f + RendDamageBonus);
             if (AgonyMissingHpScale > 0 && _damageable != null)

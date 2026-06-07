@@ -42,6 +42,16 @@ public class MagePassive : MonoBehaviour
     // ── 协同系统 ──
     private HashSet<string> _activeSynergies = new HashSet<string>();
 
+    // ── 元素融合系统 ──
+    private HashSet<string> _completedFusions = new HashSet<string>();
+    private float _fusionDpsMultiplier = 1f;
+
+    /// <summary>已完成的融合列表（供 LevelUpUI 查询）</summary>
+    public HashSet<string> CompletedFusions => _completedFusions;
+
+    /// <summary>融合 DPS 倍率</summary>
+    public float FusionDpsMultiplier => _fusionDpsMultiplier;
+
     // ── DOT 进化系统 ──
     private HashSet<StatusEffectType> _evolvedTypes = new HashSet<StatusEffectType>();
 
@@ -79,14 +89,22 @@ public class MagePassive : MonoBehaviour
     public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
     public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
 
+    // ── 进化系统新增属性 ──
+    /// <summary>元素融合是否由进化系统解锁</summary>
+    public bool FusionUnlockedByEvolution { get; set; }
+    /// <summary>进化系统提供的DOT伤害额外加成</summary>
+    public float DotDamageMultiplier { get; set; } = 0f;
+    /// <summary>进化系统提供的暴击率额外加成</summary>
+    public float CritChanceBonus { get; set; }
+
     public float GetDotDurationMultiplier() => 1f + _dotDurationBonus;
     public float DotDurationMultiplier => GetDotDurationMultiplier();
     public float CritMultiplier => _dotCritMultiplier;
-    public float CritChance => 0.05f;
+    public float CritChance => 0.05f + CritChanceBonus;
 
     public float GetDotDamageMultiplier()
     {
-        float mult = 1f;
+        float mult = 1f + DotDamageMultiplier;
         if (_elementMasterTriggered) mult += 0.2f;
         if (_detonateSystem != null && _detonateSystem.IsChainDetonateActive) mult *= 2f;
         return mult;
@@ -193,10 +211,52 @@ public class MagePassive : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 应用元素融合：移除两种原始 DOT，添加融合子弹
+    /// </summary>
+    public bool ApplyFusion(DotFusionSystem.FusionDef fusion)
+    {
+        if (_completedFusions.Contains(fusion.fusionId)) return false;
+
+        // 移除两种原始 DOT
+        _dotGuns.RemoveAll(g => g.effectType == fusion.required1 || g.effectType == fusion.required2);
+
+        // 添加融合子弹（使用 Burn 的 StatusEffectType 作为载体）
+        _dotGuns.Add(new DotGunState
+        {
+            effectType = StatusEffectType.Burn, // 融合子弹使用 Burn 作为基础类型
+            color = fusion.fusionColor,
+            cooldown = fusion.cooldown,
+            impactDamage = fusion.impactDmg,
+            dotDps = fusion.dotDps,
+            dotDuration = fusion.dotDuration,
+            lastFireTime = Time.time,
+            upgradeLevel = 3 // 融合子弹直接为 Lv3
+        });
+
+        _completedFusions.Add(fusion.fusionId);
+
+        // DPS 倍率提升
+        _fusionDpsMultiplier *= 1.15f;
+
+        DebugHelper.Log($"[MagePassive] Fusion applied: {fusion.displayName} ({fusion.fusionId})");
+        return true;
+    }
+
+    /// <summary>
+    /// 获取当前可用的融合选项（供 LevelUpUI 查询）
+    /// </summary>
+    public List<DotFusionSystem.FusionDef> GetAvailableFusions()
+    {
+        return DotFusionSystem.GetAvailableFusions(_dotGuns, _completedFusions);
+    }
+
     public void ClearAllDotGuns()
     {
         _dotGuns.Clear();
         _elementMasterTriggered = false;
+        _completedFusions.Clear();
+        _fusionDpsMultiplier = 1f;
     }
 
     private void Update()

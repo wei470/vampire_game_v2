@@ -10,19 +10,30 @@ Before making any code changes or responding to the user, you **MUST** read and 
 * **Purpose:** This file contains essential project context, standards, architectural decisions, or specific AI guidelines. 
 * **Action:** Read it completely. Align your understanding with its content. Do not hallucinate assumptions that contradict this file.
 
-## 2. Execution Phase (Task Processing)
-After digesting `ai_content.md`, your primary objective is to resolve the tasks outlined in:
-* **已删除:** `fixme_v2.md` 和 `fixme.md` 已删除（V1+V2重构全部完成）
-* **Action:** 直接根据 `ai_content.md` §15 的任务状态和用户指令执行任务。
+## 2. Task Auto-Execution ("开始" Command)
 
-## 3. General Behavior Guidelines
-* **Step-by-Step:** Always explain what you are about to do before executing large file edits or terminal commands.
-* **Verification:** After completing the tasks in `fixme.md`, double-check your work against the rules in `ai_content.md` to ensure compliance.
-* **Status Update:** Once done, update the user clearly on which items in `fixme.md` have been resolved.
+当用户发送 **"开始"** 时，AI 必须：
 
-eventally, update ai_content.md
+1. **读取 `Ai_content.md`** — 获取项目上下文
+2. **读取 `task.md`** — 获取任务列表
+3. **扫描 `task.md` 中的实施路线图**，找到第一个 `[ ]`（未完成）的任务
+4. **自动开始执行该任务**，无需用户进一步确认
+5. **执行完成后**：
+   - 将该任务在 `task.md` 中标记为 `[x] 已完成`，并添加简要完成说明
+   - 自动继续下一个 `[ ]` 任务
+6. **每完成一个任务后**，询问用户："继续下一个任务？还是先测试当前改动？"
+7. **如果用户说"继续"**，则继续执行下一个未完成任务
+8. **如果用户说"测试"**，则暂停任务执行，等待用户反馈
 
-## 4. 上下文节约规则（防止 Invalid API Response）
+### 任务状态标记规范
+- `[ ]` — 未开始
+- `[x] 已完成：[简要说明]` — 已完成并附带完成说明
+- `[~] 进行中` — 正在执行中
+- `[!] 已跳过：[原因]` — 跳过并附带原因
+
+---
+
+## 3. 上下文节约规则（防止 Invalid API Response）
 
 ### 必须遵守
 1. **关闭不必要的 VS Code 标签页**：只保留正在编辑的文件，减少 environment_details 体积

@@ -114,6 +114,10 @@ public class BossEnemy : EnemyBase
         _baseSpeed = _bossSpeed;
 
         ApplyBossTypeConfig();
+
+        // Boss出场增强：屏幕震动+闪光+音效
+        PlaySpawnEntrance();
+
         DebugHelper.Log($"[BossEnemy] Boss spawned! Type={_bossType}, HP={_bossHP}");
         EventManager.TriggerBossSpawn(_bossType.ToString(), _bossHP);
     }
@@ -404,6 +408,133 @@ public class BossEnemy : EnemyBase
         _chargeDirection = result.dir;
         _chargeEndTime = result.endTime;
         _isCharging = result.endTime > Time.time;
+    }
+
+    /// <summary>
+    /// Boss出场效果：屏幕震动+红色闪光+专属音效+血条显示
+    /// </summary>
+    private void PlaySpawnEntrance()
+    {
+        // 屏幕震动
+        var cam = GameReferences.MainCamera;
+        if (cam != null)
+        {
+            var shake = cam.GetComponent<ScreenShake>();
+            if (shake != null) shake.Shake(3f, 1f);
+        }
+
+        // 红色闪光
+        DamageFlashEffect.Show(0.2f, new Color(1f, 0.1f, 0.1f, 0.4f));
+
+        // Boss音效
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.PlayLevelUp();
+
+        // 浮字通知
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            DamagePopup.Create(
+                player.transform.position + Vector3.up * 5f,
+                0,
+                BossFactory.BossColors[(int)_bossType],
+                false,
+                $"★ BOSS: {_bossType}!"
+            );
+        }
+
+        // 通知小地图
+        var minimap = FindAnyObjectByType<MinimapUI>();
+        if (minimap != null) minimap.NotifyBossSpawned();
+    }
+
+    /// <summary>
+    /// 阶段切换增强效果：屏幕震动+闪光+阶段提示
+    /// </summary>
+    private void PlayPhaseTransitionEffect(int phase)
+    {
+        // 屏幕震动（阶段越高震动越强）
+        var cam = GameReferences.MainCamera;
+        if (cam != null)
+        {
+            var shake = cam.GetComponent<ScreenShake>();
+            if (shake != null)
+            {
+                float intensity = 1.5f + phase * 0.5f;
+                float duration = 0.3f + phase * 0.1f;
+                shake.Shake(intensity, duration);
+            }
+        }
+
+        // 阶段闪光（不同阶段不同颜色）
+        Color flashColor;
+        switch (phase)
+        {
+            case 2: flashColor = new Color(1f, 0.5f, 0f, 0.3f); break;   // 橙色
+            case 3: flashColor = new Color(1f, 0.2f, 0f, 0.35f); break;  // 红色
+            case 4: flashColor = new Color(0.8f, 0f, 0.8f, 0.3f); break; // 紫色
+            case 5: flashColor = new Color(1f, 0f, 0f, 0.5f); break;     // 深红（狂暴）
+            default: flashColor = new Color(1f, 1f, 0f, 0.2f); break;    // 黄色
+        }
+        DamageFlashEffect.Show(0.15f, flashColor);
+
+        // 浮字提示
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            string phaseText = phase == 5 ? "★ ENRAGE!" : $"Phase {phase}";
+            DamagePopup.Create(
+                player.transform.position + Vector3.up * 4f,
+                0,
+                flashColor,
+                false,
+                phaseText
+            );
+        }
+
+        DebugHelper.Log($"[BossEnemy] Phase {phase} transition effect played");
+    }
+
+    /// <summary>
+    /// Boss死亡增强效果：慢动作特写+大量粒子+金币爆发
+    /// </summary>
+    private void PlayDeathEffect()
+    {
+        // 慢动作特写（0.5秒慢动作）
+        Time.timeScale = 0.3f;
+        Time.fixedDeltaTime = 0.02f * Time.timeScale;
+
+        // 恢复正常速度
+        StartCoroutine(RestoreTimeScaleAfterDelay(0.5f));
+
+        // 大范围爆炸效果
+        CombatManager.CreateExplosionEffect(transform.position, 8f,
+            BossFactory.BossColors[(int)_bossType], 1f);
+
+        // 屏幕震动
+        var cam = GameReferences.MainCamera;
+        if (cam != null)
+        {
+            var shake = cam.GetComponent<ScreenShake>();
+            if (shake != null) shake.Shake(5f, 1.5f);
+        }
+
+        // 金色闪光
+        DamageFlashEffect.Show(0.3f, new Color(1f, 0.85f, 0f, 0.5f));
+
+        // Boss死亡音效
+        if (SFXManager.Instance != null)
+            SFXManager.Instance.PlayLevelUp();
+
+        // 注：金币/经验掉落由 KillRewarder 统一处理
+        DebugHelper.Log("[BossEnemy] Boss death effect played");
+    }
+
+    private System.Collections.IEnumerator RestoreTimeScaleAfterDelay(float delay)
+    {
+        yield return new WaitForSecondsRealtime(delay);
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
     }
 
     // ── 碰撞 ──

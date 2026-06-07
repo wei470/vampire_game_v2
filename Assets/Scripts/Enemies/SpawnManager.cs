@@ -281,6 +281,36 @@ public class SpawnManager : MonoBehaviour
         int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
         EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor);
 
+        // ── 精英词缀系统：第5波起概率生成精英 ──
+        if (EliteModifierSystem.ShouldSpawnElite(_currentWave))
+        {
+            var eliteMod = enemy.GetComponent<EliteModifierSystem>();
+            if (eliteMod == null) eliteMod = enemy.AddComponent<EliteModifierSystem>();
+            eliteMod.ApplyElite(_currentWave);
+            DebugHelper.Log($"[SpawnManager] Elite enemy spawned at wave {_currentWave}");
+        }
+
+        _activeEnemies.Add(enemy);
+        _enemiesAlive = _activeEnemies.Count;
+    }
+
+    /// <summary>
+    /// 在指定位置生成单个敌人（供召唤词缀等外部调用）
+    /// </summary>
+    public void SpawnSingleEnemy(Vector3 position)
+    {
+        GameObject prefab = _prefabFactory.ChooseEnemyPrefab(_currentWave);
+        if (prefab == null) return;
+
+        string poolKey = _prefabFactory.GetPoolKeyForPrefab(prefab);
+        var enemy = PoolHelper.SpawnOrInstantiate(poolKey, prefab, position, Quaternion.identity);
+        if (enemy == null) return;
+
+        float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
+        float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
+        int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
+        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor);
+
         _activeEnemies.Add(enemy);
         _enemiesAlive = _activeEnemies.Count;
     }

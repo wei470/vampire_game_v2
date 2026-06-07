@@ -76,6 +76,9 @@ public class GameStarter
                 }
             }
             DebugHelper.Log($"[GameStarter] Character: {charData.characterName}");
+
+            // 初始化角色专属被动进化系统
+            InitEvolutionSystem(charData);
         }
 
         // 初始化玩家永久加成（HP 回复等）
@@ -177,6 +180,25 @@ public class GameStarter
         _hudFactory.CreateInGameHUD(GameSceneBootstrap.CurrentCharacter);
 
         DebugHelper.Log("[GameStarter] Game started! WASD=Move, Mouse=Aim/Shoot, E=Skill, R=Restart");
+    }
+
+    /// <summary>
+    /// 初始化角色专属被动进化系统
+    /// </summary>
+    private void InitEvolutionSystem(CharacterData charData)
+    {
+        if (_player == null || charData == null) return;
+        if (charData.evolutionTree == null || charData.evolutionTree.Length == 0) return;
+
+        var levelSystem = _player.GetComponent<PlayerLevelSystem>();
+        if (levelSystem == null) return;
+
+        var evoSystem = _player.GetComponent<EvolutionSystem>();
+        if (evoSystem == null)
+            evoSystem = _player.gameObject.AddComponent<EvolutionSystem>();
+
+        evoSystem.Init(charData, levelSystem);
+        DebugHelper.Log($"[GameStarter] EvolutionSystem initialized: {charData.evolutionTree.Length} milestones for {charData.characterName}");
     }
 
     /// <summary>

@@ -83,14 +83,14 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 | 霜冻 | FrostBullet | 1/s | 命中不造成伤害，只施加永久减速30%+叠层，每层+5%，最高90%减速 |
 | 雷电 | LightningBullet | 1/s | 命中不造成伤害，只叠静电层；连锁最多3个敌人；首次命中1秒静电，后续0.1秒静电；定时5秒放电(每层-0.2秒，最低2秒)0.5秒静电，伤害固定为0 |
 | 黑暗 | DarkBullet | 0.33/s | 缓慢子弹(40%速度)，击中后消失，施加黑暗标记(永久)。命中的敌人略微变黑。敌人死亡时所有DOT按50%效果传播给3范围敌人(黑暗标记本身不传播)。不造成直接伤害 |
-| 光明 | LightBulletController | 0.2/s | 蓄力3秒(玩家头上蓄力条，不减速)后，朝鼠标方向射出激光，顺时针扫45度，帧伤1点/次。命中施加光明标记：每层受伤+1%，无上限，敌人身上显示层数文字 |
+| 光明 | LightBulletController | 0.2/s | 蓄力3秒(玩家头上蓄力条，不减速)后，朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。命中施加光明标记：每层受伤+0.5%，无上限，敌人身上显示xN层数 |
 
 - **中毒叠加**：基础2+每层+1，间隔1s×0.9^(n-1)，最低0.2s
 - **毒液池**：每秒叠一层中毒
 - **霜冻**：永久减速30%基础，每层+5%，上限90%（不造成伤害，只减速，不再冰冻敌人）
 - **静电**：雷电子弹不造成直接伤害，只叠层+连锁；首次命中触发1秒静电，后续命中触发0.1秒静电；定时基础5秒放电(每层-0.2秒，最低2秒)暂停0.5秒；静电不造成伤害，纯控制效果
-- **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时传播所有DOT(DarkMarkEffect)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害
-- **光明标记**：每层受到伤害+1%，无上限(公式：1.0+stack×0.01)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，帧伤1点/次。敌人身上用TextMesh显示"+N%"层数
+- **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时通过BaseEntity.OnDeath事件传播所有DOT给周围敌人，同时传播StatusEffectManager效果和独立DOT组件(流血/燃烧/中毒/霜冻)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害。死亡时从敌人到最近敌人画暗紫色锁链
+- **光明标记**：每层受到伤害+0.5%，无上限(公式：1.0+stack×0.005)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。敌人身上用TextMesh显示"xN"层数
 
 ## 6. Mage 升级系统（17种）
 - DOT子弹(7)：流血/中毒/燃烧/霜冻/雷电/黑暗/光明
@@ -102,7 +102,7 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 ## 7. 状态效果系统
 - **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff
 - **CurseSpreadSystem** 静态类，敌人死亡时传播DOT
-- **DotComboSystem** DOT组合效果：碎冰/爆燃/脓毒
+- **DotComboSystem** DOT组合效果：碎冰/爆燃/脓毒 + 沸血/血电/冻毒/导电毒液/蒸发/等离子/超导（共10种），提供GetBleedDamageMult()/GetPoisonDamageMult()/SuperconductMult倍率给StatusEffectSystem
 - 独立组件：BleedEffect, BurnStackEffect, PoisonStackEffect, FrostEffect
 
 ## 8. 敌人系统
@@ -182,7 +182,13 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 
 ## 15. 重构进度 — 全部完成 ✅
 
-> **V1+V2 重构已全部完成**，V3 性能优化已全部完成，fixme.md 已删除。
+> **V1+V2 重构已全部完成**，V3 性能优化已全部完成，V4 文件拆分已完成，V5 玩法扩展已完成，fixme.md 已删除。
+
+### V5 玩法扩展总结
+**Phase 1（内容扩展）**：黑暗子弹+光明子弹+7种DOT组合+临时道具+击杀连击+波次挑战+伤害数字颜色
+**Phase 2（核心新玩法）**：精英词缀12种
+**Phase 3（深度玩法）**：元素融合5种+角色进化系统+Boss Rush模式
+**Phase 4（长期留存）**：小地图增强+Boss战增强
 
 ### V3 性能优化总结
 - **1.1 DOT子弹 FixedUpdate GetComponent 缓存**：BleedBullet/BurnBullet/FrostBullet/LightningBullet 在 OnEnable 中缓存 Rigidbody2D

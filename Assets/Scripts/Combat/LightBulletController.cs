@@ -4,8 +4,8 @@ using UnityEngine;
 /// 光明子弹控制器 — 蓄力型定向激光
 /// 阶段1：蓄力3秒（玩家头上蓄力条，不减速）
 /// 阶段2：朝鼠标方向射出激光，随后顺时针扫45度
-/// 激光伤害：帧伤1点/帧，命中敌人施加光明标记
-/// 光明标记：每层受到伤害增加1%，无上限，敌人身上显示层数
+/// 激光伤害：每3帧触发一次伤害1点，命中敌人施加光明标记
+/// 光明标记：每层受到伤害增加0.5%，无上限，敌人身上显示xN层数
 /// </summary>
 public class LightBulletController : MonoBehaviour
 {
@@ -27,6 +27,7 @@ public class LightBulletController : MonoBehaviour
     // ── 激光状态 ──
     private float _startAngle;
     private float _sweepProgress;
+    private int _damageFrameCounter; // 帧伤间隔计数器
 
     // ── 视觉 ──
     private GameObject _chargeBarObj;
@@ -86,6 +87,7 @@ public class LightBulletController : MonoBehaviour
             CleanupChargeBar();
             _startAngle = GetMouseAngle();
             _sweepProgress = 0f;
+            _damageFrameCounter = 0;
             CreateLaserVisual();
             _phase = Phase.Sweeping;
             _phaseTimer = 0f;
@@ -102,8 +104,10 @@ public class LightBulletController : MonoBehaviour
         Vector2 laserDir = AngleToDirection(currentAngle);
         UpdateLaserVisual(currentAngle);
 
-        // 每帧造成伤害
-        HitEnemiesWithLaser(laserDir);
+        // 每3帧造成一次伤害
+        _damageFrameCounter++;
+        if (_damageFrameCounter % 3 == 0)
+            HitEnemiesWithLaser(laserDir);
 
         if (_phaseTimer >= _sweepDuration + 0.1f)
         {
@@ -256,8 +260,8 @@ public class LightBulletController : MonoBehaviour
 
 /// <summary>
 /// 光明标记效果 — 挂载到敌人身上
-/// 每层受到伤害增加1%，无上限
-/// 敌人身上显示层数文字
+/// 每层受到伤害增加0.5%，无上限
+/// 敌人身上显示层数文字（与其他标记一致的xN格式）
 /// </summary>
 public class LightMarkEffect : MonoBehaviour
 {
@@ -288,12 +292,12 @@ public class LightMarkEffect : MonoBehaviour
     }
 
     /// <summary>
-    /// 获取受伤倍率：每层+1%，无上限
+    /// 获取受伤倍率：每层+0.5%，无上限
     /// </summary>
     public float GetDamageMultiplier()
     {
         if (_stackCount <= 0) return 1f;
-        return 1f + _stackCount * 0.01f;
+        return 1f + _stackCount * 0.005f;
     }
 
     private void UpdateStackText()
@@ -305,7 +309,7 @@ public class LightMarkEffect : MonoBehaviour
             _stackTextObj.transform.localScale = Vector3.one * 0.3f;
 
             var tm = _stackTextObj.AddComponent<TextMesh>();
-            tm.characterSize = 1f;
+            tm.characterSize = 0.2f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.fontSize = 40;
@@ -320,7 +324,7 @@ public class LightMarkEffect : MonoBehaviour
         var textMesh = _stackTextObj.GetComponent<TextMesh>();
         if (textMesh != null)
         {
-            textMesh.text = $"+{_stackCount}%";
+            textMesh.text = $"x{_stackCount}";
             float t = Mathf.Clamp01(_stackCount / 50f);
             textMesh.color = Color.Lerp(new Color(1f, 1f, 0.7f), new Color(1f, 0.9f, 0.3f), t);
         }

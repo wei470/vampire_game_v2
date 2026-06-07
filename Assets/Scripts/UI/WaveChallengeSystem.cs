@@ -14,7 +14,17 @@ using System.Collections;
 /// </summary>
 public class WaveChallengeSystem : MonoBehaviour
 {
-    public enum ChallengeType { DoubleHp, SpeedBoost, ExtraBoss, EliteWave }
+    public enum ChallengeType
+    {
+        DoubleHp, SpeedBoost, ExtraBoss, EliteWave,
+        // ── 新增6种挑战 ──
+        DarkFall,        // 黑暗降临：视野缩小
+        ElementStorm,    // 元素风暴：地图出现元素区域
+        MirrorEnemy,     // 镜像敌人：击杀分裂
+        CurseRing,       // 诅咒之环：敌人死亡爆炸
+        TimeRewind,      // 时间回溯：敌人复活
+        GravityAnomaly   // 重力异常：移速波动
+    }
 
     public class ChallengeData
     {
@@ -39,6 +49,20 @@ public class WaveChallengeSystem : MonoBehaviour
     public float ChallengeSpeedMultiplier { get; private set; } = 1f;
     public bool ChallengeExtraBoss { get; private set; } = false;
     public int ChallengeEliteArmor { get; private set; } = 0;
+
+    // ── 新增挑战效果属性 ──
+    /// <summary>黑暗降临：视野缩小倍率（0.5 = 缩小50%）</summary>
+    public float ChallengeViewScale { get; private set; } = 1f;
+    /// <summary>元素风暴：是否激活</summary>
+    public bool ChallengeElementStorm { get; private set; } = false;
+    /// <summary>镜像敌人：击杀分裂概率</summary>
+    public float ChallengeMirrorChance { get; private set; } = 0f;
+    /// <summary>诅咒之环：敌人死亡爆炸半径</summary>
+    public float ChallengeCurseExplosionRadius { get; private set; } = 0f;
+    /// <summary>时间回溯：敌人复活概率</summary>
+    public float ChallengeReviveChance { get; private set; } = 0f;
+    /// <summary>重力异常：移速波动幅度（±0.3）</summary>
+    public float ChallengeGravityVariance { get; private set; } = 0f;
     public bool HasActiveChallenge => _challengeActive && !_challengeResolved;
 
     public int ChallengesAccepted { get; private set; }
@@ -73,7 +97,7 @@ public class WaveChallengeSystem : MonoBehaviour
     private ChallengeData GenerateChallenge(int wave)
     {
         int seed = wave / 5;
-        ChallengeType type = (ChallengeType)(seed % 4);
+        ChallengeType type = (ChallengeType)(seed % 10); // 10种挑战随机
         var challenge = new ChallengeData();
         challenge.rewardCoins = 100 + wave * 5;
         challenge.rewardBonus = 0.01f;
@@ -106,6 +130,53 @@ public class WaveChallengeSystem : MonoBehaviour
                 challenge.description = "下一波所有敌人获得 +10 护甲!";
                 challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币";
                 break;
+            case ChallengeType.DarkFall:
+                challenge.type = ChallengeType.DarkFall;
+                challenge.title = "\U0001f311 黑暗降临";
+                challenge.description = "视野缩小 50%，你能看清敌人吗？";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins * 2} 金币";
+                challenge.rewardCoins *= 2;
+                break;
+            case ChallengeType.ElementStorm:
+                challenge.type = ChallengeType.ElementStorm;
+                challenge.title = "\u2728 元素风暴";
+                challenge.description = "地图随机出现元素区域，DOT伤害+20%!";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币 + DOT伤害+20%";
+                challenge.rewardBonus = 0.2f;
+                challenge.rewardBonusAttr = "dot_damage";
+                break;
+            case ChallengeType.MirrorEnemy:
+                challenge.type = ChallengeType.MirrorEnemy;
+                challenge.title = "\U0001f47e 镜像敌人";
+                challenge.description = "击杀敌人 20% 概率分裂出新敌人!";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币 + XP+30%";
+                challenge.rewardBonus = 0.3f;
+                challenge.rewardBonusAttr = "xp_gain";
+                break;
+            case ChallengeType.CurseRing:
+                challenge.type = ChallengeType.CurseRing;
+                challenge.title = "\U0001f480 诅咒之环";
+                challenge.description = "敌人死亡时爆炸，对周围造成伤害!";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币 + 暴击率+5%";
+                challenge.rewardBonus = 0.05f;
+                challenge.rewardBonusAttr = "crit_chance";
+                break;
+            case ChallengeType.TimeRewind:
+                challenge.type = ChallengeType.TimeRewind;
+                challenge.title = "\u23f0 时间回溯";
+                challenge.description = "敌人死后 10% 概率复活!";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币 + 技能CD-15%";
+                challenge.rewardBonus = 0.15f;
+                challenge.rewardBonusAttr = "skill_cooldown";
+                break;
+            case ChallengeType.GravityAnomaly:
+                challenge.type = ChallengeType.GravityAnomaly;
+                challenge.title = "\U0001f30c 重力异常";
+                challenge.description = "你的移速将随机波动 ±30%!";
+                challenge.rewardText = $"奖励: +{challenge.rewardCoins} 金币 + 穿透+2";
+                challenge.rewardBonus = 2f;
+                challenge.rewardBonusAttr = "pierce";
+                break;
         }
         return challenge;
     }
@@ -131,6 +202,18 @@ public class WaveChallengeSystem : MonoBehaviour
             case ChallengeType.EliteWave:
                 ChallengeHpMultiplier = 1f; ChallengeSpeedMultiplier = 1f;
                 ChallengeExtraBoss = false; ChallengeEliteArmor = 10; break;
+            case ChallengeType.DarkFall:
+                ChallengeViewScale = 0.5f; break;
+            case ChallengeType.ElementStorm:
+                ChallengeElementStorm = true; break;
+            case ChallengeType.MirrorEnemy:
+                ChallengeMirrorChance = 0.2f; break;
+            case ChallengeType.CurseRing:
+                ChallengeCurseExplosionRadius = 3f; break;
+            case ChallengeType.TimeRewind:
+                ChallengeReviveChance = 0.1f; break;
+            case ChallengeType.GravityAnomaly:
+                ChallengeGravityVariance = 0.3f; break;
         }
 
         if (SaveManager.Instance != null)
@@ -155,6 +238,12 @@ public class WaveChallengeSystem : MonoBehaviour
         ChallengeSpeedMultiplier = 1f;
         ChallengeExtraBoss = false;
         ChallengeEliteArmor = 0;
+        ChallengeViewScale = 1f;
+        ChallengeElementStorm = false;
+        ChallengeMirrorChance = 0f;
+        ChallengeCurseExplosionRadius = 0f;
+        ChallengeReviveChance = 0f;
+        ChallengeGravityVariance = 0f;
     }
 
     public void DrawChallengeUI()

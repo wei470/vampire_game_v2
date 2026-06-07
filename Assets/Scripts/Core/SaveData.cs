@@ -61,6 +61,10 @@ public class SaveGameData
     public int totalKills;
     public int totalGames;
     public string[] claimedMilestones = new string[0];
+
+    // ── Boss Rush 记录 ──
+    public int totalBossKills;
+    public float bestBossRushTime;  // 最快通关时间（秒），0=未通关
 }
 
 /// <summary>

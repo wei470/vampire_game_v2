@@ -32,6 +32,14 @@ public class PlayerController : MonoBehaviour
     public Vector2 LastMoveDirection => _lastMoveDirection;
     public Damageable Damageable => _damageable;
 
+    /// <summary>
+    /// 追加每秒回血值（由进化系统调用）
+    /// </summary>
+    public void AddHpRegen(float bonus)
+    {
+        _hpRegen += bonus;
+    }
+
     private void Awake()
     {
         PhysicsLayerSetup.SetAsPlayer(gameObject); // #17 Player Layer

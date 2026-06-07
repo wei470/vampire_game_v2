@@ -83,8 +83,10 @@ public class MinimapUI : MonoBehaviour
         float scale = _size / (_worldRange * 2f);
 
         DrawMapBounds(center, scale, playerPos);
+        DrawEnvironmentZones(center, scale, playerPos);
         DrawLootDots(center, scale, playerPos);
         DrawEnemyDots(center, scale, playerPos);
+        DrawEliteDots(center, scale, playerPos);
 
         // ── 玩家（荧光青色大点）──
         DrawDot(center - 3, center - 3, 6, _playerColor);
@@ -186,6 +188,64 @@ public class MinimapUI : MonoBehaviour
             float px = center + offset.x * scale;
             float py = center - offset.y * scale;
             DrawDot(px - 1, py - 1, 2, UIColorTheme.GoldText);
+        }
+    }
+
+    /// <summary>
+    /// 绘制精英敌人（橙色菱形点，比普通红点更大）
+    /// </summary>
+    private void DrawEliteDots(float center, float scale, Vector3 playerPos)
+    {
+        var enemies = FindObjectsByType<EnemyBase>();
+        foreach (var enemy in enemies)
+        {
+            if (enemy == null) continue;
+            var ebs = enemy.GetComponent<EliteModifierSystem>();
+            if (ebs == null || !ebs.IsElite) continue;
+
+            Vector3 offset = enemy.transform.position - playerPos;
+            if (offset.magnitude > _worldRange) continue;
+
+            float px = center + offset.x * scale;
+            float py = center - offset.y * scale;
+
+            // 橙色大点 + 外圈光晕
+            DrawDot(px - 4, py - 4, 8, new Color(1f, 0.5f, 0f, 0.3f)); // 光晕
+            DrawDot(px - 3, py - 3, 6, new Color(1f, 0.6f, 0.1f));     // 精英点
+        }
+    }
+
+    /// <summary>
+    /// 绘制环境区域（半透明圆圈）
+    /// </summary>
+    private void DrawEnvironmentZones(float center, float scale, Vector3 playerPos)
+    {
+        var zones = FindObjectsByType<EnvironmentZone>();
+        foreach (var zone in zones)
+        {
+            if (zone == null) continue;
+            Vector3 offset = zone.transform.position - playerPos;
+            if (offset.magnitude > _worldRange) continue;
+
+            float px = center + offset.x * scale;
+            float py = center - offset.y * scale;
+            float radius = 3f; // 在小地图上显示3像素半径
+
+            // 根据区域类型着色
+            Color zoneColor = new Color(0.3f, 0.7f, 0.3f, 0.25f); // 默认绿色
+            string zoneName = zone.gameObject.name.ToLower();
+            if (zoneName.Contains("poison") || zoneName.Contains("toxic"))
+                zoneColor = new Color(0.2f, 0.8f, 0.2f, 0.25f);
+            else if (zoneName.Contains("fire") || zoneName.Contains("lava"))
+                zoneColor = new Color(0.9f, 0.3f, 0.1f, 0.25f);
+            else if (zoneName.Contains("ice") || zoneName.Contains("frost"))
+                zoneColor = new Color(0.3f, 0.6f, 1f, 0.25f);
+            else if (zoneName.Contains("lightning") || zoneName.Contains("thunder"))
+                zoneColor = new Color(0.8f, 0.8f, 0.2f, 0.25f);
+            else if (zoneName.Contains("holy") || zoneName.Contains("light"))
+                zoneColor = new Color(1f, 1f, 0.8f, 0.25f);
+
+            DrawDot(px - radius, py - radius, radius * 2, zoneColor);
         }
     }
 

@@ -64,11 +64,23 @@ public class KillRewarder : MonoBehaviour, IRewardable
 
     private void OnEntityDeath(Vector3 deathPosition)
     {
-        DebugHelper.Log($"[KillRewarder] {gameObject.name} killed at {deathPosition}, XP: {_xpReward}, Coin: {_coinReward}");
+        // 计算连击倍率
+        int finalXP = _xpReward;
+        int finalCoin = _coinReward;
 
-        EventManager.TriggerEnemyKilled(deathPosition, _xpReward, _coinReward);
+        if (ComboSystem.Instance != null)
+        {
+            float xpMult = ComboSystem.Instance.GetXPMultiplier();
+            float coinMult = ComboSystem.Instance.GetCoinMultiplier();
+            finalXP = Mathf.RoundToInt(_xpReward * xpMult);
+            finalCoin = Mathf.RoundToInt(_coinReward * coinMult);
+        }
 
-        SpawnLoot(deathPosition);
+        DebugHelper.Log($"[KillRewarder] {gameObject.name} killed at {deathPosition}, XP: {finalXP}, Coin: {finalCoin}");
+
+        EventManager.TriggerEnemyKilled(deathPosition, finalXP, finalCoin);
+
+        SpawnLoot(deathPosition, finalXP, finalCoin);
 
         if (_specialDropChance > 0f && Random.value < _specialDropChance)
         {
@@ -76,13 +88,13 @@ public class KillRewarder : MonoBehaviour, IRewardable
         }
     }
 
-    private void SpawnLoot(Vector3 position)
+    private void SpawnLoot(Vector3 position, int xpAmount, int coinAmount)
     {
-        SpawnXPGemPooled(position);
-        SpawnCoinPooled(position);
+        SpawnXPGemPooled(position, xpAmount);
+        SpawnCoinPooled(position, coinAmount);
     }
 
-    private void SpawnXPGemPooled(Vector3 position)
+    private void SpawnXPGemPooled(Vector3 position, int xpAmount)
     {
         GameObject xpGem;
         if (_xpGemPrefab != null)
@@ -91,17 +103,17 @@ public class KillRewarder : MonoBehaviour, IRewardable
         }
         else
         {
-            xpGem = SpawnDefaultXPGem(position, _xpReward);
+            xpGem = SpawnDefaultXPGem(position, xpAmount);
         }
 
         if (xpGem != null)
         {
             var gem = xpGem.GetComponent<XPGem>();
-            if (gem != null) gem.Setup(_xpReward);
+            if (gem != null) gem.Setup(xpAmount);
         }
     }
 
-    private void SpawnCoinPooled(Vector3 position)
+    private void SpawnCoinPooled(Vector3 position, int coinAmount)
     {
         GameObject coin;
         if (_coinPrefab != null)
@@ -110,13 +122,13 @@ public class KillRewarder : MonoBehaviour, IRewardable
         }
         else
         {
-            coin = SpawnDefaultCoin(position, _coinReward);
+            coin = SpawnDefaultCoin(position, coinAmount);
         }
 
         if (coin != null)
         {
             var coinComp = coin.GetComponent<Coin>();
-            if (coinComp != null) coinComp.Setup(_coinReward);
+            if (coinComp != null) coinComp.Setup(coinAmount);
         }
     }
 

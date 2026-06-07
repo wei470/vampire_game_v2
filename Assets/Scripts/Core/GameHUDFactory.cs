@@ -75,6 +75,10 @@ public class GameHUDFactory
             DebugHelper.Log("[GameHUDFactory] Created WaveIntermissionUI");
         }
 
+        // 连击数 HUD
+        if (_hostObject.GetComponent<ComboHUD>() == null)
+            _hostObject.AddComponent<ComboHUD>();
+
         // #30 快捷键提示 HUD
         if (KeyHintHUD.Instance == null)
         {

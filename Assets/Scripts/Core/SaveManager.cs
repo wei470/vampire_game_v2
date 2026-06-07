@@ -365,6 +365,13 @@ public class SaveManager : Singleton<SaveManager>
 
     public float GetPermanentBonus(string attr) { return PermanentUpgradeStore.GetPermanentBonus(Data, attr); }
     public float GetPermanentMultiplier(string attr) { return PermanentUpgradeStore.GetPermanentMultiplier(Data, attr); }
+
+    // ── Boss Rush 存档方法 ──
+    public int GetTotalBossKills() => Data.totalBossKills;
+    public void AddBossKill() { Data.totalBossKills++; Save(); }
+    public float GetBestBossRushTime() => Data.bestBossRushTime;
+    public void SetBestBossRushTime(float time) { Data.bestBossRushTime = time; Save(); }
+    public void AddGold(int amount) { AddCoins(amount); }
     public void AddPermanentBonus(string key, float value) { PermanentUpgradeStore.AddPermanentBonus(Data, key, value); }
     public float GetPassiveBonus(string key) { return PermanentUpgradeStore.GetPassiveBonus(Data, key); }
     public void ClearPassiveBonuses() { PermanentUpgradeStore.ClearPassiveBonuses(Data); }

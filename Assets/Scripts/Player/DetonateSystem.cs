@@ -44,6 +44,10 @@ public class DetonateSystem : MonoBehaviour
     public int LastDetonateEnemyCount => _lastDetonateEnemyCount;
     public bool IsChainDetonateActive => Time.time < _chainDetonateEndTime;
     public int MaxChainCount { get => _maxChainCount; set => _maxChainCount = value; }
+
+    // ── 进化系统：引爆时触发所有DOT组合 ──
+    /// <summary>引爆时是否自动触发所有DOT组合效果</summary>
+    public bool TriggerAllCombosOnDetonate { get; set; }
     public float ChainRadius { get => _chainRadius; set => _chainRadius = value; }
     public float ChainDamageRatio { get => _chainDamageRatio; set => _chainDamageRatio = value; }
 

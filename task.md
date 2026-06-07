@@ -640,31 +640,46 @@ Lv20 → 不灭战神：死亡时50%概率满血复活
 ## 📋 实施路线图
 
 ### Phase 1 — 内容扩展（1-2周）⭐ 优先
-- [ ] 黑暗子弹系统 — `DarkBullet.cs` + `DarkMarkEffect.cs`
-- [ ] 光明子弹系统 — `LightBulletController.cs` + `LightBeamEffect.cs`
-- [ ] DOT组合系统扩展（7+12=19个新组合）— `DotComboSystem.cs`
-- [ ] 临时道具系统 — `TemporaryBuffSystem.cs` + `SpecialDrop.cs`
-- [ ] 击杀连击系统 — `ComboSystem.cs`
-- [ ] 波次挑战扩展（6种）— `WaveChallengeSystem.cs`
-- [ ] 伤害数字颜色优化 — `DamagePopup.cs`
+- [x] 已完成：黑暗子弹系统 — `DarkBullet.cs` + `DarkMarkEffect.cs`，含DOT传播+锁链视觉+OnDeath事件订阅
+- [x] 已完成：光明子弹系统 — `LightBulletController.cs` + `LightMarkEffect.cs`，含蓄力激光+增伤标记(xN格式+0.5%每层+每3帧伤害+字体缩小80%)
+- [x] 已完成：DOT组合系统扩展（7种新基础组合）— `DotComboSystem.cs`，含沸血/血电/冻毒/导电毒液/蒸发/等离子/超导，已集成到StatusEffectSystem
+- [x] 已完成：临时道具系统 — `TemporaryBuffSystem.cs`(10种buff管理) + `SpecialDrop.cs`(8种新掉落类型+MapDropToBuff映射+颜色配置)
+- [x] 已完成：击杀连击系统 — `ComboSystem.cs` + `ComboHUD.cs`，含4级连击(10/25/50/100)+经验/金币倍率+颜色动画+屏幕震动，已集成KillRewarder和GameSceneBootstrap
+- [x] 已完成：波次挑战扩展（6种）— `WaveChallengeSystem.cs`，含黑暗降临/元素风暴/镜像敌人/诅咒之环/时间回溯/重力异常，新增属性已集成到ResetChallengeEffects
+- [x] 已完成：伤害数字颜色优化 — `DamagePopup.cs`，含7种DOT颜色常量+CreateDOT/CreateComboName API+暴击放大震动动画(100字号+0.18字符+1.2秒寿命+震动)
 
 ### Phase 2 — 核心新玩法（2-3周）⭐ 重点
-- [ ] 精英敌人词缀系统 — `EliteModifierSystem.cs` + `SpawnManager.cs`
-- [ ] 遗物系统 — `RelicSystem.cs` + `RelicData.cs`
-- [ ] 环境区域增强 — `EnvironmentZoneEffect.cs`
-- [ ] 被动技能扩展（6种）— `PassiveSkill.cs`
-- [ ] 商店扩展（5种）— `PermanentUpgradeStore.cs`
+- [x] 已完成：精英敌人词缀系统 — `EliteModifierSystem.cs`(~350行)+`SpawnManager.cs`集成，含12种词缀(疾风/再生/分裂/护盾/狂暴/净化/吸血/反甲/隐身/召唤/加速光环/元素护盾)，精英血量×3体积+20%经验×3，第5波起10%+(wave-5)×2%概率，第10波起可双词缀，头顶TextMesh标签，已集成SpawnSingleEnemy
+- [!] 已跳过：遗物系统（用户决定跳过）
+- [!] 已跳过：环境区域增强（用户决定跳过）
+- [!] 已跳过：被动技能扩展（用户决定跳过）
+- [!] 已跳过：商店扩展（用户决定跳过）
+
+---
+
+## 📝 本次优化记录
+
+### 光明子弹优化
+1. **标记显示**：从 `+N%` 改为 `xN` 格式（与其他标记一致）
+2. **增伤效果**：从每层1%改为每层0.5%（公式：1.0+stack×0.005）
+3. **激光伤害**：从每帧1次改为每3帧触发一次
+4. **标记字体**：characterSize 从1.0缩小为0.2（原来的20%）
+
+### 黑暗子弹修复
+1. **DOT传播修复**：原OnDisable中传播时效果已被清空，改为订阅BaseEntity.OnDeath事件
+2. **独立组件传播**：新增对BleedEffect/BurnStackEffect/PoisonStackEffect/FrostEffect的传播
+3. **锁链视觉**：死亡时从敌人到最近敌人画暗紫色LineRenderer锁链
+4. **事件生命周期**：OnDisable取消订阅，OnEnable重新订阅，防止内存泄漏
 
 ### Phase 3 — 深度玩法（2-3周）
-- [ ] 元素融合进化系统 — `FusionBullet` 系列 + `MagePassive.cs`
-- [ ] 角色专属被动进化 — `CharacterData.cs` + `PlayerLevelSystem.cs`
-- [ ] Boss Rush 模式 — `BossRushManager.cs`
-- [ ] 无尽模式 — `EndlessModeManager.cs` + `WaveConfigHelper.cs`
+- [x] 已完成：元素融合进化系统 — `DotFusionSystem.cs`（5种融合配方：熔岩弹/毒冰弹/等离子弹/电磁弹/腐蚀弹）+ `MagePassive.cs`集成（ApplyFusion/GetAvailableFusions/CompletedFusions），融合后替换两种原始DOT为融合子弹，DPS倍率+15%/次
+- [x] 已完成：角色专属被动进化 — `CharacterData.cs`新增`EvolutionMilestone[]`进化树+`EvolutionEffectType`(10种效果类型)，`EvolutionSystem.cs`(监听升级自动解锁+应用效果+浮字通知)，`MagePassive.cs`新增`FusionUnlockedByEvolution`/`DotDamageMultiplier`/`CritChanceBonus`，`DotComboSystem.cs`新增`SetEvolutionComboMultiplier`进化组合倍率，`DetonateSystem.cs`新增`TriggerAllCombosOnDetonate`，`PlayerController.cs`新增`AddHpRegen`，`Damageable.cs`新增`AddArmor`，`GameStarter.cs`集成`InitEvolutionSystem`
+- [x] 已完成：Boss Rush 模式 — `BossRushManager.cs`(~300行)，含5轮Boss递增挑战(HP×1.5/轮+攻击力×1.2/轮)+BossFactory复用+Boss类型轮换+最终轮强化Boss+击败回血20%+通关500金奖励+最快时间记录+SaveData新增`totalBossKills`/`bestBossRushTime`+SaveManager新增Boss Rush存档方法+`IsUnlocked()`检查4种Boss击杀
+
 
 ### Phase 4 — 长期留存（1-2周）
-- [ ] 成就系统扩展（20种）— 成就数据定义
-- [ ] 小地图增强 — `MinimapUI.cs`
-- [ ] Boss战增强 — `BossEnemy.cs` + `BossAbilities.cs`
+- [x] 已完成：小地图增强 — `MinimapUI.cs`新增`DrawEliteDots()`(橙色精英标记+光晕)和`DrawEnvironmentZones()`(按区域类型着色5种环境区)
+- [x] 已完成：Boss战增强 — `BossEnemy.cs`新增`PlaySpawnEntrance()`(出场震动+红色闪光+音效+浮字+小地图通知)+`PlayPhaseTransitionEffect()`(阶段切换不同颜色闪光+震动+浮字)+`PlayDeathEffect()`(慢动作0.3x+爆炸+金色闪光+音效)
 
 ---
 

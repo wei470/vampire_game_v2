@@ -46,6 +46,10 @@ public class CharacterData : ScriptableObject
     public int onKillExplosionDamage = 0;      // 击杀爆炸伤害
     public float onKillExplosionRange = 0f;    // 击杀爆炸范围
 
+    [Header("角色专属被动进化树")]
+    [Tooltip("按等级解锁的被动进化里程碑，等级必须递增排列")]
+    public EvolutionMilestone[] evolutionTree;  // 角色进化树
+
     [Header("默认技能")]
     public SkillData defaultSkill;             // 角色初始技能
 
@@ -55,6 +59,20 @@ public class CharacterData : ScriptableObject
 
     [Tooltip("是否使用通用升级（false = 只使用 customUpgrades）")]
     public bool useGenericUpgrades = true;     // true: 通用+专属; false: 只用专属
+
+    /// <summary>
+    /// 获取指定等级应解锁的进化里程碑（不含已解锁的）
+    /// </summary>
+    public EvolutionMilestone GetEvolutionForLevel(int level)
+    {
+        if (evolutionTree == null) return null;
+        for (int i = 0; i < evolutionTree.Length; i++)
+        {
+            if (evolutionTree[i] != null && evolutionTree[i].requiredLevel == level)
+                return evolutionTree[i];
+        }
+        return null;
+    }
 
     /// <summary>
     /// 获取暴击倍率（基础2倍 + 额外加成）
@@ -83,4 +101,50 @@ public class CharacterData : ScriptableObject
     {
         return Random.value <= dodgeChance;
     }
+}
+
+/// <summary>
+/// 角色进化里程碑数据。
+/// 定义在特定等级解锁的被动进化效果。
+/// </summary>
+[System.Serializable]
+public class EvolutionMilestone
+{
+    [Header("进化信息")]
+    public string milestoneId = "evolution_1";
+    public string displayName = "进化名称";
+    [TextArea(2, 3)]
+    public string description = "进化效果描述";
+    public Sprite icon;
+    public Color glowColor = new Color(1f, 0.85f, 0f);  // 默认金色光效
+
+    [Header("触发条件")]
+    [Tooltip("达到此等级时自动解锁")]
+    public int requiredLevel = 5;
+
+    [Header("进化效果类型")]
+    public EvolutionEffectType effectType = EvolutionEffectType.DotDurationBonus;
+
+    [Header("数值参数")]
+    [Tooltip("效果数值（如+20%则填0.2）")]
+    public float value = 0.2f;
+    [Tooltip("次要数值（部分效果需要）")]
+    public float value2 = 0f;
+}
+
+/// <summary>
+/// 进化效果类型枚举
+/// </summary>
+public enum EvolutionEffectType
+{
+    DotDurationBonus,       // DOT持续时间加成
+    DotComboDamageBonus,    // DOT组合伤害加成
+    FusionUnlock,           // 解锁元素融合
+    DetonateTriggerAllCombos, // 引爆时触发所有DOT组合
+    DotDamageBonus,         // DOT伤害加成
+    MoveSpeedBonus,         // 移速加成
+    ArmorBonus,             // 护甲加成
+    CritChanceBonus,        // 暴击率加成
+    HpRegenBonus,           // 回血加成
+    AttackSpeedBonus        // 攻速加成
 }

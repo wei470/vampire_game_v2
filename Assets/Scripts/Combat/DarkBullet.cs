@@ -98,6 +98,7 @@ public class DarkMarkEffect : MonoBehaviour
     private bool _spreadDone = false;
     private bool _visualApplied = false;
     private Color _originalColor;
+    private BaseEntity _entity;
 
     /// <summary>
     /// 传播范围加成（可被升级增强）
@@ -114,10 +115,31 @@ public class DarkMarkEffect : MonoBehaviour
         _spreadEfficiency = efficiency;
         _damageable = GetComponent<Damageable>();
         _spreadDone = false;
-        _visualApplied = false;
 
         // 视觉：敌人略微变黑
         ApplyDarkVisual();
+        // 订阅死亡事件（在敌人实际死亡时立即传播，此时DOT效果还在）
+        SubscribeDeath();
+    }
+
+    private void SubscribeDeath()
+    {
+        _entity = GetComponent<BaseEntity>();
+        if (_entity != null) _entity.OnDeath += OnDeathHandler;
+    }
+
+    private void UnsubscribeDeath()
+    {
+        if (_entity != null) { _entity.OnDeath -= OnDeathHandler; _entity = null; }
+    }
+
+    private void OnDeathHandler(Vector3 deathPos)
+    {
+        if (!_spreadDone)
+        {
+            _spreadDone = true;
+            SpreadDotOnDeath();
+        }
     }
 
     private void ApplyDarkVisual()
@@ -138,75 +160,129 @@ public class DarkMarkEffect : MonoBehaviour
         }
     }
 
-    private void Start()
-    {
-        _damageable = GetComponent<Damageable>();
-    }
-
     private void OnEnable()
     {
         // 对象池重用时重置状态
         _spreadDone = false;
         _visualApplied = false;
         _damageable = GetComponent<Damageable>();
+        // 重新订阅死亡事件（如果之前Init过）
+        if (_entity != null) SubscribeDeath();
     }
 
+    private void OnDisable()
+    {
+        UnsubscribeDeath();
+        RestoreVisual();
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeDeath();
+        RestoreVisual();
+    }
 
     /// <summary>
-    /// 死亡时传播DOT到周围敌人
+    /// 死亡时传播DOT到周围敌人（通过OnDeath事件触发，此时效果还在）
     /// </summary>
     private void SpreadDotOnDeath()
     {
         var sem = GetComponent<StatusEffectManager>();
-        if (sem == null)
-        {
-            DebugHelper.Log("[DarkMark] No StatusEffectManager on death enemy");
-            return;
-        }
 
         float radius = _spreadRadius * (1f + RadiusBonus);
         float efficiency = Mathf.Clamp01(_spreadEfficiency + EfficiencyBonus);
         Vector3 pos = transform.position;
 
-        // 收集自身的DOT效果
-        var effects = sem.ActiveEffects;
-        if (effects == null || effects.Count == 0)
+        // 收集自身的DOT效果（可能为空，但仍需传播独立DOT组件）
+        var effects = sem?.ActiveEffects;
+        bool hasAnyDot = (effects != null && effects.Count > 0);
+        bool hasBleed = TryGetComponent<BleedEffect>(out _);
+        bool hasBurn = TryGetComponent<BurnStackEffect>(out _);
+        bool hasPoison = TryGetComponent<PoisonStackEffect>(out _);
+        bool hasFrost = TryGetComponent<FrostEffect>(out _);
+
+        if (!hasAnyDot && !hasBleed && !hasBurn && !hasPoison && !hasFrost)
         {
             DebugHelper.Log("[DarkMark] No active DOT effects to spread");
             return;
         }
 
-        DebugHelper.Log($"[DarkMark] Enemy dying with {effects.Count} DOT types, spreading at {efficiency:P0} eff");
+        DebugHelper.Log($"[DarkMark] Enemy dying with {(effects?.Count ?? 0)} DOT types + indie components, spreading at {efficiency:P0} eff");
 
         // 查找周围敌人
         Collider2D[] nearby = Physics2D.OverlapCircleAll(pos, radius);
         int spreadCount = 0;
+        Collider2D nearestEnemy = null;
+        float nearestDist = float.MaxValue;
 
         foreach (var col in nearby)
         {
             if (!col.CompareTag("Enemy")) continue;
-            if (col.gameObject == gameObject) continue; // 不传播给自己
+            if (col.gameObject == gameObject) continue;
 
             var targetDmg = col.GetComponent<Damageable>();
             if (targetDmg == null || targetDmg.CurrentHp <= 0) continue;
+
+            float dist = Vector2.Distance(pos, col.transform.position);
+            if (dist < nearestDist) { nearestDist = dist; nearestEnemy = col; }
 
             DotBulletHelper.EnsureStatusEffectManager(col.gameObject);
             var targetSem = col.GetComponent<StatusEffectManager>();
             if (targetSem == null) continue;
 
-            // 传播每种DOT
-            foreach (var effect in effects)
+            // 传播 StatusEffectManager 中的每种DOT
+            if (effects != null)
             {
-                // 跳过黑暗标记本身（防止无限传播）
-                if (effect.type == StatusEffectType.Dark) continue;
+                foreach (var effect in effects)
+                {
+                    // 跳过黑暗标记本身（防止无限传播）
+                    if (effect.type == StatusEffectType.Dark) continue;
 
-                float spreadDps = effect.damagePerSecond * efficiency;
-                float spreadDuration = effect.remainingDuration * efficiency;
+                    float spreadDps = effect.damagePerSecond * efficiency;
+                    float spreadDuration = effect.remainingDuration * efficiency;
 
-                if (spreadDps <= 0f && effect.type != StatusEffectType.Frostbite) continue;
+                    if (spreadDps <= 0f && effect.type != StatusEffectType.Frostbite) continue;
 
-                targetSem.ApplyEffect(effect.type, spreadDps, spreadDuration,
-                    effect.canCrit, effect.critChance, effect.critMultiplier);
+                    targetSem.ApplyEffect(effect.type, spreadDps, spreadDuration,
+                        effect.canCrit, effect.critChance, effect.critMultiplier);
+                }
+            }
+
+            // 传播独立DOT组件（与CurseSpreadSystem一致）
+            if (hasBleed)
+            {
+                var srcBleed = GetComponent<BleedEffect>();
+                if (!col.TryGetComponent<BleedEffect>(out var tgtBleed))
+                    tgtBleed = col.gameObject.AddComponent<BleedEffect>();
+                tgtBleed.Refresh(srcBleed._dps * efficiency, srcBleed._duration * efficiency,
+                    srcBleed._canCrit, srcBleed._critChance, srcBleed._critMult);
+            }
+            if (hasBurn)
+            {
+                var srcBurn = GetComponent<BurnStackEffect>();
+                if (!col.TryGetComponent<BurnStackEffect>(out var tgtBurn))
+                    tgtBurn = col.gameObject.AddComponent<BurnStackEffect>();
+                int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * efficiency));
+                for (int s = 0; s < stacks; s++)
+                    tgtBurn.AddStack(srcBurn._baseDps * efficiency, srcBurn._duration * efficiency,
+                        srcBurn._canCrit, srcBurn._critChance, srcBurn._critMult);
+            }
+            if (hasPoison)
+            {
+                var srcPoison = GetComponent<PoisonStackEffect>();
+                if (!col.TryGetComponent<PoisonStackEffect>(out var tgtPoison))
+                    tgtPoison = col.gameObject.AddComponent<PoisonStackEffect>();
+                int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * efficiency));
+                for (int s = 0; s < pStacks; s++)
+                    tgtPoison.AddStack(2f, 0f, srcPoison._canCrit, srcPoison._critChance, srcPoison._critMult);
+            }
+            if (hasFrost)
+            {
+                var srcFrost = GetComponent<FrostEffect>();
+                if (!col.TryGetComponent<FrostEffect>(out var tgtFrost))
+                    tgtFrost = col.gameObject.AddComponent<FrostEffect>();
+                tgtFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * efficiency,
+                    srcFrost._frostDps * efficiency, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
             }
 
             // 传播时附加紫色视觉效果
@@ -216,6 +292,10 @@ public class DarkMarkEffect : MonoBehaviour
             spreadCount++;
         }
 
+        // 锁链视觉：从死亡敌人指向最近敌人
+        if (nearestEnemy != null)
+            CreateDarkChain(pos, nearestEnemy.transform.position);
+
         if (spreadCount > 0)
         {
             // 死亡时暗紫色冲击波扩散
@@ -224,24 +304,24 @@ public class DarkMarkEffect : MonoBehaviour
         }
     }
 
-    private void OnDisable()
+    /// <summary>
+    /// 创建暗紫色锁链视觉效果（从死亡敌人指向最近敌人）
+    /// </summary>
+    private static void CreateDarkChain(Vector3 from, Vector3 to)
     {
-        // 敌人死亡回到池时触发传播（比Update轮询更可靠）
-        if (!_spreadDone)
-        {
-            var dmg = GetComponent<Damageable>();
-            if (dmg != null && dmg.CurrentHp <= 0)
-            {
-                SpreadDotOnDeath();
-                _spreadDone = true;
-            }
-        }
-        RestoreVisual();
-    }
-
-    private void OnDestroy()
-    {
-        RestoreVisual();
+        var lineObj = new GameObject("DarkChain");
+        lineObj.transform.position = from;
+        var lr = lineObj.AddComponent<LineRenderer>();
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.startColor = new Color(0.5f, 0.1f, 0.8f, 0.9f);
+        lr.endColor = new Color(0.3f, 0.05f, 0.5f, 0f);
+        lr.startWidth = 0.15f;
+        lr.endWidth = 0.05f;
+        lr.positionCount = 2;
+        lr.SetPosition(0, from);
+        lr.SetPosition(1, to);
+        lr.sortingOrder = 25;
+        Object.Destroy(lineObj, 0.6f);
     }
 
     private void RestoreVisual()

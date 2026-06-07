@@ -292,6 +292,14 @@ public class Damageable : MonoBehaviour, IDamageable
     }
 
     /// <summary>
+    /// 追加护甲值（由进化系统调用）
+    /// </summary>
+    public void AddArmor(int bonus)
+    {
+        _armor += bonus;
+    }
+
+    /// <summary>
     /// 死亡处理 — 统一由 BaseEntity.Die() 广播 OnDeath 事件
     /// </summary>
     private void Die()

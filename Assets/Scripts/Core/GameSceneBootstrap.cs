@@ -111,6 +111,13 @@ public class GameSceneBootstrap : MonoBehaviour
         _pauseMenuUI = gameObject.AddComponent<PauseMenuUI>();
         _inputHandler.SetPauseMenuUI(_pauseMenuUI);
 
+        // ── 创建连击系统 ──
+        if (ComboSystem.Instance == null)
+        {
+            gameObject.AddComponent<ComboSystem>();
+            DebugHelper.Log("[GameSceneBootstrap] Created ComboSystem");
+        }
+
         // ── 创建 GameStarter ──
         _gameStarter = new GameStarter(_player, _spawnManager, bgmManager, _hudFactory);
 

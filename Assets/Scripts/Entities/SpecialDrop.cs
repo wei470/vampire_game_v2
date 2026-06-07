@@ -21,7 +21,16 @@ public class SpecialDrop : MonoBehaviour
         MagnetBurst,
         DamageBoost,
         ShieldOrb,
-        XPMultiplier
+        XPMultiplier,
+        // 临时道具系统新增
+        BerserkPotion,
+        GhostWalk,
+        TimeSlowField,
+        ElementStorm,
+        InvincibleShield,
+        GoldRain,
+        ThornsShield,
+        RevivalFlame
     }
 
     [Header("掉落配置")]
@@ -137,6 +146,22 @@ public class SpecialDrop : MonoBehaviour
             case DropType.XPMultiplier:
                 DebugHelper.Log($"[SpecialDrop] XP Multiplier: x{_value} for {_duration}s");
                 break;
+
+            // 临时道具系统 — 委托给 TemporaryBuffSystem
+            case DropType.BerserkPotion:
+            case DropType.GhostWalk:
+            case DropType.TimeSlowField:
+            case DropType.ElementStorm:
+            case DropType.InvincibleShield:
+            case DropType.GoldRain:
+            case DropType.ThornsShield:
+            case DropType.RevivalFlame:
+                var buffSystem = player.GetComponent<TemporaryBuffSystem>();
+                if (buffSystem == null)
+                    buffSystem = player.gameObject.AddComponent<TemporaryBuffSystem>();
+                var buffType = MapDropToBuff(_dropType);
+                buffSystem.AddBuff(buffType, _duration, _value);
+                break;
         }
 
         PoolHelper.DespawnOrDestroy(gameObject, "SpecialDrop");
@@ -188,6 +213,25 @@ public class SpecialDrop : MonoBehaviour
     }
 
     /// <summary>
+    /// 将DropType映射到TemporaryBuffSystem.BuffType
+    /// </summary>
+    private static TemporaryBuffSystem.BuffType MapDropToBuff(DropType dropType)
+    {
+        switch (dropType)
+        {
+            case DropType.BerserkPotion:    return TemporaryBuffSystem.BuffType.BerserkPotion;
+            case DropType.GhostWalk:        return TemporaryBuffSystem.BuffType.GhostWalk;
+            case DropType.TimeSlowField:    return TemporaryBuffSystem.BuffType.TimeSlowField;
+            case DropType.ElementStorm:     return TemporaryBuffSystem.BuffType.ElementStorm;
+            case DropType.InvincibleShield: return TemporaryBuffSystem.BuffType.InvincibleShield;
+            case DropType.GoldRain:         return TemporaryBuffSystem.BuffType.GoldRain;
+            case DropType.ThornsShield:     return TemporaryBuffSystem.BuffType.ThornsShield;
+            case DropType.RevivalFlame:     return TemporaryBuffSystem.BuffType.RevivalFlame;
+            default:                        return TemporaryBuffSystem.BuffType.BerserkPotion;
+        }
+    }
+
+    /// <summary>
     /// 创建特殊掉落物
     /// </summary>
     public static GameObject Create(Vector3 position, DropType type, float value, float duration)
@@ -206,7 +250,15 @@ public class SpecialDrop : MonoBehaviour
             case DropType.MagnetBurst:    sr.color = new Color(0.2f, 0.5f, 1f); break;
             case DropType.DamageBoost:    sr.color = new Color(1f, 0.6f, 0f);   break;
             case DropType.ShieldOrb:      sr.color = new Color(0.8f, 0.8f, 1f); break;
-            case DropType.XPMultiplier:   sr.color = new Color(0.5f, 1f, 0.5f); break;
+            case DropType.XPMultiplier:     sr.color = new Color(0.5f, 1f, 0.5f); break;
+            case DropType.BerserkPotion:    sr.color = new Color(1f, 0f, 0f);     break;
+            case DropType.GhostWalk:        sr.color = new Color(0.7f, 0.7f, 1f); break;
+            case DropType.TimeSlowField:    sr.color = new Color(0.3f, 0.3f, 0.8f); break;
+            case DropType.ElementStorm:     sr.color = new Color(0.8f, 0.3f, 1f); break;
+            case DropType.InvincibleShield: sr.color = new Color(1f, 1f, 0.5f);   break;
+            case DropType.GoldRain:         sr.color = new Color(1f, 0.85f, 0f);  break;
+            case DropType.ThornsShield:     sr.color = new Color(0.5f, 1f, 0.5f); break;
+            case DropType.RevivalFlame:     sr.color = new Color(1f, 0.4f, 0f);   break;
         }
 
         var rb = go.AddComponent<Rigidbody2D>();

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// 伤害数字弹出显示 — 受伤时在实体头顶显示浮动数字
 /// 使用 TextMesh 实现，无需 Canvas/EventSystem
-/// 支持不同颜色：普通伤害白色，DOT伤害按类型着色
+/// 支持不同颜色：普通伤害白色，DOT伤害按类型着色，暴击放大震动
 /// 
 /// #13 优化：使用内部对象池避免频繁 Instantiate/Destroy，减少 GC
 /// </summary>
@@ -16,6 +16,21 @@ public class DamagePopup : MonoBehaviour
     private TextMesh _textMesh;
     private Color _color;
     private MeshRenderer _meshRenderer;
+
+    // ── 暴击震动动画 ──
+    private bool _isCrit;
+    private float _critShakeIntensity = 0.15f;
+    private Vector3 _basePosition;
+
+    // ── DOT 类型颜色常量 ──
+    public static readonly Color ColorBleed  = new Color(0.9f, 0.15f, 0.15f);  // 流血红
+    public static readonly Color ColorPoison = new Color(0.2f, 0.9f, 0.2f);    // 中毒绿
+    public static readonly Color ColorBurn   = new Color(1f, 0.5f, 0.1f);      // 燃烧橙
+    public static readonly Color ColorFrost  = new Color(0.4f, 0.7f, 1f);      // 霜冻蓝
+    public static readonly Color ColorLightning = new Color(0.7f, 0.3f, 1f);   // 雷电紫
+    public static readonly Color ColorDark   = new Color(0.5f, 0.1f, 0.7f);    // 黑暗暗紫
+    public static readonly Color ColorLight  = new Color(1f, 1f, 0.8f);        // 光明白
+    public static readonly Color ColorCrit   = new Color(1f, 0.85f, 0f);       // 暴击金色
 
     // ═══ #13 对象池 ═══
     private const int POOL_INITIAL_SIZE = 30;
@@ -110,14 +125,16 @@ public class DamagePopup : MonoBehaviour
     /// <summary>
     /// 重置弹字状态
     /// </summary>
-    private void Reset(Vector3 position, Color color, float lifeTime, float moveSpd)
+    private void Reset(Vector3 position, Color color, float lifeTime, float moveSpd, bool isCrit = false)
     {
         transform.position = position + new Vector3(Random.Range(-0.3f, 0.3f), 0.5f, 0);
+        _basePosition = transform.position;
         transform.SetParent(null); // 脱离池父级，放到世界空间
         _color = color;
         _lifetime = lifeTime;
         _moveSpeed = moveSpd;
         _timer = 0f;
+        _isCrit = isCrit;
 
         if (_textMesh != null)
         {
@@ -173,17 +190,44 @@ public class DamagePopup : MonoBehaviour
     {
         InitPool();
         var popup = GetFromPool();
-        popup.Reset(position, color, 0.8f, 2f);
+        popup.Reset(position, color, isCrit ? 1.2f : 0.8f, isCrit ? 3f : 2f, isCrit);
 
         if (popup._textMesh != null)
         {
             popup._textMesh.text = isCrit ? damage + "!" : damage.ToString();
-            popup._textMesh.fontSize = isCrit ? 80 : 60;
+            popup._textMesh.fontSize = isCrit ? 100 : 60;
             popup._textMesh.fontStyle = isCrit ? FontStyle.Bold : FontStyle.Normal;
-            popup._textMesh.characterSize = 0.12f;
+            popup._textMesh.characterSize = isCrit ? 0.18f : 0.12f;
         }
         if (popup._meshRenderer != null)
-            popup._meshRenderer.sortingOrder = 100;
+            popup._meshRenderer.sortingOrder = isCrit ? 105 : 100;
+    }
+
+    /// <summary>
+    /// 创建 DOT 伤害数字（按 DOT 类型着色）
+    /// </summary>
+    public static void CreateDOT(Vector3 position, int damage, string dotType)
+    {
+        Color color = dotType switch
+        {
+            "bleed" => ColorBleed,
+            "poison" => ColorPoison,
+            "burn" => ColorBurn,
+            "frost" => ColorFrost,
+            "lightning" => ColorLightning,
+            "dark" => ColorDark,
+            "light" => ColorLight,
+            _ => Color.white
+        };
+        Create(position, damage, color, false);
+    }
+
+    /// <summary>
+    /// 创建 DOT 组合名称浮字（如 "碎冰!"、"爆燃!"）
+    /// </summary>
+    public static void CreateComboName(Vector3 position, string comboName, Color color)
+    {
+        Create(position, 0, color, false, comboName);
     }
 
     /// <summary>
@@ -216,6 +260,14 @@ public class DamagePopup : MonoBehaviour
 
         // 向上飘
         transform.position += Vector3.up * _moveSpeed * Time.deltaTime;
+
+        // 暴击震动效果
+        if (_isCrit && _timer < 0.3f)
+        {
+            float shake = _critShakeIntensity * (1f - _timer / 0.3f);
+            transform.position = _basePosition + Vector3.up * _moveSpeed * _timer
+                + new Vector3(Random.Range(-shake, shake), Random.Range(-shake, shake), 0);
+        }
 
         // 淡出
         if (_textMesh != null)
