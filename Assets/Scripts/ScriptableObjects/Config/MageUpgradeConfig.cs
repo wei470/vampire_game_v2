@@ -79,6 +79,30 @@ public class MageUpgradeConfig : ScriptableObject
             impactDmg = 5,
             dotDps = 0f,
             dotDuration = 0f
+        },
+        new DotGunEntry
+        {
+            upgradeId = "dark",
+            effectType = StatusEffectType.Dark,
+            displayName = "黑暗 (Dark)",
+            description = "🟣 缓慢暗紫色子弹 | 3秒/发\n命中敌人施加黑暗标记（永久）\n敌人死亡时所有DOT按50%效果传播给周围敌人\n黑暗标记本身不被传播",
+            color = new Color(0.4f, 0.1f, 0.6f),
+            cooldown = 3.0f,
+            impactDmg = 0,
+            dotDps = 0f,
+            dotDuration = 0f
+        },
+        new DotGunEntry
+        {
+            upgradeId = "light",
+            effectType = StatusEffectType.Light,
+            displayName = "光明 (Light)",
+            description = "⚪ 蓄力型定向激光 | 5秒/发\n蓄力3秒后朝鼠标方向发射激光\n顺时针扫45度，帧伤1点/次\n命中施加光明标记：每层受伤+1%，无上限\n敌人身上显示层数文字",
+            color = new Color(1f, 1f, 0.9f),
+            cooldown = 5.0f,
+            impactDmg = 0,
+            dotDps = 0f,
+            dotDuration = 0f
         }
     };
 

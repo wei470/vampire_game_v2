@@ -22,6 +22,8 @@ public static class DotBulletFactory
         Register(StatusEffectType.Burn, SpawnBurn);
         Register(StatusEffectType.Frostbite, SpawnFrost);
         Register(StatusEffectType.Static, SpawnStatic);
+        Register(StatusEffectType.Dark, SpawnDark);
+        Register(StatusEffectType.Light, SpawnLight);
     }
 
     public static void Register(StatusEffectType type, BulletSpawner spawner)
@@ -93,6 +95,39 @@ public static class DotBulletFactory
             dmgMult)?.gameObject;
         AttachRicochetIfAvailable(go);
         return go;
+    }
+
+    private static GameObject SpawnDark(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        float speed = 6f * bulletSpeedMult;
+        float radius = 3f + (gun.upgradeLevel - 1) * 0.5f; // 升级增加传播范围
+        float efficiency = 0.5f + (gun.upgradeLevel - 1) * 0.05f; // 升级增加传播效率
+        var go = DarkBullet.Create(pos, dir, speed, radius, efficiency)?.gameObject;
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
+
+    private static GameObject SpawnLight(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        // 光明子弹是特殊的蓄力型定向激光，不走普通子弹路径
+        float chargeDuration = Mathf.Max(1.5f, 3f - (gun.upgradeLevel - 1) * 0.3f);
+        int laserDamage = 1;
+        float sweepAngle = 45f;
+        float sweepDuration = 0.4f;
+        float laserLength = 25f;
+        float laserWidth = 1.5f;
+        float markDuration = 15f;
+        int markMaxStacks = 9999; // 无上限
+
+        var controller = LightBulletController.Create(pos);
+        controller.Setup(chargeDuration, laserDamage, sweepAngle, sweepDuration,
+            laserLength, laserWidth, markDuration, markMaxStacks, 0.7f);
+        controller.BeginCharge();
+        return controller.gameObject;
     }
 
     /// <summary>

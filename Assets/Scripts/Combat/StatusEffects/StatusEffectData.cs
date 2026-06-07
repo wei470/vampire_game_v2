@@ -11,7 +11,8 @@ using UnityEngine;
 public enum StatusEffectType
 {
     Bleed, Poison, Burn, Frostbite, Corrosion, Curse, Agony, Wither,
-    Immolate, Radiate, Contaminate, Erosion, WindErosion, Rend, Static
+    Immolate, Radiate, Contaminate, Erosion, WindErosion, Rend, Static,
+    Dark, Light
 }
 
 /// <summary>
