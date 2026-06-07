@@ -92,12 +92,21 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时通过BaseEntity.OnDeath事件传播所有DOT给周围敌人，同时传播StatusEffectManager效果和独立DOT组件(流血/燃烧/中毒/霜冻)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害。死亡时从敌人到最近敌人画暗紫色锁链
 - **光明标记**：每层受到伤害+0.5%，无上限(公式：1.0+stack×0.005)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。敌人身上用TextMesh显示"xN"层数
 
-## 6. Mage 升级系统（17种）
+## 6. Mage 升级系统（41种）✅ 全部已实现
 - DOT子弹(7)：流血/中毒/燃烧/霜冻/雷电/黑暗/光明
 - DOT增强(4)：腐蚀/诅咒/痛苦/凋零
 - 引爆增强(2)：辐射/污染
 - DOT时间(1)：侵蚀
 - 子弹增强(3)：急速/弹幕/反弹
+- P0强化(4)：饱和/元素引爆/吸血法术/溢出弹
+- P1深度(4)：蔓延/连锁反应/双持/蓄力精通
+- P2协同(8)：共鸣/剧毒天赋/腐化之触/元素风暴/暗影链接/光明审判/静电领域/霜爆
+- 子弹扩展(3)：弹药精通/元素亲和/贯穿弹
+- 生存(4)：元素护盾/相位移动/灵魂虹吸
+- P3终极(6)：余烬强化/碎裂强化/元素大师/末日审判/永恒痛苦/湮灭领域
+- **实现文件**: `MageUpgradeConfig`(配置) → `MagePassive`(属性) → `MageUpgradeApplier`(应用) → `CharacterUpgradeData`(枚举)
+- **联动文件**: `StatusEffectSystem`(DOT回调) / `DetonateSystem`(引爆) / `CurseSpreadSystem`(传播)
+- **设计文档**: `mage_ench.md`
 
 ## 7. 状态效果系统
 - **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff
