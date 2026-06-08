@@ -106,7 +106,8 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - P3终极(6)：余烬强化/碎裂强化/元素大师/末日审判/永恒痛苦/湮灭领域
 - **实现文件**: `MageUpgradeConfig`(配置) → `MagePassive`(属性) → `MageUpgradeApplier`(应用) → `CharacterUpgradeData`(枚举)
 - **联动文件**: `StatusEffectSystem`(DOT回调) / `DetonateSystem`(引爆) / `CurseSpreadSystem`(传播)
-- **设计文档**: `mage_ench.md`
+- **设计文档**: 已归档（删除）
+- **教学文档**: `mage_tutor.md` — Mage 全机制教学手册（DOT子弹/增强/引爆/组合/融合/进化/强化/公式）
 
 ## 7. 状态效果系统
 - **StatusEffectManager** 挂敌人身上，管理所有DOT/Debuff
