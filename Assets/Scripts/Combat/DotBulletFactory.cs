@@ -17,7 +17,7 @@ public static class DotBulletFactory
 
     static DotBulletFactory()
     {
-        Register(StatusEffectType.Bleed, SpawnBleed);
+        // 流血子弹已移除
         Register(StatusEffectType.Poison, SpawnPoison);
         Register(StatusEffectType.Burn, SpawnBurn);
         Register(StatusEffectType.Frostbite, SpawnFrost);
@@ -62,6 +62,7 @@ public static class DotBulletFactory
         var go = PoisonBullet.Create(pos, dir, 14f * bulletSpeedMult,
             gun.dotDps, gun.dotDuration * durMult, dmgMult,
             canCrit, critChance, critMult)?.gameObject;
+        AttachRicochetIfAvailable(go);
         return go;
     }
 
@@ -131,8 +132,7 @@ public static class DotBulletFactory
     }
 
     /// <summary>
-    /// #16 如果 MagePassive 有反弹加成，为子弹附加 RicochetHandler
-    /// #45 如果子弹速度加成>100%，为子弹附加 PenetrateHandler
+    /// #45 为子弹附加穿透处理器（基于贯穿弹升级 PiercingBonus）
     /// </summary>
     private static void AttachRicochetIfAvailable(GameObject bullet)
     {
@@ -140,17 +140,11 @@ public static class DotBulletFactory
         var mage = GameReferences.Player?.GetComponent<MagePassive>();
         if (mage == null) return;
 
-        if (mage.RicochetChance > 0f)
+        int pierce = mage.PiercingBonus;
+        if (pierce > 0)
         {
-            var rh = bullet.AddComponent<RicochetHandler>();
-            rh.Setup(mage.RicochetChance, mage.RicochetMaxBounces);
-        }
-
-        if (mage.BulletSpeedBonus > 1f)
-        {
-            int penetrateCount = Mathf.FloorToInt(mage.BulletSpeedBonus);
             var ph = bullet.AddComponent<PenetrateHandler>();
-            ph.Setup(penetrateCount);
+            ph.Setup(pierce);
         }
     }
 }

@@ -36,6 +36,22 @@ public class PoisonBullet : MonoBehaviour
         if (_exploded) return;
         if (!other.CompareTag("Enemy")) return;
         DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
+
+        // 穿透检查：先对当前敌人施加中毒DOT，然后检查是否可以继续穿透
+        var penetrate = GetComponent<PenetrateHandler>();
+        if (penetrate != null && penetrate.TryPenetrate(other))
+        {
+            // 穿透成功：对当前敌人施加中毒效果但不爆炸
+            var dmg = other.GetComponent<Damageable>();
+            if (dmg != null && dmg.CurrentHp > 0)
+            {
+                var poison = other.GetComponent<PoisonStackEffect>();
+                if (poison == null) poison = other.gameObject.AddComponent<PoisonStackEffect>();
+                poison.AddStack(_poisonDps * _damageMultiplier, _poisonDuration, _canCrit, _critChance, _critMult);
+            }
+            return;
+        }
+
         LeavePuddle(transform.position);
     }
 

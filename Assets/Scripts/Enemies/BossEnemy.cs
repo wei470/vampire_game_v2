@@ -122,6 +122,16 @@ public class BossEnemy : EnemyBase
         EventManager.TriggerBossSpawn(_bossType.ToString(), _bossHP);
     }
 
+    protected override void OnDisable()
+    {
+        // Boss 被回收或销毁时，确保通知 BossHealthBarUI 隐藏
+        if (_bossDamageable != null && _bossDamageable.CurrentHp <= 0)
+        {
+            EventManager.TriggerBossDeath(_bossType.ToString());
+        }
+        base.OnDisable();
+    }
+
     private void Update()
     {
         if (_bossDamageable == null || _bossDamageable.CurrentHp <= 0)

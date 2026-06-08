@@ -222,6 +222,13 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **所有重启路径必须调用 `GameStateResetter.FullReset()`**：R键、GameOverUI重启、PauseMenuUI返回菜单等。仅 `EventManager.ClearAll()` + `LoadScene()` 不够！
 - **ObjectPool 是 DontDestroyOnLoad 单例**：LoadScene 重建场景时池中旧敌人会残留，必须通过 `GameStateResetter.FullReset()` 销毁。
 - **重启后对象池必须重新预热**：`FullReset()` 销毁 ObjectPool 后，`SpawnManager.StartFirstWave()` 必须在 `EnsureEnemyPrefabs()` 之后调用 `EnsureEnemyPoolsWarmedUp()` 确保池中有可激活的敌人实例。
+- **（V7新增）退出到菜单可能引发 Unity 卡死**：原因包括 `WaitForSeconds` 在 `Time.timeScale=0` 情况下不完成、Destroy 阶段回调级联。解决方案：在 `GameStateResetter.FullReset()` 里先冻结时间、停止场景中所有 MonoBehaviour 的协程、禁用 MonoBehaviour、使用 `DestroyImmediate`、重置静态状态（DamagePopup/Combo/传播）并恢复时间缩放。
+- **（V7新增）Boss 被纳入波次计数**：原先 Boss 未计入 `_activeEnemies` 导致 Boss 未被击杀就进入下一波。修复：`SpawnManager.SpawnBoss()` 现在将 Boss 加入 `_activeEnemies` 并更新 `_enemiesAlive`。
+- **（V7新增）Boss 血条 UI 不消失**：原先 `BossEnemy.Update()` 在 Boss 死亡后未必触发死亡事件。修复：在 `BossEnemy.OnDisable()` 中触发 `TriggerBossDeath`，确保 `BossHealthBarUI` 隐藏。
+- **（V7新增）流血子弹移除**：`MageUpgradeConfig.dotGunEntries` 不再包含 bleed，`DotBulletFactory` 不再注册流血子弹。流血仍在代码文件中存在但不参与游戏。
+- **（V7新增）反弹强化移除**：原先"反弹"升级项改为"贯穿"行为；新的属性 `PiercingBonus` 控制穿透数。config `value1=1f`。
+- **（V7新增）穿透系统修复**：原先 `PenetrateHandler` 的触发条件过严（依赖 BulletSpeedBonus）且子弹逻辑先销毁再尝试穿透。修改：将穿透数来源改为 `PiercingBonus`，并在子弹命中逻辑中先检测穿透再决定销毁。
+- **（V7新增）DOT 子弹增强**：痛苦(DotFrequencyBonus) bug 修复：`StatusEffectSystem.DotFrequencyBonus` setter 现在正确调用 `RecalcTickInterval()`。凋零暴击显示放大伤害。侵蚀冲击每5次触发，灰色特效+灰色字体+10%DOT总伤。DOT 每 tick 按元素颜色弹伤害数字。10种组合触发时在敌人头上显示组合名称小字。
 
 ## 15. 重构进度 — 全部完成 ✅
 

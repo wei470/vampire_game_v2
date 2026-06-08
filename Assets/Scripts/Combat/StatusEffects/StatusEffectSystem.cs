@@ -26,9 +26,14 @@ public class StatusEffectManager : MonoBehaviour
     public float DotFrequencyBonus
     {
         get => _dotFrequencyBonus;
-        set { _dotFrequencyBonus = Mathf.Clamp01(value); _tickInterval = Mathf.Max(0.15f, BASE_TICK_INTERVAL * (1f - _dotFrequencyBonus)); }
+        set { _dotFrequencyBonus = Mathf.Clamp01(value); RecalcTickInterval(); }
     }
     private float _dotFrequencyBonus = 0f;
+
+    private void RecalcTickInterval()
+    {
+        _tickInterval = Mathf.Max(0.15f, BASE_TICK_INTERVAL * (1f - _dotFrequencyBonus));
+    }
 
     // 全局属性（由 MagePassive 设置）
     public float DotDurationMultiplier { get; set; } = 1f;
@@ -152,6 +157,7 @@ public class StatusEffectManager : MonoBehaviour
         if (!isOffScreen) UpdateVisual();
 
         float totalTickDamage = 0f;
+        float totalTickDamageForErosion = 0f; // 侵蚀基准：上一次dot总伤
         bool hasRadiate = false; float radiateDmg = 0f;
 
         // 计算饱和加成：统计不同DOT种类数
@@ -183,21 +189,39 @@ public class StatusEffectManager : MonoBehaviour
             if (RendDamageBonus > 0) tickDmg *= (1f + RendDamageBonus);
             if (AgonyMissingHpScale > 0 && _damageable != null)
             { float miss = 1f - (float)_damageable.CurrentHp / _damageable.MaxHp; tickDmg *= (1f + miss * AgonyMissingHpScale); }
-            // 剧毒天赋：额外暴击率
-            if (effect.canCrit && Random.value < (effect.critChance + ToxicologyCritBonus)) tickDmg *= effect.critMultiplier;
+            // 剧毒天赋：额外暴击率 + 凋零暴击
+            bool tickCrit = false;
+            if (effect.canCrit && Random.value < (effect.critChance + ToxicologyCritBonus))
+            {
+                tickDmg *= effect.critMultiplier;
+                tickCrit = true;
+            }
             if (effect.type == StatusEffectType.Wither) WitherActive = true;
             if (effect.type == StatusEffectType.Radiate && RadiateRange > 0) { hasRadiate = true; radiateDmg = tickDmg * RadiateDamagePercent; }
             totalTickDamage += tickDmg;
+            // 凋零暴击时显示大字体
+            if (tickCrit && !isOffScreen)
+                DamagePopup.Create(transform.position, Mathf.RoundToInt(tickDmg), DamagePopup.ColorCrit, true);
         }
 
-        _comboSystem.CheckComboEffects(_activeEffects, gameObject, _sr, _originalColor);
+        _comboSystem.CheckComboEffects(_activeEffects, gameObject, _sr, _originalColor, transform.position);
         UpdateDotParticles();
         totalTickDamage *= DebugConfigPanel.DebugDotDamageMultiplier;
+
+        totalTickDamageForErosion = totalTickDamage;
 
         if (totalTickDamage > 0 && _damageable != null && _damageable.CurrentHp > 0)
         {
             if (_comboSystem.ShatterActive) totalTickDamage *= 1f + DotComboSystem.COMBO_SHATTER_BLEED_MULT;
-            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(totalTickDamage)));
+            int finalDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamage));
+            _damageable.TakeDamage(finalDmg);
+            // DOT伤害弹字（每tick显示）
+            if (!isOffScreen)
+            {
+                StatusEffectType dotType = _activeEffects.Count > 0 ? _activeEffects[_activeEffects.Count - 1].type : StatusEffectType.Bleed;
+                Color dotColor = GetDotColor(dotType);
+                DamagePopup.Create(transform.position, finalDmg, dotColor, false);
+            }
             if (_activeEffects.Count > 0) PlayElementSound(_activeEffects[_activeEffects.Count - 1].type);
             // 吸血法术：DOT每次tick回复生命
             if (DotLifestealPerTick > 0)
@@ -212,19 +236,26 @@ public class StatusEffectManager : MonoBehaviour
             }
             if (DamageMeter.Instance != null && _activeEffects.Count > 0)
                 DamageMeter.Instance.RecordDotDamage(_activeEffects[0].type, Mathf.RoundToInt(totalTickDamage));
-            // 侵蚀冲击
+            // 侵蚀冲击：每5次造成灰色冲击，DOT总伤10%
             if (ErosionDamagePercent > 0)
             {
                 _erosionDotHitCount++;
                 if (_erosionDotHitCount >= ErosionTriggerCount)
                 {
                     _erosionDotHitCount = 0;
-                    int eDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamage * ErosionDamagePercent));
-                    _damageable.TakeDamage(eDmg, new Color(0.7f, 0.8f, 0.2f));
-                    DamagePopup.Create(transform.position, eDmg, new Color(0.7f, 0.9f, 0.1f), false);
-                    CombatManager.CreateExplosionEffect(transform.position, 1.5f, new Color(0.6f, 0.8f, 0.2f), 0.3f);
-                    if (_sr != null) _sr.color = Color.Lerp(_sr.color, new Color(0.8f, 1f, 0.2f), 0.7f);
-                    DebugHelper.Log($"[DOT] EROSION! {eDmg} bonus damage");
+                    // 基于上一次DOT tick总伤的百分比
+                    int eDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamageForErosion * ErosionDamagePercent));
+                    _damageable.TakeDamage(eDmg, Color.gray);
+                    // 灰色字体弹出
+                    DamagePopup.Create(transform.position, eDmg, new Color(0.6f, 0.6f, 0.6f), false, "侵蚀！");
+                    // 灰色冲击特效
+                    CombatManager.CreateExplosionEffect(transform.position, 2f, new Color(0.5f, 0.5f, 0.5f), 0.5f);
+                    if (_sr != null)
+                    {
+                        Color flash = Color.Lerp(_sr.color, Color.gray, 0.7f);
+                        _sr.color = flash;
+                    }
+                    DebugHelper.Log($"[DOT] EROSION! {eDmg} bonus damage (10% of {totalTickDamageForErosion:F0})");
                 }
             }
         }
@@ -302,6 +333,24 @@ public class StatusEffectManager : MonoBehaviour
       _lastVortexTime = Time.time; WindErosionVortex.Create(transform.position, 1.5f, 2f, 3f, 0.2f); }
 
     // 视觉更新（委托给 DotVisualEffectManager）
+    /// <summary>
+    /// 根据 DOT 类型获取颜色
+    /// </summary>
+    private static Color GetDotColor(StatusEffectType type)
+    {
+        switch (type)
+        {
+            case StatusEffectType.Bleed:    return DamagePopup.ColorBleed;
+            case StatusEffectType.Poison:   return DamagePopup.ColorPoison;
+            case StatusEffectType.Immolate: return DamagePopup.ColorBurn;
+            case StatusEffectType.Frostbite:return DamagePopup.ColorFrost;
+            case StatusEffectType.Static:   return DamagePopup.ColorLightning;
+            case StatusEffectType.Dark:     return DamagePopup.ColorDark;
+            case StatusEffectType.Light:    return DamagePopup.ColorLight;
+            default:                        return Color.white;
+        }
+    }
+
     private void UpdateVisual()
     {
         DotVisualEffectManager.UpdateVisual(_sr, _activeEffects, _originalColor);

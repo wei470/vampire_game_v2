@@ -134,6 +134,8 @@ public class MagePassive : MonoBehaviour
     public int BulletCountBonus { get => _bulletCountBonus; set => _bulletCountBonus = value; }
     public float RicochetChance { get => _ricochetChance; set => _ricochetChance = value; }
     public int RicochetMaxBounces { get => _ricochetMaxBounces; set => _ricochetMaxBounces = value; }
+    /// <summary>贯穿弹：穿透敌人数量（贯穿弹升级）</summary>
+    public int PiercingBonus { get; set; } = 0;
     public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
     public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
     public float DotSaturationBonus { get => _dotSaturationBonus; set => _dotSaturationBonus = value; }

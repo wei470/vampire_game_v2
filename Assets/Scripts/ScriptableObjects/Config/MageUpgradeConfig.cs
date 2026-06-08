@@ -22,18 +22,6 @@ public class MageUpgradeConfig : ScriptableObject
     {
         new DotGunEntry
         {
-            upgradeId = "bleed",
-            effectType = StatusEffectType.Bleed,
-            displayName = "流血 (Bleed)",
-            description = "🔴 红色子弹 | DPS:3/s | 持续4秒\n移动越快受伤越频繁 | 射速：快",
-            color = new Color(0.9f, 0.1f, 0.1f),
-            cooldown = 0.8f,
-            impactDmg = 3,
-            dotDps = 3f,
-            dotDuration = 4f
-        },
-        new DotGunEntry
-        {
             upgradeId = "poison",
             effectType = StatusEffectType.Poison,
             displayName = "中毒 (Poison)",
@@ -225,10 +213,10 @@ public class MageUpgradeConfig : ScriptableObject
         new UpgradeEntry
         {
             upgradeId = "ricochet",
-            upgradeName = "反弹 (Ricochet)",
-            description = "子弹30%几率反弹\n超100%增加反弹次数并移除衰减",
+            upgradeName = "贯穿弹 (Penetrate)",
+            description = "子弹穿透敌人\n每级+1穿透数",
             category = CharacterUpgradeOption.UpgradeCategory.Ricochet,
-            value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
+            value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 3
         },
 
         // ═══ P1 深度玩法（4 种）═══

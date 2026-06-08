@@ -70,7 +70,7 @@ public class DotComboSystem
     /// <summary>
     /// 检测并应用 DOT 组合效果（每DOT tick调用）
     /// </summary>
-    public void CheckComboEffects(List<StatusEffect> activeEffects, GameObject go, SpriteRenderer sr, Color originalColor)
+    public void CheckComboEffects(List<StatusEffect> activeEffects, GameObject go, SpriteRenderer sr, Color originalColor, Vector3 enemyPos)
     {
         // 重置状态
         ShatterActive = false;
@@ -129,15 +129,23 @@ public class DotComboSystem
                 sr.color = Color.Lerp(sr.color, new Color(0.4f, 0.7f, 1f), 0.3f);
         }
 
+        // 碎冰：霜冻+流血
+        if (hasFrost && hasBleed)
+        {
+            DamagePopup.CreateComboName(enemyPos, "碎冰！", new Color(0.4f, 0.7f, 1f));
+        }
+
         // 爆燃：燃烧+中毒层数>5 → 范围伤害
         if (hasBurn && hasPoison && poisonStacks > (int)COMBO_DETONATE_POISON_THRESHOLD)
         {
+            DamagePopup.CreateComboName(enemyPos, "爆燃！", new Color(1f, 0.6f, 0f));
             TriggerDetonateCombo(activeEffects, go);
         }
 
         // 脓毒：中毒+流血 → 流血DPS随中毒层数增加
         if (hasPoison && hasBleed)
         {
+            DamagePopup.CreateComboName(enemyPos, "脓毒！", new Color(0.8f, 0.2f, 0.3f));
             var bleed = go.GetComponent<BleedEffect>();
             if (bleed != null)
                 bleed._comboSepsisBonus = poisonStacks * COMBO_SEPSIS_BLEED_DPS_PER_POISON;
@@ -145,50 +153,57 @@ public class DotComboSystem
 
         // ═══ 新增基础组合 ═══
 
-        // 沸血：流血+燃烧 → 流血伤害×2（通过ShatterActive的另一种方式标记）
+        // 沸血：流血+燃烧
         if (hasBleed && hasBurn)
         {
             BoilingBloodActive = true;
+            DamagePopup.CreateComboName(enemyPos, "沸血！", new Color(1f, 0.3f, 0.1f));
             if (sr != null)
                 sr.color = Color.Lerp(sr.color, new Color(1f, 0.3f, 0.1f), 0.25f);
         }
 
-        // 血电：流血+雷电 → 流血tick时30%概率连锁闪电
+        // 血电：流血+雷电
         if (hasBleed && hasLightning)
         {
+            DamagePopup.CreateComboName(enemyPos, "血电！", new Color(0.8f, 0.2f, 1f));
             TriggerBloodLightning(go, burnStacks > 0);
         }
 
-        // 冻毒：中毒+霜冻且霜冻>5层 → 中毒伤害×2
+        // 冻毒：中毒+霜冻且霜冻>5层
         if (hasPoison && hasFrost && frostStacks > (int)COMBO_FROST_POISON_THRESHOLD)
         {
             FrostPoisonActive = true;
+            DamagePopup.CreateComboName(enemyPos, "冻毒！", new Color(0.3f, 0.9f, 0.5f));
             if (sr != null)
                 sr.color = Color.Lerp(sr.color, new Color(0.3f, 0.9f, 0.5f), 0.2f);
         }
 
-        // 导电毒液：中毒+雷电 → 毒液区域触电
+        // 导电毒液：中毒+雷电
         if (hasPoison && hasLightning)
         {
+            DamagePopup.CreateComboName(enemyPos, "导电毒液！", new Color(0.3f, 0.8f, 0.2f));
             TriggerConductivePoison(go);
         }
 
-        // 蒸发：燃烧+霜冻 → 蒸汽云致盲减速
+        // 蒸发：燃烧+霜冻
         if (hasBurn && hasFrost)
         {
+            DamagePopup.CreateComboName(enemyPos, "蒸发！", new Color(0.8f, 0.8f, 0.9f));
             TriggerEvaporate(go);
         }
 
-        // 等离子：燃烧+雷电且燃烧>10层 → 范围爆发
+        // 等离子：燃烧+雷电且燃烧>10层
         if (hasBurn && hasLightning && burnStacks > (int)COMBO_PLASMA_THRESHOLD)
         {
+            DamagePopup.CreateComboName(enemyPos, "等离子！", new Color(0.9f, 0.9f, 1f));
             TriggerPlasma(go);
         }
 
-        // 超导：霜冻+雷电 → 雷电伤害×3
+        // 超导：霜冻+雷电
         if (hasFrost && hasLightning)
         {
             SuperconductMult = COMBO_SUPERCONDUCT_LIGHTNING_MULT;
+            DamagePopup.CreateComboName(enemyPos, "超导！", new Color(0.5f, 0.8f, 1f));
             if (sr != null)
                 sr.color = Color.Lerp(sr.color, new Color(0.5f, 0.8f, 1f), 0.3f);
         }

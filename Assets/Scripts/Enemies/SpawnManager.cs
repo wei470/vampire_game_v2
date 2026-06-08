@@ -335,7 +335,13 @@ public class SpawnManager : MonoBehaviour
     {
         if (_playerTransform == null) return;
         Vector2 spawnPos = GetRandomSpawnPosition();
-        BossEnemy.CreateBoss(spawnPos, hp);
+        BossEnemy boss = BossEnemy.CreateBoss(spawnPos, hp);
+        if (boss != null)
+        {
+            // 将 Boss 加入活跃敌人列表，确保波次完成检查会等待 Boss 死亡
+            _activeEnemies.Add(boss.gameObject);
+            _enemiesAlive = _activeEnemies.Count;
+        }
         DebugHelper.Log($"[SpawnManager] Boss spawned at {spawnPos} with {hp} HP!");
     }
 

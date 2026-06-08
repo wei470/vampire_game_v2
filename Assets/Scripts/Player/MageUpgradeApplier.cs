@@ -52,9 +52,10 @@ public static class MageUpgradeApplier
                 mage.BulletSpeedBonus += ue.value2;
                 break;
             case CharacterUpgradeOption.UpgradeCategory.BulletCount: mage.BulletCountBonus += (int)ue.value1; break;
+            // 反弹升级已移除 — 改为空操作
             case CharacterUpgradeOption.UpgradeCategory.Ricochet:
-                mage.RicochetChance += ue.value1;
-                if (mage.RicochetChance > 1f) { mage.RicochetMaxBounces += 1; mage.RicochetChance -= 1f; }
+                // 改为增加穿透数
+                mage.PiercingBonus += (int)ue.value1;
                 break;
             case CharacterUpgradeOption.UpgradeCategory.BulletSize:
                 mage.BulletSizeBonus += ue.value1;
