@@ -60,6 +60,142 @@ public static class MageUpgradeApplier
                 mage.BulletSizeBonus += ue.value1;
                 mage.KnockbackBonus += ue.value2;
                 break;
+            case CharacterUpgradeOption.UpgradeCategory.DotSaturation:
+                mage.DotSaturationBonus += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.DetonateExtra:
+                mage.DetonateExtraPerDot += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.DotLifesteal:
+                mage.DotLifestealPerTick += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.DotOverflow:
+                mage.OverflowExtraStacks += (int)ue.value1;
+                mage.OverflowMaxExtra = (int)ue.value2;
+                break;
+
+            // ── P1 深度玩法 ──
+            case CharacterUpgradeOption.UpgradeCategory.DotPandemic:
+                mage.PandemicBonus += ue.value1;
+                // 同步到 CurseSpreadSystem
+                CurseSpreadSystem.PandemicEfficiencyBonus = mage.PandemicBonus;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ChainReaction:
+                mage.ChainReactionCount += (int)ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.DualWield:
+                mage.DualWieldBonus += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ChargeMastery:
+                mage.ChargeSpeedBonus += ue.value1;
+                mage.ChargeDamageBonus += ue.value2;
+                break;
+
+            // ── P2 协同/趣味 ──
+            case CharacterUpgradeOption.UpgradeCategory.DotResonance:
+                mage.ResonanceChance += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.Toxicology:
+                mage.ToxicologyCritBonus += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.CorruptTouch:
+                mage.CorruptTouchDebuff += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ElementalStorm:
+                mage.ElementalStormDmg += ue.value1;
+                mage.ElementalStormInterval = ue.value2 > 0f ? ue.value2 : 2f;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ShadowLink:
+                mage.ShadowLinkRangeBonus += ue.value1;
+                mage.ShadowLinkEffBonus += ue.value2;
+                // 同步到 CurseSpreadSystem
+                CurseSpreadSystem.ShadowLinkRangeBonus = mage.ShadowLinkRangeBonus;
+                CurseSpreadSystem.ShadowLinkEffBonus = mage.ShadowLinkEffBonus;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.LightJudgment:
+                mage.LightJudgmentBonus += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.StaticField:
+                mage.StaticFieldStacks += (int)ue.value2;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.FrostExplosion:
+                mage.FrostExplosionPct += ue.value1;
+                break;
+
+            // ── 子弹增强扩展 ──
+            case CharacterUpgradeOption.UpgradeCategory.AmmoMastery:
+                mage.AmmoSpeedBonus += ue.value1;
+                mage.AmmoRangeBonus += ue.value2;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ElementalAffinity:
+                mage.ElementalAffinityBonus += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.Penetrate:
+                mage.PenetrateCount += (int)ue.value1;
+                break;
+
+            // ── 生存向 ──
+            case CharacterUpgradeOption.UpgradeCategory.ElementalShield:
+                // 每次升级重新计算：拥有的DOT枪数 × value1
+                float newShieldHp = mage.DotGuns.Count * ue.value1;
+                if (newShieldHp > mage.ElementalShieldHp)
+                {
+                    float hpGain = newShieldHp - mage.ElementalShieldHp;
+                    mage.ElementalShieldHp = newShieldHp;
+                    // 增加最大生命
+                    var player = GameReferences.Player;
+                    if (player != null)
+                    {
+                        var dmg = player.GetComponent<Damageable>();
+                        if (dmg != null) dmg.SetMaxHp(dmg.MaxHp + Mathf.RoundToInt(hpGain));
+                    }
+                }
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.PhaseShift:
+                mage.PhaseShiftDuration += ue.value1;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.SoulSiphon:
+                mage.SoulSiphonHeal += ue.value1;
+                mage.SoulSiphonSpeedDuration += ue.value2;
+                break;
+
+            // ── P3 终极/高级 ──
+            case CharacterUpgradeOption.UpgradeCategory.EmberBoost:
+                mage.EmberBoostBonus += ue.value1;
+                mage.EmberBoostDuration += ue.value2;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ShatterBoost:
+                mage.ShatterBoostFragments += (int)ue.value1;
+                mage.ShatterBoostDmg += ue.value2;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.ElementalMaster:
+                if (mage.DotGuns.Count >= 5)
+                {
+                    mage.AddDotDurationBonus(ue.value1);
+                    mage.DetonateCooldownValue *= (1f - ue.value2);
+                    var p = GameReferences.Player;
+                    if (p != null) DamagePopup.Create(p.transform.position + Vector3.up * 3f, 0, new Color(1f, 0.85f, 0f), false, "★ ELEMENTAL MASTER!");
+                    if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
+                }
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.Doomsday:
+                mage.DoomsdayThreshold += ue.value2;
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.EternalAgony:
+                if (!mage.EternalAgonyActive)
+                {
+                    mage.EternalAgonyActive = true;
+                    // DOT持续时间×2，单次伤害-15%
+                    mage.AddDotDurationBonus(ue.value1 - 1f); // ×2 = +100% duration bonus
+                    // 伤害降低通过 GetDotDamageMultiplier 处理
+                    var p2 = GameReferences.Player;
+                    if (p2 != null) DamagePopup.Create(p2.transform.position + Vector3.up * 3f, 0, new Color(0.8f, 0.2f, 0.5f), false, "✦ ETERNAL AGONY!");
+                }
+                break;
+            case CharacterUpgradeOption.UpgradeCategory.AnnihilationZone:
+                mage.AnnihilationZoneDmg += ue.value1;
+                mage.AnnihilationZoneDuration += ue.value2 > 0f ? ue.value2 : 1f;
+                break;
         }
 
         CheckSynergies(mage);
@@ -92,25 +228,62 @@ public static class MageUpgradeApplier
             case StatusEffectType.Poison: return ("瘟疫之源 (Plague Source)", "中毒子弹 DPS +50%");
             case StatusEffectType.Burn: return ("地狱之火 (Hellfire)", "燃烧 DPS +80%");
             case StatusEffectType.Frostbite: return ("绝对零度 (Absolute Zero)", "霜冻 DPS +100%");
-            default: return ("Unknown", "");
+            case StatusEffectType.Static: return ("雷神之怒 (Wrath of Thor)", "雷电冲击伤害 +100%，连锁+2");
+            case StatusEffectType.Dark: return ("深渊之主 (Abyss Lord)", "黑暗传播范围+2，传播效率+30%");
+            case StatusEffectType.Light: return ("神圣光辉 (Divine Radiance)", "光明标记每层加成翻倍");
+            default: return ("未知进化", "");
         }
     }
 
     private static void ApplyEvolutionBonus(MagePassive mage, StatusEffectType type)
     {
         float mult = 1f;
+        var guns = mage.DotGuns;
         switch (type)
         {
-            case StatusEffectType.Bleed: mult = 2f; break;
-            case StatusEffectType.Poison: mult = 1.5f; break;
-            case StatusEffectType.Burn: mult = 1.8f; break;
-            case StatusEffectType.Frostbite: mult = 2f; break;
-        }
-        var guns = mage.DotGuns;
-        for (int i = 0; i < guns.Count; i++)
-        {
-            var gun = guns[i];
-            if (gun.effectType == type) { gun.dotDps *= mult; guns[i] = gun; break; }
+            case StatusEffectType.Bleed:
+            case StatusEffectType.Poison:
+            case StatusEffectType.Burn:
+            case StatusEffectType.Frostbite:
+                // DPS 型进化：直接提升 dotDps
+                switch (type)
+                {
+                    case StatusEffectType.Bleed: mult = 2f; break;
+                    case StatusEffectType.Poison: mult = 1.5f; break;
+                    case StatusEffectType.Burn: mult = 1.8f; break;
+                    case StatusEffectType.Frostbite: mult = 2f; break;
+                }
+                for (int i = 0; i < guns.Count; i++)
+                {
+                    var gun = guns[i];
+                    if (gun.effectType == type) { gun.dotDps *= mult; guns[i] = gun; break; }
+                }
+                break;
+            case StatusEffectType.Static:
+                // 雷电进化：冲击伤害翻倍，连锁+2
+                for (int i = 0; i < guns.Count; i++)
+                {
+                    var gun = guns[i];
+                    if (gun.effectType == type)
+                    {
+                        gun.impactDamage *= 2;
+                        guns[i] = gun;
+                        break;
+                    }
+                }
+                if (mage.GetComponent<DetonateSystem>() is DetonateSystem ds)
+                    ds.MaxChainCount += 2;
+                break;
+            case StatusEffectType.Dark:
+                // 黑暗进化：传播范围+2已在CurseSpreadSystem处理，这里提升传播效率
+                // 通过提高腐蚀和诅咒效果间接增强
+                mage.CorrosionArmorReduction += 0.1f;
+                break;
+            case StatusEffectType.Light:
+                // 光明进化：通过提高DotDamageMultiplier来增强光明标记的倍率效果
+                mage.DotDamageMultiplier += 0.3f;
+                mage.SyncDotDamageMultiplierToAll();
+                break;
         }
     }
 
@@ -121,7 +294,7 @@ public static class MageUpgradeApplier
     /// </summary>
     public static void CheckMilestones(MagePassive mage)
     {
-        if (!mage.ElementMasterTriggered && mage.DotGuns.Count >= 4)
+        if (!mage.ElementMasterTriggered && mage.DotGuns.Count >= 7)
         {
             mage.ElementMasterTriggered = true;
             DebugHelper.Log("[MageUpgradeApplier] ★ MILESTONE: Element Master! All DOT damage +20%");

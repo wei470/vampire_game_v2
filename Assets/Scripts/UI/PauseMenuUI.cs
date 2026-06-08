@@ -40,15 +40,21 @@ public class PauseMenuUI : MonoBehaviour
         Time.timeScale = 1f;
     }
 
+    private bool _isReturning = false; // 防止重复点击
+
     public void ReturnToMenu()
     {
+        if (_isReturning) return;
+        _isReturning = true;
+
         _isPaused = false;
-        Time.timeScale = 1f;
 
         // #37 使用统一的 GameStateResetter 重置所有游戏状态
         if (GameManager.Instance != null) Destroy(GameManager.Instance.gameObject);
         GameStateResetter.FullReset();
 
+        // FullReset 已设置 Time.timeScale = 0，LoadScene 前恢复
+        Time.timeScale = 1f;
         SceneManager.LoadScene("MenuScene");
     }
 

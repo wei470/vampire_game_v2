@@ -46,6 +46,24 @@ public class StatusEffectManager : MonoBehaviour
     public float RadiateRange { get; set; } = 0f;
     public float RadiateDamagePercent { get; set; } = 0f;
 
+    // ── P0 新增强化 ──
+    /// <summary>饱和：每种不同DOT伤害加成百分比</summary>
+    public float DotSaturationBonus { get; set; } = 0f;
+    /// <summary>吸血法术：DOT每次tick回复生命</summary>
+    public float DotLifestealPerTick { get; set; } = 0f;
+    /// <summary>溢出弹：额外叠层数</summary>
+    public int OverflowExtraStacks { get; set; } = 0;
+
+    // ── P2 新增强化 ──
+    /// <summary>共鸣：DOT触发时不消耗持续时间的几率</summary>
+    public float ResonanceChance { get; set; } = 0f;
+    /// <summary>剧毒天赋：额外DOT暴击率</summary>
+    public float ToxicologyCritBonus { get; set; } = 0f;
+    /// <summary>腐化之触：DOT命中时降低敌人攻击力的百分比</summary>
+    public float CorruptTouchDebuff { get; set; } = 0f;
+    /// <summary>永恒痛苦：DOT单次伤害倍率（默认1.0，激活时0.85）</summary>
+    public float EternalAgonyDamageMult { get; set; } = 1f;
+
     public List<StatusEffect> ActiveEffects => _activeEffects;
     public bool HasAnyDot => _activeEffects.Count > 0;
 
@@ -85,13 +103,28 @@ public class StatusEffectManager : MonoBehaviour
     public void ApplyEffect(StatusEffectType type, float dps, float duration,
         bool canCrit = false, float critChance = 0f, float critMult = 2f)
     {
+        // 播放DOT子弹命中音效
+        if (SFXManager.Instance != null)
+        {
+            SFXManager.Instance.PlayDotElement(DotElementType.Bleed);
+        }
+        else
+        {
+            DebugHelper.LogWarning("[StatusEffectSystem] SFXManager.Instance is null in ApplyEffect!");
+        }
+
         duration *= DotDurationMultiplier;
         StatusEffect existing = null;
         for (int i = 0; i < _activeEffects.Count; i++)
         { if (_activeEffects[i].type == type) { existing = _activeEffects[i]; break; } }
 
         if (existing != null)
+        {
             existing.Refresh(dps * DotDamageMultiplier, duration, stackDps: (type == StatusEffectType.Bleed || type == StatusEffectType.Immolate));
+            // 溢出弹：命中已有同类型DOT的敌人时，额外叠层
+            if (OverflowExtraStacks > 0 && existing.stackCount > 0)
+                existing.stackCount += OverflowExtraStacks;
+        }
         else
         {
             if (_activeEffects.Count >= 10) _activeEffects.RemoveAt(0);
@@ -121,6 +154,17 @@ public class StatusEffectManager : MonoBehaviour
         float totalTickDamage = 0f;
         bool hasRadiate = false; float radiateDmg = 0f;
 
+        // 计算饱和加成：统计不同DOT种类数
+        int distinctDotCount = 0;
+        if (DotSaturationBonus > 0)
+        {
+            var seenTypes = new HashSet<StatusEffectType>();
+            for (int k = 0; k < _activeEffects.Count; k++)
+                if (_activeEffects[k].type != StatusEffectType.Radiate && _activeEffects[k].type != StatusEffectType.Wither)
+                    seenTypes.Add(_activeEffects[k].type);
+            distinctDotCount = seenTypes.Count;
+        }
+
         for (int i = _activeEffects.Count - 1; i >= 0; i--)
         {
             var effect = _activeEffects[i];
@@ -128,6 +172,9 @@ public class StatusEffectManager : MonoBehaviour
             if (effect.remainingDuration <= 0) { _activeEffects.RemoveAt(i); continue; }
 
             float tickDmg = effect.damagePerSecond * _tickInterval;
+            // 饱和加成
+            if (DotSaturationBonus > 0 && distinctDotCount > 0)
+                tickDmg *= (1f + distinctDotCount * DotSaturationBonus);
             // 应用DOT组合倍率
             if (effect.type == StatusEffectType.Bleed) tickDmg *= _comboSystem.GetBleedDamageMult();
             if (effect.type == StatusEffectType.Poison) tickDmg *= _comboSystem.GetPoisonDamageMult();
@@ -136,7 +183,8 @@ public class StatusEffectManager : MonoBehaviour
             if (RendDamageBonus > 0) tickDmg *= (1f + RendDamageBonus);
             if (AgonyMissingHpScale > 0 && _damageable != null)
             { float miss = 1f - (float)_damageable.CurrentHp / _damageable.MaxHp; tickDmg *= (1f + miss * AgonyMissingHpScale); }
-            if (effect.canCrit && Random.value < effect.critChance) tickDmg *= effect.critMultiplier;
+            // 剧毒天赋：额外暴击率
+            if (effect.canCrit && Random.value < (effect.critChance + ToxicologyCritBonus)) tickDmg *= effect.critMultiplier;
             if (effect.type == StatusEffectType.Wither) WitherActive = true;
             if (effect.type == StatusEffectType.Radiate && RadiateRange > 0) { hasRadiate = true; radiateDmg = tickDmg * RadiateDamagePercent; }
             totalTickDamage += tickDmg;
@@ -150,7 +198,18 @@ public class StatusEffectManager : MonoBehaviour
         {
             if (_comboSystem.ShatterActive) totalTickDamage *= 1f + DotComboSystem.COMBO_SHATTER_BLEED_MULT;
             _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(totalTickDamage)));
-            if (SFXManager.Instance != null) SFXManager.Instance.PlayDotTick();
+            if (_activeEffects.Count > 0) PlayElementSound(_activeEffects[_activeEffects.Count - 1].type);
+            // 吸血法术：DOT每次tick回复生命
+            if (DotLifestealPerTick > 0)
+            {
+                var player = GameReferences.Player;
+                if (player != null)
+                {
+                    var playerDmg = player.GetComponent<Damageable>();
+                    if (playerDmg != null && playerDmg.CurrentHp < playerDmg.MaxHp)
+                        playerDmg.Heal(Mathf.RoundToInt(DotLifestealPerTick * _activeEffects.Count));
+                }
+            }
             if (DamageMeter.Instance != null && _activeEffects.Count > 0)
                 DamageMeter.Instance.RecordDotDamage(_activeEffects[0].type, Mathf.RoundToInt(totalTickDamage));
             // 侵蚀冲击
@@ -252,6 +311,25 @@ public class StatusEffectManager : MonoBehaviour
     private void UpdateDotParticles()
     {
         DotVisualEffectManager.UpdateDotParticles(gameObject, _activeEffects, ref _dotVFX);
+    }
+
+    /// <summary>
+    /// 根据元素类型播放对应音效
+    /// </summary>
+    private void PlayElementSound(StatusEffectType type)
+    {
+        if (SFXManager.Instance == null) return;
+        switch (type)
+        {
+            case StatusEffectType.Bleed:     SFXManager.Instance.PlayDotElement(DotElementType.Bleed); break;
+            case StatusEffectType.Poison:    SFXManager.Instance.PlayDotElement(DotElementType.Poison); break;
+            case StatusEffectType.Immolate:  SFXManager.Instance.PlayDotElement(DotElementType.Burn); break;
+            case StatusEffectType.Frostbite: SFXManager.Instance.PlayDotElement(DotElementType.Frost); break;
+            case StatusEffectType.Static:    SFXManager.Instance.PlayDotElement(DotElementType.Lightning); break;
+            case StatusEffectType.Dark:      SFXManager.Instance.PlayDotElement(DotElementType.Dark); break;
+            case StatusEffectType.Light:     SFXManager.Instance.PlayDotElement(DotElementType.Light); break;
+            default:                         SFXManager.Instance.PlayDotElement(DotElementType.Bleed); break;
+        }
     }
 
     private void OnDestroy()

@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 背景音乐管理器 — 加载 Assets/Audio/ 下的 mp3 文件并循环播放。
-/// 自动创建 AudioSource，随机打乱播放列表。
+/// 背景音乐管理器 — 从 SoundTrack 配置加载 BGM 曲目并循环播放。
+/// 自动创建 AudioSource，支持随机打乱播放列表。
 /// 入口：挂载到场景 GameObject 上，或由 GameSceneBootstrap 自动创建。
 /// </summary>
 public class BGMManager : MonoBehaviour
@@ -13,8 +13,11 @@ public class BGMManager : MonoBehaviour
     private bool _isPlaying = false;
 
     [Header("配置")]
-    [SerializeField] private float _volume = 0f; // 静音（开发阶段）
-    [SerializeField] private bool _shuffle = true;
+    [Tooltip("音效配置包（ScriptableObject），统一管理 BGM 曲目")]
+    [SerializeField] private SoundTrack _soundTrack;
+
+    [Tooltip("BGM 音量（运行时值，优先级高于 SoundTrack.bgmVolume）")]
+    [SerializeField] private float _volume = 0.5f;
 
     private static BGMManager _instance;
 
@@ -35,16 +38,42 @@ public class BGMManager : MonoBehaviour
         _audioSource.playOnAwake = false;
         _audioSource.volume = _volume;
 
-        LoadAudioClips();
+        // 如果没有手动设置 SoundTrack，从 SFXManager 获取共享的
+        if (_soundTrack == null && SFXManager.Instance != null)
+        {
+            _soundTrack = SFXManager.Instance.GetSoundTrack();
+        }
+
+        LoadFromSoundTrack();
     }
 
-    private void LoadAudioClips()
+    /// <summary>
+    /// 从 SoundTrack 加载 BGM 曲目
+    /// </summary>
+    private void LoadFromSoundTrack()
     {
-        // 从 Resources 或直接从路径加载
-        // Unity 不支持直接从 Assets/Audio 运行时加载，需要用 Resources
-        // 但这里我们用另一种方式：通过 AssetDatabase 在编辑器加载
-        // 运行时用 Resources.LoadAll 或手动指定
+        if (_soundTrack != null && _soundTrack.bgmClips != null && _soundTrack.bgmClips.Length > 0)
+        {
+            _clips = _soundTrack.bgmClips;
+            _volume = _soundTrack.bgmVolume;
+            if (_audioSource != null) _audioSource.volume = _volume;
+            DebugHelper.Log($"[BGMManager] Loaded {_clips.Length} clips from SoundTrack");
 
+            if (_soundTrack.bgmShuffle)
+                ShuffleClips();
+        }
+        else
+        {
+            // 备用：从 Resources/Audio 加载
+            LoadFromResources();
+        }
+    }
+
+    /// <summary>
+    /// 从 Resources/Audio 加载（备用方案）
+    /// </summary>
+    private void LoadFromResources()
+    {
         var loaded = Resources.LoadAll<AudioClip>("Audio");
         if (loaded != null && loaded.Length > 0)
         {
@@ -53,22 +82,9 @@ public class BGMManager : MonoBehaviour
         }
         else
         {
-            // 备用：尝试直接加载（需要文件在 Resources 目录）
-            DebugHelper.LogWarning("[BGMManager] No audio clips found in Resources/Audio. " +
-                "Please move audio files to Assets/Resources/Audio/ or use GameSceneBootstrap to configure.");
+            DebugHelper.LogWarning("[BGMManager] No audio clips found. " +
+                "Please assign BGM clips in SoundTrack or move files to Assets/Resources/Audio/");
             _clips = new AudioClip[0];
-        }
-
-        if (_shuffle && _clips.Length > 1)
-        {
-            // Fisher-Yates shuffle
-            for (int i = _clips.Length - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                var temp = _clips[i];
-                _clips[i] = _clips[j];
-                _clips[j] = temp;
-            }
         }
     }
 
@@ -78,15 +94,31 @@ public class BGMManager : MonoBehaviour
     public void SetClips(AudioClip[] clips)
     {
         _clips = clips;
-        if (_shuffle && _clips.Length > 1)
+        ShuffleClips();
+    }
+
+    /// <summary>
+    /// 设置 SoundTrack 配置并重新加载 BGM
+    /// </summary>
+    public void SetSoundTrack(SoundTrack track)
+    {
+        _soundTrack = track;
+        LoadFromSoundTrack();
+    }
+
+    /// <summary>
+    /// Fisher-Yates 洗牌
+    /// </summary>
+    private void ShuffleClips()
+    {
+        if (_clips == null || _clips.Length <= 1) return;
+
+        for (int i = _clips.Length - 1; i > 0; i--)
         {
-            for (int i = _clips.Length - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                var temp = _clips[i];
-                _clips[i] = _clips[j];
-                _clips[j] = temp;
-            }
+            int j = Random.Range(0, i + 1);
+            var temp = _clips[i];
+            _clips[i] = _clips[j];
+            _clips[j] = temp;
         }
     }
 
@@ -137,6 +169,11 @@ public class BGMManager : MonoBehaviour
         _volume = Mathf.Clamp01(vol);
         if (_audioSource != null) _audioSource.volume = _volume;
     }
+
+    /// <summary>
+    /// 获取当前音量
+    /// </summary>
+    public float GetVolume() => _volume;
 
     private void Update()
     {

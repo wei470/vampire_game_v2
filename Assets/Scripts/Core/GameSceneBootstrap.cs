@@ -149,7 +149,7 @@ public class GameSceneBootstrap : MonoBehaviour
     /// <summary>
     /// Test 模式子弹选择完成回调
     /// </summary>
-    private void OnTestBulletSelectionConfirmed(List<string> selectedBulletIds)
+    private void OnTestBulletSelectionConfirmed(List<string> selectedBulletIds, Dictionary<string, int> selectedUpgrades)
     {
         var characters = _dataLoader.Characters;
         var skills = _dataLoader.Skills;
@@ -207,9 +207,22 @@ public class GameSceneBootstrap : MonoBehaviour
             {
                 DebugHelper.Log("[GameSceneBootstrap] TestMode: No bullets selected, entering with empty loadout");
             }
+
+            // 应用升级强化（反复调用 ApplyUpgrade 模拟多次叠加）
+            if (selectedUpgrades != null && selectedUpgrades.Count > 0)
+            {
+                foreach (var kvp in selectedUpgrades)
+                {
+                    for (int s = 0; s < kvp.Value; s++)
+                    {
+                        MageUpgradeApplier.ApplyUpgrade(magePassive, kvp.Key);
+                    }
+                    DebugHelper.Log($"[GameSceneBootstrap] TestMode: Applied upgrade '{kvp.Key}' x{kvp.Value}");
+                }
+            }
         }
 
-        DebugHelper.Log($"[GameSceneBootstrap] TestMode: Game started with Mage + Teleport, {selectedBulletIds.Count} bullets");
+        DebugHelper.Log($"[GameSceneBootstrap] TestMode: Game started with Mage + Teleport, {selectedBulletIds.Count} bullets, {(selectedUpgrades != null ? selectedUpgrades.Count : 0)} upgrades");
     }
 
     private void Update()

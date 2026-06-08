@@ -7,6 +7,22 @@ using System.Collections.Generic;
 /// </summary>
 public static class CurseSpreadSystem
 {
+    // ── Mage 专属强化静态字段 ──
+    /// <summary>蔓延：DOT传播效率加成（默认0，每层+0.15）</summary>
+    public static float PandemicEfficiencyBonus = 0f;
+    /// <summary>暗影链接：黑暗标记传播范围加成</summary>
+    public static float ShadowLinkRangeBonus = 0f;
+    /// <summary>暗影链接：黑暗标记传播效率加成</summary>
+    public static float ShadowLinkEffBonus = 0f;
+
+    /// <summary>重置所有静态数据（场景切换时调用）</summary>
+    public static void ResetAll()
+    {
+        PandemicEfficiencyBonus = 0f;
+        ShadowLinkRangeBonus = 0f;
+        ShadowLinkEffBonus = 0f;
+    }
+
     private static Material _lineMaterial;
 
     private static Material GetLineMaterial()
@@ -57,35 +73,38 @@ public static class CurseSpreadSystem
             if (!hit.TryGetComponent<StatusEffectManager>(out var otherManager))
                 otherManager = hit.gameObject.AddComponent<StatusEffectManager>();
 
-            // 传播 StatusEffectManager 中的 DOT（继承10%层数/伤害）
+            // 传播效率：基础10% + 蔓延加成（上限100%）
+            float spreadRatio = Mathf.Min(1f, 0.1f + PandemicEfficiencyBonus);
+
+            // 传播 StatusEffectManager 中的 DOT
             foreach (var effect in source.ActiveEffects)
             {
-                otherManager.ApplyEffect(effect.type, effect.damagePerSecond * 0.1f,
-                    effect.remainingDuration * 0.1f, effect.canCrit, effect.critChance, effect.critMultiplier);
+                otherManager.ApplyEffect(effect.type, effect.damagePerSecond * spreadRatio,
+                    effect.remainingDuration * spreadRatio, effect.canCrit, effect.critChance, effect.critMultiplier);
             }
 
-            // 传播独立DOT组件
+            // 传播独立DOT组件（使用蔓延加成后的比率）
             if (srcBleed != null)
             {
                 if (!hit.TryGetComponent<BleedEffect>(out var otherBleed))
                     otherBleed = hit.gameObject.AddComponent<BleedEffect>();
-                otherBleed.Refresh(srcBleed._dps * 0.1f, srcBleed._duration * 0.1f,
+                otherBleed.Refresh(srcBleed._dps * spreadRatio, srcBleed._duration * spreadRatio,
                     srcBleed._canCrit, srcBleed._critChance, srcBleed._critMult);
             }
             if (srcBurn != null)
             {
                 if (!hit.TryGetComponent<BurnStackEffect>(out var otherBurn))
                     otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
-                int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * 0.1f));
+                int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * spreadRatio));
                 for (int s = 0; s < stacks; s++)
-                    otherBurn.AddStack(srcBurn._baseDps * 0.1f, srcBurn._duration * 0.1f,
+                    otherBurn.AddStack(srcBurn._baseDps * spreadRatio, srcBurn._duration * spreadRatio,
                         srcBurn._canCrit, srcBurn._critChance, srcBurn._critMult);
             }
             if (srcPoison != null)
             {
                 if (!hit.TryGetComponent<PoisonStackEffect>(out var otherPoison))
                     otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
-                int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * 0.1f));
+                int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * spreadRatio));
                 for (int s = 0; s < pStacks; s++)
                     otherPoison.AddStack(2f, 0f, srcPoison._canCrit, srcPoison._critChance, srcPoison._critMult);
             }
@@ -93,8 +112,8 @@ public static class CurseSpreadSystem
             {
                 if (!hit.TryGetComponent<FrostEffect>(out var otherFrost))
                     otherFrost = hit.gameObject.AddComponent<FrostEffect>();
-                otherFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * 0.1f,
-                    srcFrost._frostDps * 0.1f, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
+                otherFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * spreadRatio,
+                    srcFrost._frostDps * spreadRatio, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
             }
         }
 

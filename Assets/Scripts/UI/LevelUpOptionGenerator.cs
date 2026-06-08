@@ -194,6 +194,7 @@ public class LevelUpOptionGenerator
         switch (upgradeId)
         {
             case "bleed": case "poison": case "burn": case "frostbite":
+            case "static": case "dark": case "light":
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
                 return BuildRoute.DotType;
             case "radiate": case "contaminate":
@@ -218,7 +219,7 @@ public class LevelUpOptionGenerator
         if (_customUpgradeStacks.ContainsKey("agony")) dotEnhanceTypes++;
         if (_customUpgradeStacks.ContainsKey("wither")) dotEnhanceTypes++;
         if (_customUpgradeStacks.ContainsKey("erosion")) dotEnhanceTypes++;
-        float dotProgress = (dotGunCount / 4f) * 0.5f + (dotEnhanceTypes / 5f) * 0.5f;
+        float dotProgress = (dotGunCount / 7f) * 0.5f + (dotEnhanceTypes / 5f) * 0.5f;
 
         int detCount = 0;
         if (_customUpgradeStacks.ContainsKey("radiate")) detCount++;
@@ -305,7 +306,8 @@ public class LevelUpOptionGenerator
     {
         if (_mageUpgradeConfig != null)
             return _mageUpgradeConfig.IsDotGunUpgrade(upgradeId);
-        return upgradeId == "bleed" || upgradeId == "poison" || upgradeId == "burn" || upgradeId == "frostbite";
+        return upgradeId == "bleed" || upgradeId == "poison" || upgradeId == "burn" || upgradeId == "frostbite"
+            || upgradeId == "static" || upgradeId == "dark" || upgradeId == "light";
     }
 
     public DotGunConfig? GetDotGunForUpgrade(string upgradeId)
@@ -326,6 +328,9 @@ public class LevelUpOptionGenerator
             case "poison": return new DotGunConfig { type = StatusEffectType.Poison, cooldown = 2.0f, dotDps = 3f, dotDuration = 5f };
             case "burn": return new DotGunConfig { type = StatusEffectType.Burn, cooldown = 0.2f, impactDmg = 2, dotDps = 2f, dotDuration = 3f };
             case "frostbite": return new DotGunConfig { type = StatusEffectType.Frostbite, cooldown = 2.0f, impactDmg = 6, dotDps = 2f, dotDuration = 3f };
+            case "static": return new DotGunConfig { type = StatusEffectType.Static, cooldown = 1.0f, impactDmg = 5 };
+            case "dark": return new DotGunConfig { type = StatusEffectType.Dark, cooldown = 3.0f };
+            case "light": return new DotGunConfig { type = StatusEffectType.Light, cooldown = 5.0f };
             default: return null;
         }
     }

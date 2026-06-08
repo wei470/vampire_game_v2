@@ -109,9 +109,14 @@ public class DetonateSystem : MonoBehaviour
 
     private float GetChargeMultiplier(float chargeTime)
     {
-        if (chargeTime >= 3f) return 3f;
-        if (chargeTime >= 2f) return 2f;
-        if (chargeTime >= 1f) return 1.5f;
+        // 蓄力精通：蓄力速度加成（等效缩短蓄力需求时间）
+        float speedBonus = _magePassive != null ? _magePassive.ChargeSpeedBonus : 0f;
+        float effectiveTime = chargeTime * (1f + speedBonus);
+        // 蓄力精通：满蓄力额外伤害
+        float extraDmg = _magePassive != null ? _magePassive.ChargeDamageBonus : 0f;
+        if (effectiveTime >= 3f) return 3f + extraDmg;
+        if (effectiveTime >= 2f) return 2f + extraDmg * 0.5f;
+        if (effectiveTime >= 1f) return 1.5f;
         return 1f;
     }
 
@@ -191,9 +196,9 @@ public class DetonateSystem : MonoBehaviour
             bool hadEffect = false;
             int enemyDmg = 0;
 
+            DetonateResult detResult = default;
             if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
             {
-                DetonateResult detResult;
                 int dmg = sem.Detonate(_detonateMultiplier, critChance, critMult, out detResult);
                 if (dmg > 0) { totalDamage += dmg; enemyDmg += dmg; hadEffect = true; }
                 if (detResult.hadBurn) { anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, detResult.burnStacks); }
@@ -208,6 +213,23 @@ public class DetonateSystem : MonoBehaviour
 
             if (enemy.TryGetComponent<PoisonStackEffect>(out var poison))
             { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
+
+            // 元素引爆：每种不同DOT额外造成固定伤害
+            if (hadEffect && _magePassive.DetonateExtraPerDot > 0 && sem != null)
+            {
+                int dotCount = 0;
+                if (detResult.hadPoison) dotCount++;
+                if (detResult.hadBurn) dotCount++;
+                if (detResult.hadFrost) dotCount++;
+                if (bleed != null) dotCount++;
+                if (dotCount > 0)
+                {
+                    int burstDmg = Mathf.RoundToInt(dotCount * _magePassive.DetonateExtraPerDot);
+                    d.TakeDamage(burstDmg, new Color(0.9f, 0.6f, 1f));
+                    totalDamage += burstDmg;
+                    enemyDmg += burstDmg;
+                }
+            }
 
             if (hadEffect)
             {
@@ -245,6 +267,101 @@ public class DetonateSystem : MonoBehaviour
             _chainDetonateEndTime = Time.time + 3f;
             _lastDetonateEnemyCount = enemiesHit;
             _magePassive.SyncDotDamageMultiplierToAll();
+        }
+
+        // ── 霜爆：霜冻减速80%+的敌人引爆时额外造成最大生命百分比冰霜伤害 ──
+        if (_magePassive.FrostExplosionPct > 0)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy == null || !enemy.activeInHierarchy) continue;
+                Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+                if (delta.sqrMagnitude > radiusSqr) continue;
+                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
+                if (!enemy.TryGetComponent<FrostEffect>(out var frost)) continue;
+                if (frost._slowPercent >= 0.80f)
+                {
+                    int frostDmg = Mathf.Max(1, Mathf.RoundToInt(d.MaxHp * _magePassive.FrostExplosionPct));
+                    d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
+                    totalDamage += frostDmg;
+                    CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
+                    DamagePopup.Create(enemy.transform.position, frostDmg, new Color(0.4f, 0.8f, 1f), false);
+                }
+            }
+        }
+
+        // ── 末日审判：引爆时3种以上DOT，秒杀HP低于阈值的敌人 ──
+        if (_magePassive.DoomsdayThreshold > 0)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy == null || !enemy.activeInHierarchy) continue;
+                Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+                if (delta.sqrMagnitude > radiusSqr) continue;
+                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
+                if (!enemy.TryGetComponent<StatusEffectManager>(out var sem2)) continue;
+                int dotTypes = 0;
+                foreach (var eff in sem2.ActiveEffects) if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
+                if (dotTypes >= 3 && d.HpPercent <= _magePassive.DoomsdayThreshold)
+                {
+                    int killDmg = d.CurrentHp;
+                    d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
+                    totalDamage += killDmg;
+                    DamagePopup.Create(enemy.transform.position, killDmg, new Color(1f, 0.2f, 0f), false, "DOOMSDAY!");
+                    CombatManager.CreateExplosionEffect(enemy.transform.position, 4f, new Color(1f, 0.1f, 0f), 0.8f);
+                }
+            }
+        }
+
+        // ── 连锁反应：引爆杀死敌人时触发二次引爆 ──
+        if (_magePassive.ChainReactionCount > 0)
+        {
+            int secondaryCount = _magePassive.ChainReactionCount;
+            float secondaryRatio = 0.5f;
+            for (int r = 0; r < secondaryCount; r++)
+            {
+                int secDmg = 0, secHits = 0;
+                for (int i = 0; i < enemies.Count; i++)
+                {
+                    var enemy = enemies[i];
+                    if (enemy == null || !enemy.activeInHierarchy) continue;
+                    Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
+                    if (delta.sqrMagnitude > radiusSqr) continue;
+                    if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
+                    if (!enemy.TryGetComponent<StatusEffectManager>(out var sem3) || !sem3.HasAnyDot) continue;
+                    DetonateResult secResult;
+                    int dmg = sem3.Detonate(_detonateMultiplier * secondaryRatio, critChance, critMult, out secResult);
+                    if (dmg > 0) { secDmg += dmg; secHits++; }
+                }
+                if (secHits > 0)
+                {
+                    totalDamage += secDmg;
+                    secondaryRatio *= 0.5f; // 每次递减
+                    DebugHelper.Log($"[DetonateSystem] ⚡ CHAIN REACTION #{r + 1}! Hit {secHits} for {secDmg}");
+                }
+                else break; // 没有更多目标
+            }
+        }
+
+        // ── 湮灭领域：引爆后留下元素领域 ──
+        if (_magePassive.AnnihilationZoneDmg > 0 && _magePassive.AnnihilationZoneDuration > 0)
+        {
+            FireZone.CreateDefault(transform.position, Mathf.RoundToInt(_magePassive.AnnihilationZoneDmg),
+                _magePassive.AnnihilationZoneDuration, 5f, 0.5f);
+        }
+
+        // ── 相位移动：引爆后回复少量生命作为自保 ──
+        if (_magePassive.PhaseShiftDuration > 0)
+        {
+            var player = GameReferences.Player;
+            if (player != null)
+            {
+                var playerDmg = player.GetComponent<Damageable>();
+                if (playerDmg != null && playerDmg.CurrentHp < playerDmg.MaxHp)
+                    playerDmg.Heal(Mathf.RoundToInt(playerDmg.MaxHp * 0.05f * _magePassive.PhaseShiftDuration));
+            }
         }
 
         if (enemiesHit > 0)

@@ -204,6 +204,7 @@ public class Damageable : MonoBehaviour, IDamageable
         }
 
         OnDamaged?.Invoke(_currentHp, _maxHp);
+        EventManager.TriggerDamage(gameObject, actualDamage, transform.position);
 
         // 玩家受伤后：触发无敌帧 + 受伤闪红
         if (gameObject.CompareTag("Player"))

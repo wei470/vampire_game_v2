@@ -22,6 +22,14 @@ public static class DotBulletHelper
             sem.DotFrequencyBonus = magePassive.DotFrequencyBonus;
             sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
             sem.WindErosionKnockback = magePassive.KnockbackBonus;
+            sem.DotSaturationBonus = magePassive.DotSaturationBonus;
+            sem.DotLifestealPerTick = magePassive.DotLifestealPerTick;
+            sem.OverflowExtraStacks = magePassive.OverflowExtraStacks;
+            // P2 新增强化同步
+            sem.ResonanceChance = magePassive.ResonanceChance;
+            sem.ToxicologyCritBonus = magePassive.ToxicologyCritBonus;
+            sem.CorruptTouchDebuff = magePassive.CorruptTouchDebuff;
+            sem.EternalAgonyDamageMult = magePassive.EternalAgonyActive ? 0.85f : 1f;
         }
     }
 }

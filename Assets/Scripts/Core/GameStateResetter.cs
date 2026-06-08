@@ -12,35 +12,10 @@ public static class GameStateResetter
     /// </summary>
     public static void FullReset()
     {
-        // 0. 强制销毁场景中所有敌人（在销毁 ObjectPool 之前！）
-        // 这是防止敌人跨局残留的关键步骤
-        int enemyCount = 0;
-        foreach (var enemy in Object.FindObjectsByType<EnemyBase>())
-        {
-            if (enemy != null)
-            {
-                Object.DestroyImmediate(enemy.gameObject);
-                enemyCount++;
-            }
-        }
-        // 也销毁所有 Boss
-        foreach (var boss in Object.FindObjectsByType<BossEnemy>())
-        {
-            if (boss != null)
-            {
-                Object.DestroyImmediate(boss.gameObject);
-                enemyCount++;
-            }
-        }
-        // 销毁所有残留子弹/DOT效果
-        foreach (var bullet in GameObject.FindGameObjectsWithTag("Bullet"))
-        {
-            if (bullet != null) Object.DestroyImmediate(bullet);
-        }
-        if (enemyCount > 0)
-            DebugHelper.Log($"[GameStateResetter] Force destroyed {enemyCount} enemies");
+        // 0. 【最高优先级】先冻结时间，防止后续 Update/FixedUpdate 触发
+        Time.timeScale = 0f;
 
-        // 1. 清除所有事件订阅
+        // 1. 【关键】先清除所有事件订阅，防止 Destroy 期间触发回调级联（导致冻结/崩溃）
         EventManager.ClearAll();
 
         // 2. 重置升级相关静态状态
@@ -52,17 +27,18 @@ public static class GameStateResetter
         // 4. 重置角色选择静态数据
         GameSceneBootstrap.ResetCharacter();
 
-        // 5. 销毁所有 DontDestroyOnLoad 单例，确保下次进入干净重建
-        DestroySingleton<ObjectPool>();
-        DestroySingleton<CombatManager>();
-        SaveAndDestroySingleton<SaveManager>();
-        DestroySingleton<OffScreenCuller>();
-
-        // 6. 重置并销毁 SFX 系统
+        // 5. 重置并销毁 SFX 系统（先于 ObjectPool，避免播放音效引用已销毁对象）
         if (SFXManager.Instance != null)
         {
-            SFXManager.Instance.ResetState();
+            SFXManager.Instance.StopAll();
             Object.Destroy(SFXManager.Instance.gameObject);
+        }
+
+        // 6. 重置并销毁 BGM
+        if (BGMManager.Instance != null)
+        {
+            BGMManager.Instance.Stop();
+            Object.Destroy(BGMManager.Instance.gameObject);
         }
 
         // 7. 重置并销毁伤害统计
@@ -71,6 +47,33 @@ public static class GameStateResetter
             DamageMeter.Instance.ResetStats();
             Object.Destroy(DamageMeter.Instance.gameObject);
         }
+
+        // 8. 销毁所有 DontDestroyOnLoad 单例，确保下次进入干净重建
+        DestroySingleton<ObjectPool>();
+        DestroySingleton<CombatManager>();
+        SaveAndDestroySingleton<SaveManager>();
+        DestroySingleton<OffScreenCuller>();
+
+        // 9. 清理场景中残留的敌人/子弹（用 Destroy 而非 DestroyImmediate，避免回调级联）
+        int enemyCount = 0;
+        foreach (var enemy in Object.FindObjectsByType<EnemyBase>())
+        {
+            if (enemy != null)
+            {
+                Object.Destroy(enemy.gameObject);
+                enemyCount++;
+            }
+        }
+        foreach (var boss in Object.FindObjectsByType<BossEnemy>())
+        {
+            if (boss != null)
+            {
+                Object.Destroy(boss.gameObject);
+                enemyCount++;
+            }
+        }
+        if (enemyCount > 0)
+            DebugHelper.Log($"[GameStateResetter] Destroyed {enemyCount} enemies");
     }
 
     private static void DestroySingleton<T>() where T : MonoBehaviour

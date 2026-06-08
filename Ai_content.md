@@ -28,7 +28,12 @@ Assets/Scripts/
 ├ Skills/      ← 8种主动技能
 ├ UI/          ← 所有UI组件
 ├ Map/         ← 地图主题、装饰、环境区域
-├ Audio/       ← BGM + SFXManager
+├ Audio/       ← 音效系统（程序化生成）
+│  ├── SoundTrack.cs          ScriptableObject音效配置包（36种音效）
+│  ├── ProceduralSFX.cs       程序化音效生成器（纯代码，无需音频文件）
+│  ├── SFXManager.cs          音效管理器（单例+对象池+事件驱动）
+│  ├── SFXPoolHelper.cs       音效池工具
+│  ├── BGMManager.cs          背景音乐管理器
 ├ Data/        ← ConfigLoader
 └ ScriptableObjects/ Config/ Characters/ Skills/
 ```
@@ -132,7 +137,35 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - **DebugConfigPanel** — F1键，热加载JSON + 全局倍率
 - **DebugPoolMonitor** — F2键，对象池监控面板
 
-## 12. 关键文件索引
+## 12. 音效系统（V6 新增）
+
+### 架构
+- **`SoundTrack`** (ScriptableObject) — 统一音效配置包，36种音效条目
+- **`ProceduralSFX`** — 纯代码程序化音效生成（正弦波/噪声/频率扫描），无需外部音频文件
+- **`SFXManager`** (单例) — 音效管理器，事件驱动+对象池
+- **`BGMManager`** (单例) — 背景音乐管理器
+
+### 音效分类（36种）
+- 战斗：hit/crit/detonate/dotTick
+- 敌人：enemyDeath/bossSpawn
+- 玩家：playerHurt/playerHeal/levelUp/pickup/coin
+- UI：select/confirm/pause
+- 环境：waveStart/waveComplete
+- 技能（9种）：Cast/Teleport/FrostNova/Lightning/Gravity/DeathAura/Berserk/TheWorld/WindWave
+- 元素DOT（7种）：Bleed/Poison/Burn/Frost/Lightning/Dark/Light
+- 特殊（4种）：combo/shopBuy/achievement/warning
+
+### 已知问题
+- **Damageable.TakeDamage() 未调用 EventManager.TriggerDamage()**，导致子弹命中音效不播放
+- 修复：在 `Damageable.cs` 的 `OnDamaged?.Invoke` 之后添加 `EventManager.TriggerDamage(gameObject, actualDamage, transform.position);`
+
+## 13. Test 模式（V6 更新）
+- **`TestBulletSelectUI`** — 双标签页：子弹选择 + 升级叠加
+- 子弹标签：多选DOT子弹类型
+- 强化标签：+/-按钮调整叠加次数，支持×5/×10/MAX快捷
+- 确认后通过 `MageUpgradeApplier.ApplyUpgrade()` 应用
+
+## 14. 关键文件索引
 
 ### 最常修改
 | 文件 | 说明 |

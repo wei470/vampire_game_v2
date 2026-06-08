@@ -19,6 +19,7 @@ public static class BuildPathRecommender
         switch (upgradeId)
         {
             case "bleed": case "poison": case "burn": case "frostbite":
+            case "static": case "dark": case "light":
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
                 return LevelUpOptionGenerator.BuildRoute.DotType;
             case "radiate": case "contaminate":
@@ -44,7 +45,7 @@ public static class BuildPathRecommender
         if (upgradeStacks.ContainsKey("agony")) dotEnhanceTypes++;
         if (upgradeStacks.ContainsKey("wither")) dotEnhanceTypes++;
         if (upgradeStacks.ContainsKey("erosion")) dotEnhanceTypes++;
-        float dotProgress = (dotGunCount / 4f) * 0.5f + (dotEnhanceTypes / 5f) * 0.5f;
+        float dotProgress = (dotGunCount / 7f) * 0.5f + (dotEnhanceTypes / 5f) * 0.5f;
 
         int detCount = 0;
         if (upgradeStacks.ContainsKey("radiate")) detCount++;

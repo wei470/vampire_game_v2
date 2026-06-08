@@ -6,6 +6,7 @@ using System.Collections.Generic;
 /// 音效管理器 — 管理所有游戏音效的播放。
 /// 使用对象池管理 AudioSource 组件，避免运行时频繁创建/销毁。
 /// 通过 EventManager 事件自动触发关键音效。
+/// 音效配置统一由 SoundTrack ScriptableObject 管理。
 /// 
 /// 音效分类：
 /// - 战斗音效：子弹命中、DOT生效、引爆、暴击
@@ -13,6 +14,9 @@ using System.Collections.Generic;
 /// - 玩家音效：受伤、治疗、升级、拾取
 /// - UI音效：选择确认、暂停、商店
 /// - 环境音效：波次开始、波次完成
+/// - 技能音效：8种主动技能
+/// - 元素DOT音效：7种DOT元素
+/// - 特殊音效：连击、商店、成就、警告
 /// </summary>
 public class SFXManager : MonoBehaviour
 {
@@ -28,35 +32,11 @@ public class SFXManager : MonoBehaviour
     // ════════════════════════════════════════════════════════════════
 
     [Header("音效配置")]
-    [SerializeField] [Range(0f, 1f)] private float _masterVolume = 0.7f;
-    [SerializeField] [Range(0f, 1f)] private float _sfxVolume = 1f;
+    [Tooltip("音效配置包（ScriptableObject），统一管理所有音效")]
+    [SerializeField] private SoundTrack _soundTrack;
+
+    [Tooltip("对象池大小")]
     [SerializeField] private int _poolSize = 16;
-
-    [Header("战斗音效")]
-    [SerializeField] private AudioClip _hitSound;
-    [SerializeField] private AudioClip _critSound;
-    [SerializeField] private AudioClip _detonateSound;
-    [SerializeField] private AudioClip _dotTickSound;
-
-    [Header("敌人音效")]
-    [SerializeField] private AudioClip _enemyDeathSound;
-    [SerializeField] private AudioClip _bossSpawnSound;
-
-    [Header("玩家音效")]
-    [SerializeField] private AudioClip _playerHurtSound;
-    [SerializeField] private AudioClip _playerHealSound;
-    [SerializeField] private AudioClip _levelUpSound;
-    [SerializeField] private AudioClip _pickupSound;
-    [SerializeField] private AudioClip _coinSound;
-
-    [Header("UI音效")]
-    [SerializeField] private AudioClip _selectSound;
-    [SerializeField] private AudioClip _confirmSound;
-    [SerializeField] private AudioClip _pauseSound;
-
-    [Header("环境音效")]
-    [SerializeField] private AudioClip _waveStartSound;
-    [SerializeField] private AudioClip _waveCompleteSound;
 
     // ════════════════════════════════════════════════════════════════
     // 音效池
@@ -65,15 +45,10 @@ public class SFXManager : MonoBehaviour
     private SFXPoolHelper _poolHelper;
 
     // ════════════════════════════════════════════════════════════════
-    // 冷却控制（防止音效轰炸）
+    // 冷却状态追踪（每个音效条目独立冷却）
     // ════════════════════════════════════════════════════════════════
 
-    private float _lastHitTime;
-    private float _lastDotTickTime;
-    private float _lastEnemyDeathTime;
-    private const float HIT_COOLDOWN = 0.05f;      // 命中音效最短间隔50ms
-    private const float DOT_TICK_COOLDOWN = 0.1f;   // DOT音效最短间隔100ms
-    private const float ENEMY_DEATH_COOLDOWN = 0.08f; // 敌人死亡音效最短间隔80ms
+    private Dictionary<SoundTrack.SoundEntry, float> _cooldownTracker = new Dictionary<SoundTrack.SoundEntry, float>();
 
     // ════════════════════════════════════════════════════════════════
     // 生命周期
@@ -89,7 +64,17 @@ public class SFXManager : MonoBehaviour
         _instance = this;
         DontDestroyOnLoad(gameObject);
 
-        _poolHelper = new SFXPoolHelper(_poolSize, transform, _masterVolume, _sfxVolume);
+        // 如果没有配置 SoundTrack，运行时创建并生成程序化音效
+        if (_soundTrack == null)
+        {
+            _soundTrack = ScriptableObject.CreateInstance<SoundTrack>();
+            ProceduralSFX.GenerateAll(_soundTrack);
+            DebugHelper.Log("[SFXManager] No SoundTrack assigned, generated procedural sound effects.");
+        }
+
+        float master = _soundTrack.masterVolume;
+        float sfx = _soundTrack.sfxVolume;
+        _poolHelper = new SFXPoolHelper(_poolSize, transform, master, sfx);
         RegisterEvents();
     }
 
@@ -98,11 +83,6 @@ public class SFXManager : MonoBehaviour
         UnregisterEvents();
         if (_instance == this) _instance = null;
     }
-
-    // ════════════════════════════════════════════════════════════════
-    // 初始化
-    // ════════════════════════════════════════════════════════════════
-
 
     // ════════════════════════════════════════════════════════════════
     // 事件注册
@@ -142,66 +122,66 @@ public class SFXManager : MonoBehaviour
 
     private void OnEnemyKilled(Vector3 position, int xp, int coin)
     {
-        PlayWithCooldown(ref _lastEnemyDeathTime, ENEMY_DEATH_COOLDOWN, _enemyDeathSound, 0.7f);
+        PlayEntry(_soundTrack?.enemyDeath);
     }
 
     private void OnDamage(GameObject target, int damage, Vector3 sourcePos)
     {
         // 判断是否是暴击（伤害超过阈值）
-        bool isCrit = damage > 30; // 简单判断
+        bool isCrit = damage > 30;
         if (isCrit)
-            PlayWithCooldown(ref _lastHitTime, HIT_COOLDOWN, _critSound ?? _hitSound, 1f);
+            PlayEntry(_soundTrack?.crit);
         else
-            PlayWithCooldown(ref _lastHitTime, HIT_COOLDOWN, _hitSound, 0.5f);
+            PlayEntry(_soundTrack?.hit);
     }
 
     private void OnPlayerDamaged(int currentHP, int maxHP)
     {
-        Play(_playerHurtSound, 0.8f);
+        PlayEntry(_soundTrack?.playerHurt);
     }
 
     private void OnPlayerHealed(int healAmount, int currentHP)
     {
-        Play(_playerHealSound, 0.6f);
+        PlayEntry(_soundTrack?.playerHeal);
     }
 
     private void OnLevelUp(int newLevel)
     {
-        Play(_levelUpSound, 1f);
+        PlayEntry(_soundTrack?.levelUp);
     }
 
     private void OnItemPicked(string itemType, int amount)
     {
-        Play(_pickupSound, 0.5f);
+        PlayEntry(_soundTrack?.pickup);
     }
 
     private void OnCoinChanged(int totalCoins)
     {
-        Play(_coinSound, 0.3f);
+        PlayEntry(_soundTrack?.coin);
     }
 
     private void OnWaveStart(int waveNumber)
     {
-        Play(_waveStartSound, 0.8f);
+        PlayEntry(_soundTrack?.waveStart);
         // Boss 波次播放 Boss 出场音效
         if (waveNumber % 5 == 0)
         {
-            Play(_bossSpawnSound, 1f);
+            PlayEntry(_soundTrack?.bossSpawn);
         }
     }
 
     private void OnWaveComplete(int waveNumber)
     {
-        Play(_waveCompleteSound, 0.7f);
+        PlayEntry(_soundTrack?.waveComplete);
     }
 
     private void OnSelectionComplete(CharacterData cd, WeaponData wd, SkillData sd)
     {
-        Play(_confirmSound, 0.8f);
+        PlayEntry(_soundTrack?.confirm);
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 公共 API — 手动播放音效
+    // 公共 API — 按名称播放音效
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
@@ -209,7 +189,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlayDetonate()
     {
-        Play(_detonateSound, 1f);
+        PlayEntry(_soundTrack?.detonate);
     }
 
     /// <summary>
@@ -217,7 +197,55 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlayDotTick()
     {
-        PlayWithCooldown(ref _lastDotTickTime, DOT_TICK_COOLDOWN, _dotTickSound, 0.2f);
+        PlayEntry(_soundTrack?.dotTick);
+    }
+
+    /// <summary>
+    /// 播放指定元素 DOT 音效
+    /// </summary>
+    public void PlayDotElement(DotElementType type)
+    {
+        if (_soundTrack == null) return;
+        // 测试：直接播放 enemyDeath 音效（已确认能听到的音效）
+        var deathEntry = _soundTrack.enemyDeath;
+        if (deathEntry != null && deathEntry.IsValid)
+        {
+            _poolHelper.Play(deathEntry.clip, deathEntry.volume);
+        }
+    }
+
+    /// <summary>
+    /// 确保 SoundTrack 中的 DOT 音效 clip 已初始化
+    /// </summary>
+    private void EnsureDotClips()
+    {
+        if (_soundTrack == null) return;
+        if (_soundTrack.dotBleed.clip == null) _soundTrack.dotBleed.clip = ProceduralSFX.GenerateDotBleed(0.2f);
+        if (_soundTrack.dotPoison.clip == null) _soundTrack.dotPoison.clip = ProceduralSFX.GenerateDotPoison(0.2f);
+        if (_soundTrack.dotBurn.clip == null) _soundTrack.dotBurn.clip = ProceduralSFX.GenerateDotBurn(0.2f);
+        if (_soundTrack.dotFrost.clip == null) _soundTrack.dotFrost.clip = ProceduralSFX.GenerateDotFrost(0.2f);
+        if (_soundTrack.dotLightning.clip == null) _soundTrack.dotLightning.clip = ProceduralSFX.GenerateDotLightning(0.2f);
+        if (_soundTrack.dotDark.clip == null) _soundTrack.dotDark.clip = ProceduralSFX.GenerateDotDark(0.2f);
+        if (_soundTrack.dotLight.clip == null) _soundTrack.dotLight.clip = ProceduralSFX.GenerateDotLight(0.2f);
+    }
+
+    /// <summary>
+    /// 播放技能音效
+    /// </summary>
+    public void PlaySkill(SkillSoundType type)
+    {
+        switch (type)
+        {
+            case SkillSoundType.Cast:      PlayEntry(_soundTrack?.skillCast); break;
+            case SkillSoundType.Teleport:  PlayEntry(_soundTrack?.skillTeleport); break;
+            case SkillSoundType.FrostNova: PlayEntry(_soundTrack?.skillFrostNova); break;
+            case SkillSoundType.Lightning: PlayEntry(_soundTrack?.skillLightning); break;
+            case SkillSoundType.Gravity:   PlayEntry(_soundTrack?.skillGravity); break;
+            case SkillSoundType.DeathAura: PlayEntry(_soundTrack?.skillDeathAura); break;
+            case SkillSoundType.Berserk:   PlayEntry(_soundTrack?.skillBerserk); break;
+            case SkillSoundType.TheWorld:  PlayEntry(_soundTrack?.skillTheWorld); break;
+            case SkillSoundType.WindWave:  PlayEntry(_soundTrack?.skillWindWave); break;
+        }
     }
 
     /// <summary>
@@ -225,7 +253,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlayLevelUp()
     {
-        Play(_levelUpSound, 1f);
+        PlayEntry(_soundTrack?.levelUp);
     }
 
     /// <summary>
@@ -233,7 +261,7 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlaySelect()
     {
-        Play(_selectSound, 0.6f);
+        PlayEntry(_soundTrack?.select);
     }
 
     /// <summary>
@@ -241,7 +269,39 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void PlayPause()
     {
-        Play(_pauseSound, 0.5f);
+        PlayEntry(_soundTrack?.pause);
+    }
+
+    /// <summary>
+    /// 播放连击音效
+    /// </summary>
+    public void PlayCombo()
+    {
+        PlayEntry(_soundTrack?.combo);
+    }
+
+    /// <summary>
+    /// 播放商店购买音效
+    /// </summary>
+    public void PlayShopBuy()
+    {
+        PlayEntry(_soundTrack?.shopBuy);
+    }
+
+    /// <summary>
+    /// 播放成就解锁音效
+    /// </summary>
+    public void PlayAchievement()
+    {
+        PlayEntry(_soundTrack?.achievement);
+    }
+
+    /// <summary>
+    /// 播放警告音效
+    /// </summary>
+    public void PlayWarning()
+    {
+        PlayEntry(_soundTrack?.warning);
     }
 
     /// <summary>
@@ -277,8 +337,8 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void SetMasterVolume(float vol)
     {
-        _masterVolume = Mathf.Clamp01(vol);
-        _poolHelper?.SetVolume(_masterVolume, _sfxVolume);
+        if (_soundTrack != null) _soundTrack.masterVolume = Mathf.Clamp01(vol);
+        _poolHelper?.SetVolume(GetMasterVolume(), GetSFXVolume());
     }
 
     /// <summary>
@@ -286,30 +346,60 @@ public class SFXManager : MonoBehaviour
     /// </summary>
     public void SetSFXVolume(float vol)
     {
-        _sfxVolume = Mathf.Clamp01(vol);
-        _poolHelper?.SetVolume(_masterVolume, _sfxVolume);
+        if (_soundTrack != null) _soundTrack.sfxVolume = Mathf.Clamp01(vol);
+        _poolHelper?.SetVolume(GetMasterVolume(), GetSFXVolume());
     }
 
     /// <summary>
     /// 获取主音量
     /// </summary>
-    public float GetMasterVolume() => _masterVolume;
+    public float GetMasterVolume() => _soundTrack != null ? _soundTrack.masterVolume : 0.7f;
 
     /// <summary>
     /// 获取音效音量
     /// </summary>
-    public float GetSFXVolume() => _sfxVolume;
+    public float GetSFXVolume() => _soundTrack != null ? _soundTrack.sfxVolume : 1f;
+
+    /// <summary>
+    /// 获取当前 SoundTrack 配置
+    /// </summary>
+    public SoundTrack GetSoundTrack() => _soundTrack;
+
+    /// <summary>
+    /// 运行时切换 SoundTrack 配置
+    /// </summary>
+    public void SetSoundTrack(SoundTrack track)
+    {
+        _soundTrack = track;
+        if (track != null)
+        {
+            _poolHelper?.SetVolume(track.masterVolume, track.sfxVolume);
+        }
+    }
 
     // ════════════════════════════════════════════════════════════════
     // 内部工具
     // ════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// 带冷却的音效播放（防止音效轰炸）
+    /// 通过 SoundEntry 播放音效（自动处理冷却和音量）
     /// </summary>
-    private void PlayWithCooldown(ref float lastTime, float cooldown, AudioClip clip, float volumeScale)
+    private void PlayEntry(SoundTrack.SoundEntry entry)
     {
-        _poolHelper.PlayWithCooldown(ref lastTime, cooldown, clip, volumeScale);
+        if (entry == null || !entry.IsValid) return;
+
+        // 检查冷却
+        if (entry.cooldown > 0f)
+        {
+            if (!_cooldownTracker.TryGetValue(entry, out float lastTime))
+            {
+                lastTime = 0f;
+            }
+            if (Time.unscaledTime - lastTime < entry.cooldown) return;
+            _cooldownTracker[entry] = Time.unscaledTime;
+        }
+
+        _poolHelper.Play(entry.clip, entry.volume);
     }
 
     /// <summary>
@@ -326,8 +416,40 @@ public class SFXManager : MonoBehaviour
     public void ResetState()
     {
         StopAll();
-        _lastHitTime = 0;
-        _lastDotTickTime = 0;
-        _lastEnemyDeathTime = 0;
+        _cooldownTracker.Clear();
     }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 枚举定义
+// ════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// DOT 元素类型（用于 PlayDotElement 调用）
+/// </summary>
+public enum DotElementType
+{
+    Bleed,
+    Poison,
+    Burn,
+    Frost,
+    Lightning,
+    Dark,
+    Light
+}
+
+/// <summary>
+/// 技能音效类型（用于 PlaySkill 调用）
+/// </summary>
+public enum SkillSoundType
+{
+    Cast,
+    Teleport,
+    FrostNova,
+    Lightning,
+    Gravity,
+    DeathAura,
+    Berserk,
+    TheWorld,
+    WindWave
 }

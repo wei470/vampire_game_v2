@@ -1,37 +1,7 @@
-# Cline Workflow & Execution Rules
-
-You are an expert AI developer. Whenever a new task or session starts, you must strictly follow the workflow defined below to ensure context accuracy and high-quality delivery.
-
----
-
-## 1. Pre-requisite Phase (Context Gathering)
-Before making any code changes or responding to the user, you **MUST** read and analyze the following file:
-* **File:** `ai_content.md`
-* **Purpose:** This file contains essential project context, standards, architectural decisions, or specific AI guidelines. 
-* **Action:** Read it completely. Align your understanding with its content. Do not hallucinate assumptions that contradict this file.
 
 ## 2. Task Auto-Execution ("开始" Command)
 
 当用户发送 **"开始"** 时，AI 必须：
-
-1. **读取 `Ai_content.md`** — 获取项目上下文
-2. **读取 `task.md`** — 获取任务列表
-3. **扫描 `task.md` 中的实施路线图**，找到第一个 `[ ]`（未完成）的任务
-4. **自动开始执行该任务**，无需用户进一步确认
-5. **执行完成后**：
-   - 将该任务在 `task.md` 中标记为 `[x] 已完成`，并添加简要完成说明
-   - 自动继续下一个 `[ ]` 任务
-6. **每完成一个任务后**，询问用户："继续下一个任务？还是先测试当前改动？"
-7. **如果用户说"继续"**，则继续执行下一个未完成任务
-8. **如果用户说"测试"**，则暂停任务执行，等待用户反馈
-
-### 任务状态标记规范
-- `[ ]` — 未开始
-- `[x] 已完成：[简要说明]` — 已完成并附带完成说明
-- `[~] 进行中` — 正在执行中
-- `[!] 已跳过：[原因]` — 跳过并附带原因
-
----
 
 ## 3. 上下文节约规则（防止 Invalid API Response）
 
@@ -44,3 +14,32 @@ Before making any code changes or responding to the user, you **MUST** read and 
 6. **replace_in_file 优先**：小改动用 replace_in_file，避免 write_to_file 重写整个文件
 7. **合并连续的工具调用**：能在一次 replace_in_file 中完成的多个 SEARCH/REPLACE 块，合并为一次调用
 8. **不要在思考中重复已有信息**：文件内容已通过工具返回，不要在 thinking 中复述
+
+---
+
+## 4. Mage 专属强化系统实现
+
+当用户发送 **"继续"** 时，AI 必须：
+
+1. **读取 `mage_ench.md`** — 获取 Mage 专属强化设计文档
+2. **读取 `Ai_content.md`** — 获取项目上下文
+
+### 任务状态标记规范
+- `[ ]` — 未开始
+- `[x] 已完成：[简要说明]` — 已完成并附带完成说明
+- `[~] 进行中` — 正在执行中
+- `[!] 已跳过：[原因]` — 跳过并附带原因
+
+---
+
+### 关键文件索引
+| 文件 | 作用 |
+|------|------|
+| `Assets/Scripts/ScriptableObjects/Config/MageUpgradeConfig.cs` | 添加新 UpgradeEntry 条目 |
+| `Assets/Scripts/Player/MagePassive.cs` | 添加新属性字段 + 访问器 |
+| `Assets/Scripts/Player/MageUpgradeApplier.cs` | ApplyUpgrade switch 分支 + 协同检测 |
+| `Assets/Scripts/Combat/StatusEffects/StatusEffectSystem.cs` | DOT 伤害回调联动 |
+| `Assets/Scripts/Player/DetonateSystem.cs` | 引爆联动 |
+| `Assets/Scripts/Combat/StatusEffects/CurseSpreadSystem.cs` | 传播联动 |
+| `Assets/Scripts/Core/GameSceneBootstrap.cs` | 初始化/注册新系统 |
+| `Assets/Scripts/UI/LevelUpOptionGenerator.cs` | 升级选项生成（一般不需要改） |

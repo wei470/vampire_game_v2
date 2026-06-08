@@ -100,6 +100,8 @@ public class LevelUpUI : MonoBehaviour
         if (_levelSystem == null) _levelSystem = GameReferences.Player?.GetComponent<PlayerLevelSystem>();
         if (_weaponController == null) _weaponController = GameReferences.Player?.GetComponent<WeaponController>();
         if (_magePassive == null) _magePassive = GameReferences.Player?.GetComponent<MagePassive>();
+        if (_mageUpgradeConfig == null && _magePassive != null)
+            _mageUpgradeConfig = _magePassive.GetUpgradeConfig();
 
         if (_currentCharacter == null) _currentCharacter = GameSceneBootstrap.CurrentCharacter;
         if (_generator == null) InitGenerator();
