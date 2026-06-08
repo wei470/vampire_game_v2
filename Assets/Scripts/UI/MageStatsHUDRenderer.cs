@@ -90,16 +90,18 @@ public static class MageStatsHUDRenderer
         for (int i = 0; i < guns.Count; i++)
         {
             var gun = guns[i];
-            if (curX + iconSize + 50 > x + maxW) break;
+            if (curX + iconSize + 60 > x + maxW) break;
 
             Texture2D tex = GetDotTextureFromArray(dotTextures, gun.effectType);
             GUI.color = Color.white;
             GUI.DrawTexture(new Rect(curX, y, iconSize, iconSize), tex);
 
+            // 攻速显示（每秒攻击次数 = 1/cooldown）
+            float atkSpeed = gun.cooldown > 0f ? 1f / gun.cooldown : 0f;
             GUI.color = TextSecondary;
-            GUI.Label(new Rect(curX + iconSize + 2, y - 1, 30, iconSize), $"Lv{gun.upgradeLevel}", smallStyle);
+            GUI.Label(new Rect(curX + iconSize + 2, y - 1, 45, iconSize), $"Lv{gun.upgradeLevel} {atkSpeed:F1}/s", smallStyle);
 
-            curX += iconSize + 38;
+            curX += iconSize + 52;
         }
     }
 

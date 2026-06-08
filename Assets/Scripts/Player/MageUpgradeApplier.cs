@@ -132,7 +132,7 @@ public static class MageUpgradeApplier
                 mage.ElementalAffinityBonus += ue.value1;
                 break;
             case CharacterUpgradeOption.UpgradeCategory.Penetrate:
-                mage.PenetrateCount += (int)ue.value1;
+                mage.PiercingBonus += (int)ue.value1;
                 break;
 
             // ── 生存向 ──

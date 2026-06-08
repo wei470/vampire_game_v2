@@ -229,6 +229,11 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **（V7新增）反弹强化移除**：原先"反弹"升级项改为"贯穿"行为；新的属性 `PiercingBonus` 控制穿透数。config `value1=1f`。
 - **（V7新增）穿透系统修复**：原先 `PenetrateHandler` 的触发条件过严（依赖 BulletSpeedBonus）且子弹逻辑先销毁再尝试穿透。修改：将穿透数来源改为 `PiercingBonus`，并在子弹命中逻辑中先检测穿透再决定销毁。
 - **（V7新增）DOT 子弹增强**：痛苦(DotFrequencyBonus) bug 修复：`StatusEffectSystem.DotFrequencyBonus` setter 现在正确调用 `RecalcTickInterval()`。凋零暴击显示放大伤害。侵蚀冲击每5次触发，灰色特效+灰色字体+10%DOT总伤。DOT 每 tick 按元素颜色弹伤害数字。10种组合触发时在敌人头上显示组合名称小字。
+- **（V7新增）贯穿弹修复**：`MageUpgradeApplier` 中 `Penetrate` 类别改为增加 `PiercingBonus`，与 `Ricochet` 统一，确保贯穿强化在正常和test模式都生效。
+- **（V7新增）DOT子弹命中移除直接伤害**：BleedBullet 和 BurnBullet 命中时不再调用 `TakeDamage()`，只施加DOT效果。所有DOT子弹命中0伤害，DOT tick伤害正常显示。
+- **（V7新增）子弹强化需解锁对应子弹**：`LevelUpOptionGenerator` 中新增 `GetRequiredDotGunType()` 方法，子弹强化（shadow_link→Dark、light_judgment→Light、static_field→Static、frost_explosion→Frostbite）需要对应DOT枪已解锁。DOT增强和引爆增强需要至少1种DOT枪。
+- **（V7新增）MageStatsHUD显示子弹攻速**：简化版HUD图标旁显示 `Lv1 0.6/s` 格式（等级+每秒攻击次数）。
+- **（V7新增）蓄力移速惩罚50%**：DetonateSystem 蓄力时移速惩罚从30%改为50%。
 
 ## 15. 重构进度 — 全部完成 ✅
 

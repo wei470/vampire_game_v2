@@ -40,7 +40,7 @@ public class BleedBullet : MonoBehaviour
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
         {
-            dmg.TakeDamage(Mathf.RoundToInt(_impactDamage * _damageMultiplier));
+            // DOT子弹命中不造成直接伤害，只施加DOT效果
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             var bleed = other.GetComponent<BleedEffect>();
             if (bleed == null) bleed = other.gameObject.AddComponent<BleedEffect>();

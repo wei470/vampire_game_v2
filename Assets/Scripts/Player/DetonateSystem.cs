@@ -19,7 +19,7 @@ public class DetonateSystem : MonoBehaviour
     [SerializeField] private float _chainDamageRatio = 0.5f;
 
     [Header("蓄力引爆")]
-    [SerializeField] private float _chargeMoveSpeedPenalty = 0.3f;
+    [SerializeField] private float _chargeMoveSpeedPenalty = 0.5f;
     [SerializeField] private float _chargeMaxTime = 3f;
 
     [Header("运行时状态")]
@@ -46,7 +46,6 @@ public class DetonateSystem : MonoBehaviour
     public int MaxChainCount { get => _maxChainCount; set => _maxChainCount = value; }
 
     // ── 进化系统：引爆时触发所有DOT组合 ──
-    /// <summary>引爆时是否自动触发所有DOT组合效果</summary>
     public bool TriggerAllCombosOnDetonate { get; set; }
     public float ChainRadius { get => _chainRadius; set => _chainRadius = value; }
     public float ChainDamageRatio { get => _chainDamageRatio; set => _chainDamageRatio = value; }
@@ -74,7 +73,7 @@ public class DetonateSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// 获取移动速度倍率（蓄力时减速）
+    /// 获取移动速度倍率（蓄力时减速50%）
     /// </summary>
     public float GetChargeMoveSpeedMultiplier()
     {
@@ -109,10 +108,8 @@ public class DetonateSystem : MonoBehaviour
 
     private float GetChargeMultiplier(float chargeTime)
     {
-        // 蓄力精通：蓄力速度加成（等效缩短蓄力需求时间）
         float speedBonus = _magePassive != null ? _magePassive.ChargeSpeedBonus : 0f;
         float effectiveTime = chargeTime * (1f + speedBonus);
-        // 蓄力精通：满蓄力额外伤害
         float extraDmg = _magePassive != null ? _magePassive.ChargeDamageBonus : 0f;
         if (effectiveTime >= 3f) return 3f + extraDmg;
         if (effectiveTime >= 2f) return 2f + extraDmg * 0.5f;
@@ -214,7 +211,6 @@ public class DetonateSystem : MonoBehaviour
             if (enemy.TryGetComponent<PoisonStackEffect>(out var poison))
             { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
 
-            // 元素引爆：每种不同DOT额外造成固定伤害
             if (hadEffect && _magePassive.DetonateExtraPerDot > 0 && sem != null)
             {
                 int dotCount = 0;
@@ -269,7 +265,7 @@ public class DetonateSystem : MonoBehaviour
             _magePassive.SyncDotDamageMultiplierToAll();
         }
 
-        // ── 霜爆：霜冻减速80%+的敌人引爆时额外造成最大生命百分比冰霜伤害 ──
+        // ── 霜爆 ──
         if (_magePassive.FrostExplosionPct > 0)
         {
             for (int i = 0; i < enemies.Count; i++)
@@ -291,7 +287,7 @@ public class DetonateSystem : MonoBehaviour
             }
         }
 
-        // ── 末日审判：引爆时3种以上DOT，秒杀HP低于阈值的敌人 ──
+        // ── 末日审判 ──
         if (_magePassive.DoomsdayThreshold > 0)
         {
             for (int i = 0; i < enemies.Count; i++)
@@ -315,7 +311,7 @@ public class DetonateSystem : MonoBehaviour
             }
         }
 
-        // ── 连锁反应：引爆杀死敌人时触发二次引爆 ──
+        // ── 连锁反应 ──
         if (_magePassive.ChainReactionCount > 0)
         {
             int secondaryCount = _magePassive.ChainReactionCount;
@@ -338,21 +334,21 @@ public class DetonateSystem : MonoBehaviour
                 if (secHits > 0)
                 {
                     totalDamage += secDmg;
-                    secondaryRatio *= 0.5f; // 每次递减
+                    secondaryRatio *= 0.5f;
                     DebugHelper.Log($"[DetonateSystem] ⚡ CHAIN REACTION #{r + 1}! Hit {secHits} for {secDmg}");
                 }
-                else break; // 没有更多目标
+                else break;
             }
         }
 
-        // ── 湮灭领域：引爆后留下元素领域 ──
+        // ── 湮灭领域 ──
         if (_magePassive.AnnihilationZoneDmg > 0 && _magePassive.AnnihilationZoneDuration > 0)
         {
             FireZone.CreateDefault(transform.position, Mathf.RoundToInt(_magePassive.AnnihilationZoneDmg),
                 _magePassive.AnnihilationZoneDuration, 5f, 0.5f);
         }
 
-        // ── 相位移动：引爆后回复少量生命作为自保 ──
+        // ── 相位移动 ──
         if (_magePassive.PhaseShiftDuration > 0)
         {
             var player = GameReferences.Player;

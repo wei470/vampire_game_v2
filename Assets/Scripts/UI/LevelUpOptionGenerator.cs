@@ -116,6 +116,18 @@ public class LevelUpOptionGenerator
                     if (alreadyOwned) continue;
                 }
 
+                // 子弹强化需要对应子弹已解锁
+                var requiredType = GetRequiredDotGunType(upgrade.upgradeId);
+                if (requiredType.HasValue && _magePassive != null)
+                {
+                    bool hasRequiredGun = false;
+                    foreach (var gun in _magePassive.DotGuns)
+                    {
+                        if (gun.effectType == requiredType.Value) { hasRequiredGun = true; break; }
+                    }
+                    if (!hasRequiredGun) continue;
+                }
+
                 BuildRoute route = BuildPathRecommender.ClassifyUpgradeRoute(upgrade.upgradeId);
                 allSlots.Add(new UpgradeSlot { isCustom = true, customOption = upgrade, buildRoute = route });
             }
@@ -308,6 +320,29 @@ public class LevelUpOptionGenerator
             return _mageUpgradeConfig.IsDotGunUpgrade(upgradeId);
         return upgradeId == "bleed" || upgradeId == "poison" || upgradeId == "burn" || upgradeId == "frostbite"
             || upgradeId == "static" || upgradeId == "dark" || upgradeId == "light";
+    }
+
+    /// <summary>
+    /// 获取升级所需的DOT枪类型（null表示不需要特定DOT枪）
+    /// 子弹强化必须在对应子弹解锁后才能选择
+    /// </summary>
+    public StatusEffectType? GetRequiredDotGunType(string upgradeId)
+    {
+        switch (upgradeId)
+        {
+            // 子弹增强需要对应子弹
+            case "shadow_link": return StatusEffectType.Dark;
+            case "light_judgment": return StatusEffectType.Light;
+            case "static_field": return StatusEffectType.Static;
+            case "frost_explosion": return StatusEffectType.Frostbite;
+            // DOT增强需要至少1种DOT子弹
+            case "corrosion": case "curse": case "agony": case "wither": case "erosion":
+                return StatusEffectType.Poison; // 占位，实际只需检查有DOT枪
+            // 引爆增强需要至少1种DOT子弹
+            case "radiate": case "contaminate":
+                return StatusEffectType.Poison; // 占位
+            default: return null;
+        }
     }
 
     public DotGunConfig? GetDotGunForUpgrade(string upgradeId)
