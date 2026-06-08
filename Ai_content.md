@@ -109,6 +109,7 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - 子弹扩展(3)：弹药精通/元素亲和/贯穿弹
 - 生存(4)：元素护盾/相位移动/灵魂虹吸
 - P3终极(6)：余烬强化/碎裂强化/元素大师/末日审判/永恒痛苦/湮灭领域
+- **升级数量**: 40种（原41种，移除蓄力精通/碎裂强化/末日审判/元素护盾）
 - **实现文件**: `MageUpgradeConfig`(配置) → `MagePassive`(属性) → `MageUpgradeApplier`(应用) → `CharacterUpgradeData`(枚举)
 - **联动文件**: `StatusEffectSystem`(DOT回调) / `DetonateSystem`(引爆) / `CurseSpreadSystem`(传播)
 - **设计文档**: 已归档（删除）
@@ -234,6 +235,11 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **（V7新增）子弹强化需解锁对应子弹**：`LevelUpOptionGenerator` 中新增 `GetRequiredDotGunType()` 方法，子弹强化（shadow_link→Dark、light_judgment→Light、static_field→Static、frost_explosion→Frostbite）需要对应DOT枪已解锁。DOT增强和引爆增强需要至少1种DOT枪。
 - **（V7新增）MageStatsHUD显示子弹攻速**：简化版HUD图标旁显示 `Lv1 0.6/s` 格式（等级+每秒攻击次数）。
 - **（V7新增）蓄力移速惩罚50%**：DetonateSystem 蓄力时移速惩罚从30%改为50%。
+- **（V8新增）Boss测试模式**：主菜单按B键或点击"Boss Test"按钮进入Boss-only模式，每波只生成Boss。
+- **（V8新增）中毒层数上限**：PoisonStackEffect最大20层，修复Boss高频毒伤bug。
+- **（V8新增）PoisonPuddle去重**：移除OnTriggerStay2D，仅保留Update中的ApplyPoisonToNearby。
+- **（V8新增）升级移除**：蓄力精通、碎裂强化、末日审判、元素护盾已从config移除（枚举保留兼容）。
+- **（V8新增）升级描述简化**：所有升级描述改为2-4字+数值格式，如"护甲-10%"、"攻速+15% 速度+10%"。
 
 ## 15. 重构进度 — 全部完成 ✅
 

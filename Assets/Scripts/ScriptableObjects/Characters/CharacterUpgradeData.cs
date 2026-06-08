@@ -63,7 +63,6 @@ public class CharacterUpgradeOption
         DotPandemic,        // 蔓延 — DOT传播效率+15%
         ChainReaction,      // 连锁反应 — 引爆杀死敌人时二次引爆
         DualWield,          // 双持 — 随机DOT枪射速+15%
-        ChargeMastery,      // 蓄力精通 — 蓄力速度+20%，满蓄力伤害+15%
 
         // ── P2 协同/趣味类别 ──
         DotResonance,       // 共鸣 — DOT触发10%不消耗持续时间
@@ -76,7 +75,7 @@ public class CharacterUpgradeOption
         FrostExplosion,     // 霜爆 — 霜冻减速80%+敌人引爆时额外冰霜伤害
 
         // ── 子弹增强扩展类别 ──
-        AmmoMastery,        // 弹药精通 — 子弹速度+20%，射程+15%
+        AmmoMastery,        // 弹药精通 — 子弹速度+20%
         ElementalAffinity,  // 元素亲和 — 每种DOT枪为其他DOT枪提供+3%伤害
         Penetrate,          // 贯穿弹 — DOT枪子弹穿透+1
 
@@ -91,6 +90,6 @@ public class CharacterUpgradeOption
         EternalAgony,       // 永恒痛苦 — DOT持续时间×2，单次伤害-15%
         AnnihilationZone,   // 湮灭领域 — 引爆后留下元素领域
         EmberBoost,         // 余烬强化 — 余烬伤害+25%，持续+1秒
-        ShatterBoost        // 碎裂强化 — 碎片数量+2，碎片伤害+15%
+        ShatterBoost        // 碎裂强化（已弃用）
     }
 }

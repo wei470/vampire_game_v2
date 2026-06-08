@@ -28,6 +28,7 @@ public static class GameReferences
     /// 测试模式标志 — 跳过选择流程，使用默认配置直接开始游戏
     /// </summary>
     public static bool TestMode { get; set; } = false;
+    public static bool BossTestMode { get; set; } = false;
 
     public static void Clear()
     {
@@ -35,6 +36,7 @@ public static class GameReferences
         SpawnManager = null;
         MainCamera = null;
         TestMode = false;
+        BossTestMode = false;
     }
 
     /// <summary>
@@ -46,5 +48,6 @@ public static class GameReferences
         SpawnManager = null;
         MainCamera = null;
         TestMode = false;
+        BossTestMode = false;
     }
 }

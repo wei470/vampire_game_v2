@@ -254,7 +254,6 @@ public class TestBulletSelectUI : MonoBehaviour
             { "DotPandemic", new Color(0.3f, 0.7f, 0.3f) },
             { "ChainReaction", new Color(1f, 0.3f, 0.1f) },
             { "DualWield", new Color(0.5f, 0.5f, 0.9f) },
-            { "ChargeMastery", new Color(0.7f, 0.5f, 1f) },
             { "DotResonance", new Color(0.4f, 0.4f, 1f) },
             { "Toxicology", new Color(0.2f, 0.8f, 0.3f) },
             { "CorruptTouch", new Color(0.5f, 0.2f, 0.6f) },

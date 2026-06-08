@@ -208,6 +208,42 @@ public class MenuSceneBootstrap : MonoBehaviour
 
         btn.onClick.AddListener(StartTestMode);
         DebugHelper.Log("[MenuBootstrap] Test Mode button created dynamically");
+
+        // Boss测试按钮
+        CreateBossTestButton(canvas);
+    }
+
+    private void CreateBossTestButton(Canvas canvas)
+    {
+        var bossBtnObj = new GameObject("BossTestButton");
+        bossBtnObj.transform.SetParent(canvas.transform, false);
+
+        var bossImg = bossBtnObj.AddComponent<Image>();
+        bossImg.color = new Color(0.8f, 0.2f, 0.2f);
+
+        var bossBtn = bossBtnObj.AddComponent<Button>();
+        var rect = bossBtnObj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.18f);
+        rect.anchorMax = new Vector2(0.5f, 0.18f);
+        rect.sizeDelta = new Vector2(280, 50);
+        rect.anchoredPosition = new Vector2(0f, -60f);
+
+        var textObj = new GameObject("ButtonText");
+        textObj.transform.SetParent(bossBtnObj.transform, false);
+        var text = textObj.AddComponent<Text>();
+        text.text = "Boss Test (B)";
+        text.font = UIFontProvider.DefaultFont;
+        text.fontSize = 24;
+        text.color = UIColorTheme.TextPrimary;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.fontStyle = FontStyle.Bold;
+        var textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.sizeDelta = Vector2.zero;
+
+        bossBtn.onClick.AddListener(StartBossTestMode);
+        DebugHelper.Log("[MenuBootstrap] Boss Test button created dynamically");
     }
 
     /// <summary>
@@ -252,6 +288,12 @@ public class MenuSceneBootstrap : MonoBehaviour
             StartTestMode();
         }
 
+        // 按B键进入Boss测试模式
+        if (kb.bKey.wasPressedThisFrame)
+        {
+            StartBossTestMode();
+        }
+
         // #43 按 D 键开始每日挑战
         if (Keyboard.current.dKey.wasPressedThisFrame)
         {
@@ -272,6 +314,34 @@ public class MenuSceneBootstrap : MonoBehaviour
 
         // 激活每日挑战模式
         DailyChallengeSystem.ActivateDailyChallenge();
+
+        EventManager.ClearAll();
+        MagnetMultiplierSystem.Reset();
+
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string path = SceneUtility.GetScenePathByBuildIndex(i);
+            if (path.Contains("GameScene"))
+            {
+                SceneManager.LoadScene(path);
+                return;
+            }
+        }
+
+        if (System.IO.File.Exists("Assets/Scenes/GameScene.unity"))
+        {
+            SceneManager.LoadScene("Assets/Scenes/GameScene.unity");
+        }
+    }
+
+    /// <summary>
+    /// Boss测试模式 — 只有Boss出现，5波一波Boss
+    /// </summary>
+    private void StartBossTestMode()
+    {
+        DebugHelper.Log("[MenuBootstrap] Starting BOSS TEST mode...");
+        GameReferences.TestMode = true;
+        GameReferences.BossTestMode = true;
 
         EventManager.ClearAll();
         MagnetMultiplierSystem.Reset();

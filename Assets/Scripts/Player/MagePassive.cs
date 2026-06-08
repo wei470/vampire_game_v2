@@ -43,8 +43,8 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _pandemicBonus = 0f;        // 蔓延：传播效率加成
     [SerializeField] private int _chainReactionCount = 0;      // 连锁反应：二次引爆次数
     [SerializeField] private float _dualWieldBonus = 0f;       // 双持：射速加成
-    [SerializeField] private float _chargeSpeedBonus = 0f;     // 蓄力精通：蓄力速度加成
-    [SerializeField] private float _chargeDamageBonus = 0f;    // 蓄力精通：满蓄力伤害加成
+    [SerializeField] private float _chargeSpeedBonus = 0f;     // 引爆蓄力速度加成
+    [SerializeField] private float _chargeDamageBonus = 0f;    // 引爆蓄力伤害加成
 
     [Header("P2 协同/趣味属性")]
     [SerializeField] private float _resonanceChance = 0f;      // 共鸣：不消耗持续时间几率
@@ -60,7 +60,7 @@ public class MagePassive : MonoBehaviour
 
     [Header("子弹增强扩展属性")]
     [SerializeField] private float _ammoSpeedBonus = 0f;       // 弹药精通：子弹速度加成
-    [SerializeField] private float _ammoRangeBonus = 0f;       // 弹药精通：射程加成
+    [SerializeField] private float _ammoRangeBonus = 0f;       // 弹药精通：范围加成
     [SerializeField] private float _elementalAffinityBonus = 0f; // 元素亲和：每枪加成
     [SerializeField] private int _penetrateCount = 0;          // 贯穿弹：穿透数
 

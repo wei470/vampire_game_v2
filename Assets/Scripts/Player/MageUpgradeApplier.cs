@@ -87,11 +87,6 @@ public static class MageUpgradeApplier
             case CharacterUpgradeOption.UpgradeCategory.DualWield:
                 mage.DualWieldBonus += ue.value1;
                 break;
-            case CharacterUpgradeOption.UpgradeCategory.ChargeMastery:
-                mage.ChargeSpeedBonus += ue.value1;
-                mage.ChargeDamageBonus += ue.value2;
-                break;
-
             // ── P2 协同/趣味 ──
             case CharacterUpgradeOption.UpgradeCategory.DotResonance:
                 mage.ResonanceChance += ue.value1;

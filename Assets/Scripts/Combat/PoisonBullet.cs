@@ -196,16 +196,7 @@ public class PoisonPuddle : MonoBehaviour
         ApplyPoisonToNearby();
     }
 
-    private void OnTriggerStay2D(Collider2D other)
-    {
-        if (!other.CompareTag("Enemy")) return;
-        if (Time.time - _lastTick < 0.5f) return;
-        var dmg = other.GetComponent<Damageable>();
-        if (dmg == null || dmg.CurrentHp <= 0) return;
-        var poison = other.GetComponent<PoisonStackEffect>();
-        if (poison == null) poison = other.gameObject.AddComponent<PoisonStackEffect>();
-        poison.AddStack(_baseDps, _duration - (Time.time - _spawnTime), _canCrit, _critChance, _critMult);
-    }
+    // OnTriggerStay2D 已移除 — 避免与 Update 中 ApplyPoisonToNearby 重复叠毒
 
     private void ApplyPoisonToNearby()
     {
@@ -249,11 +240,13 @@ public class PoisonStackEffect : MonoBehaviour
     private const float TICK_DECAY = 0.9f;
     private const float MIN_TICK_INTERVAL = 0.2f;
     private const int DAMAGE_PER_TICK = 2;
+    private const int MAX_STACKS = 20;
 
     public int StackCount => _stacks;
 
     public void AddStack(float dps, float remainingTime, bool canCrit, float critChance, float critMult)
     {
+        if (_stacks >= MAX_STACKS) return;
         _stacks++;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }

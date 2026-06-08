@@ -130,7 +130,18 @@ public class SpawnManager : MonoBehaviour
         _currentSpecialWave = _configHelper.GetSpecialWaveType(_currentWave);
         bool isBossWave = _configHelper.IsBossWave(_currentWave);
 
-        if (isBossWave)
+        // Boss测试模式：每波都是Boss，5波一波Boss
+        if (GameReferences.BossTestMode)
+        {
+            int bossHp = _configHelper.GetBossHP(_currentWave, HpMultiplier);
+
+            if (SpawnWarningUI.Instance != null)
+                SpawnWarningUI.Instance.ShowBossWarning($"Boss Wave {_currentWave}");
+
+            DebugHelper.Log($"[SpawnManager] ⚔️ BOSS TEST MODE Wave {_currentWave}! Boss HP={bossHp}");
+            SpawnBoss(bossHp);
+        }
+        else if (isBossWave)
         {
             int bossHp = _configHelper.GetBossHP(_currentWave, HpMultiplier);
             int bossMinions = _configHelper.GetBossMinions(_currentWave, enemyCount);
