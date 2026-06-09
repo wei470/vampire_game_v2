@@ -78,8 +78,8 @@ public class BurnBullet : MonoBehaviour
         var centerEnemy = sourceBurn.GetComponent<WindErosionEffect>();
         if (centerEnemy == null || !centerEnemy.ConsumeStack()) return;
 
-        // 燃烧扩散范围（缩小为原来的30%：5 * 0.3 = 1.5）
-        const float SPREAD_RADIUS = 1.5f;
+        // 燃烧扩散范围（1.5 * 5 = 7.5）
+        const float SPREAD_RADIUS = 7.5f;
         float radiusSqr = SPREAD_RADIUS * SPREAD_RADIUS;
 
         // 视觉特效：燃烧扩散爆发
