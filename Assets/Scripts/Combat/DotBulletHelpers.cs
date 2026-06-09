@@ -140,6 +140,30 @@ public static class DotBulletVisualEffects
         go.AddComponent<SpinEffect>().Init(spinSpeed);
     }
 
+    public static void AttachWindTrail(GameObject go)
+    {
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.15f;
+        trail.startWidth = 0.1f;
+        trail.endWidth = 0.02f;
+        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.startColor = new Color(0.7f, 0.85f, 1f, 0.6f);
+        trail.endColor = new Color(0.7f, 0.85f, 1f, 0f);
+        trail.numCapVertices = 2;
+        trail.minVertexDistance = 0.03f;
+        trail.sortingOrder = 14;
+
+        // 风粒子光晕
+        var glow = new GameObject("WindGlow");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = Vector3.zero;
+        glow.transform.localScale = Vector3.one * 1.3f;
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sprite = DotSpriteCache.CircleSprite();
+        glowSr.color = new Color(0.7f, 0.85f, 1f, 0.2f);
+        glowSr.sortingOrder = 14;
+    }
+
     public static void AttachLightningTrail(GameObject go)
     {
         var trail = go.AddComponent<TrailRenderer>();

@@ -19,7 +19,7 @@ public static class BuildPathRecommender
         switch (upgradeId)
         {
             case "bleed": case "poison": case "burn": case "frostbite":
-            case "static": case "dark": case "light":
+            case "static": case "dark": case "light": case "wind":
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
                 return LevelUpOptionGenerator.BuildRoute.DotType;
             case "radiate": case "contaminate":

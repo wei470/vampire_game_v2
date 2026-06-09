@@ -24,6 +24,7 @@ public static class DotBulletFactory
         Register(StatusEffectType.Static, SpawnStatic);
         Register(StatusEffectType.Dark, SpawnDark);
         Register(StatusEffectType.Light, SpawnLight);
+        Register(StatusEffectType.WindErosion, SpawnWind);
     }
 
     public static void Register(StatusEffectType type, BulletSpawner spawner)
@@ -129,6 +130,29 @@ public static class DotBulletFactory
             laserLength, laserWidth, markDuration, markMaxStacks, 0.7f);
         controller.BeginCharge();
         return controller.gameObject;
+    }
+
+    private static GameObject SpawnWind(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
+        float bulletSpeedMult, float durMult, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        float speed = 24f * bulletSpeedMult; // 高子弹速度
+        // 风子弹散射5发：-15°, -7.5°, 0°, +7.5°, +15°（总30°扇形）
+        float[] angles = { -15f, -7.5f, 0f, 7.5f, 15f };
+        GameObject firstGo = null;
+        for (int i = 0; i < angles.Length; i++)
+        {
+            float rad = angles[i] * Mathf.Deg2Rad;
+            Vector2 spreadDir = new Vector2(
+                dir.x * Mathf.Cos(rad) - dir.y * Mathf.Sin(rad),
+                dir.x * Mathf.Sin(rad) + dir.y * Mathf.Cos(rad)
+            ).normalized;
+            var go = WindBullet.Create(pos, spreadDir, speed, gun.impactDamage,
+                dmgMult, canCrit, critChance, critMult)?.gameObject;
+            AttachRicochetIfAvailable(go);
+            if (i == 0) firstGo = go;
+        }
+        return firstGo;
     }
 
     /// <summary>

@@ -153,16 +153,8 @@ public static class MageUpgradeApplier
                 break;
             // ShatterBoost(碎裂强化)已删除 — 空操作保留兼容
             case CharacterUpgradeOption.UpgradeCategory.ShatterBoost: break;
-            case CharacterUpgradeOption.UpgradeCategory.ElementalMaster:
-                if (mage.DotGuns.Count >= 5)
-                {
-                    mage.AddDotDurationBonus(ue.value1);
-                    mage.DetonateCooldownValue *= (1f - ue.value2);
-                    var p = GameReferences.Player;
-                    if (p != null) DamagePopup.Create(p.transform.position + Vector3.up * 3f, 0, new Color(1f, 0.85f, 0f), false, "★ ELEMENTAL MASTER!");
-                    if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
-                }
-                break;
+            // ElementalMaster(元素大师)已删除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.ElementalMaster: break;
             case CharacterUpgradeOption.UpgradeCategory.Doomsday:
                 mage.DoomsdayThreshold += ue.value2;
                 break;

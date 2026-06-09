@@ -43,6 +43,7 @@ public static class PoolHelper
     public const string DOT_FROST_BULLET = "DotBullet_Frost";
     public const string DOT_LIGHTNING_BULLET = "DotBullet_Lightning";
     public const string DOT_DARK_BULLET = "DotBullet_Dark";
+    public const string DOT_WIND_BULLET = "DotBullet_Wind";
     public const string DOT_POISON_PUDDLE = "DotEffect_PoisonPuddle";
 
     // ── 掉落物池键常量 ──

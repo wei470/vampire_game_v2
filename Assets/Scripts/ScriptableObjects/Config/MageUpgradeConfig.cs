@@ -91,6 +91,18 @@ public class MageUpgradeConfig : ScriptableObject
             impactDmg = 0,
             dotDps = 0f,
             dotDuration = 0f
+        },
+        new DotGunEntry
+        {
+            upgradeId = "wind",
+            effectType = StatusEffectType.WindErosion,
+            displayName = "风 (Wind)",
+            description = "获得风子弹",
+            color = new Color(0.7f, 0.85f, 1f),
+            cooldown = 1.5f,
+            impactDmg = 0,
+            dotDps = 0f,
+            dotDuration = 0f
         }
     };
 
@@ -311,14 +323,6 @@ public class MageUpgradeConfig : ScriptableObject
             description = "余烬伤害+25% 持续+1秒",
             category = CharacterUpgradeOption.UpgradeCategory.EmberBoost,
             value1 = 0.25f, value2 = 1f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "elemental_master",
-            upgradeName = "元素大师 (Elemental Master)",
-            description = "DOT持续+25% 引爆CD-20%",
-            category = CharacterUpgradeOption.UpgradeCategory.ElementalMaster,
-            value1 = 0.25f, value2 = 0.20f, value3 = 0f, maxStacks = 1
         },
         new UpgradeEntry
         {

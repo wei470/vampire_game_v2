@@ -206,7 +206,7 @@ public class LevelUpOptionGenerator
         switch (upgradeId)
         {
             case "bleed": case "poison": case "burn": case "frostbite":
-            case "static": case "dark": case "light":
+            case "static": case "dark": case "light": case "wind":
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
                 return BuildRoute.DotType;
             case "radiate": case "contaminate":
@@ -319,7 +319,7 @@ public class LevelUpOptionGenerator
         if (_mageUpgradeConfig != null)
             return _mageUpgradeConfig.IsDotGunUpgrade(upgradeId);
         return upgradeId == "bleed" || upgradeId == "poison" || upgradeId == "burn" || upgradeId == "frostbite"
-            || upgradeId == "static" || upgradeId == "dark" || upgradeId == "light";
+            || upgradeId == "static" || upgradeId == "dark" || upgradeId == "light" || upgradeId == "wind";
     }
 
     /// <summary>
