@@ -219,13 +219,17 @@ public class StaticStackEffect : MonoBehaviour
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;
-    private float _originalSpeed;
-    private bool _speedCaptured;
     private Damageable _damageable;
     private SpriteRenderer _sr;
     private Color _originalColor;
+    private DotColorBlender _blender;
 
     public int StackCount => _stackCount;
+
+    /// <summary>
+    /// 当前是否处于硬直状态（供FrostEffect等其他DOT效果查询）
+    /// </summary>
+    public bool HasStun() => Time.time < _stunEndTime;
 
     /// <summary>
     /// 添加一层静电并触发效果
@@ -248,6 +252,10 @@ public class StaticStackEffect : MonoBehaviour
             ApplyStun(STUN_DURATION_HIT);
         }
 
+        // 视觉特效：每次命中都播放静电闪烁
+        CombatManager.CreateExplosionEffect(transform.position, isFirstStack ? 1.2f : 0.6f, 
+            new Color(0.4f, 0.8f, 1f), isFirstStack ? 0.4f : 0.2f);
+
         // 重新计算冷却（重置定时器）
         _lastTickTime = Time.time;
         DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s, First={isFirstStack}");
@@ -267,13 +275,18 @@ public class StaticStackEffect : MonoBehaviour
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null)
         {
-            if (!_speedCaptured)
-            {
-                _originalSpeed = _enemyBase.MoveSpeed;
-                _speedCaptured = true;
-            }
-            _enemyBase.MoveSpeed = 0f;
+            // 通过集中管理接口设置硬直标志
+            _enemyBase.IsStaticStunned = true;
         }
+    }
+
+    /// <summary>
+    /// 恢复移动速度 — 清除硬直标志，EnemyBase.FixedUpdate 会自动重新计算速度
+    /// </summary>
+    private void RestoreSpeedAfterStun()
+    {
+        if (_enemyBase == null) return;
+        _enemyBase.IsStaticStunned = false;
     }
 
     private void OnEnable()
@@ -281,8 +294,6 @@ public class StaticStackEffect : MonoBehaviour
         _stackCount = 0;
         _lastTickTime = Time.time;
         _stunEndTime = 0f;
-        _speedCaptured = false;
-        if (_sr != null) _sr.color = _originalColor;
     }
 
     private void Start()
@@ -291,6 +302,7 @@ public class StaticStackEffect : MonoBehaviour
         _damageable = GetComponent<Damageable>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
+        _blender = GetComponent<DotColorBlender>();
         _lastTickTime = Time.time;
     }
 
@@ -299,22 +311,27 @@ public class StaticStackEffect : MonoBehaviour
         if (_stackCount <= 0) return;
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 硬直期间暂停移动 + 闪烁效果
+        // 通过 DotColorBlender 更新静电颜色贡献（闪烁效果）
+        if (_blender == null) _blender = GetComponent<DotColorBlender>();
+        if (_blender != null)
+        {
+            float intensity = Mathf.Clamp01(_stackCount / 10f);
+            float pulseSpeed = (Time.time < _stunEndTime) ? 20f : 12f;
+            _blender.RegisterDot("static", DotColorBlender.STATIC_CYAN, intensity, pulseSpeed);
+        }
+
+        // 硬直期间保持暂停标志
         if (Time.time < _stunEndTime)
         {
-            if (_enemyBase != null) _enemyBase.MoveSpeed = 0f;
-            if (_sr != null)
-            {
-                float flash = Mathf.Sin(Time.time * 20f) > 0 ? 0.7f : 0.3f;
-                _sr.color = Color.Lerp(_originalColor, new Color(0.3f, 0.8f, 1f), flash);
-            }
+            if (_enemyBase != null) _enemyBase.IsStaticStunned = true;
         }
-        else if (_speedCaptured && _enemyBase != null)
+        else
         {
-            // 硬直结束，恢复移动速度
-            _enemyBase.MoveSpeed = _originalSpeed;
-            _speedCaptured = false;
-            if (_sr != null) _sr.color = _originalColor;
+            // 硬直结束，清除暂停标志
+            if (_enemyBase != null && _enemyBase.IsStaticStunned)
+            {
+                RestoreSpeedAfterStun();
+            }
         }
 
         // 定时触发静电放电
@@ -344,28 +361,27 @@ public class StaticStackEffect : MonoBehaviour
 
     private void Cleanup()
     {
-        if (_enemyBase != null && _speedCaptured)
+        if (_enemyBase != null)
         {
-            _enemyBase.MoveSpeed = _originalSpeed;
-            _speedCaptured = false;
+            RestoreSpeedAfterStun();
         }
-        if (_sr != null) _sr.color = _originalColor;
+        UnregisterColor();
         Destroy(this);
     }
+    private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("static"); }
 
     private void OnDisable()
     {
-        if (_enemyBase != null && _speedCaptured)
+        if (_enemyBase != null && _stackCount > 0)
         {
-            _enemyBase.MoveSpeed = _originalSpeed;
-            _speedCaptured = false;
+            RestoreSpeedAfterStun();
         }
     }
 
     private void OnDestroy()
     {
-        if (_enemyBase != null && _speedCaptured)
-            _enemyBase.MoveSpeed = _originalSpeed;
-        if (_sr != null) _sr.color = _originalColor;
+        if (_enemyBase != null && _stackCount > 0)
+            RestoreSpeedAfterStun();
+        UnregisterColor();
     }
 }

@@ -38,12 +38,23 @@ public class EnemyBase : BaseEntity
     public bool SkipSpecialAbility => _skipSpecialAbility;
 
     public float MoveSpeed { get => _moveSpeed; set => _moveSpeed = value; }
+    /// <summary>
+    /// 基础移速（初始值），供DOT效果恢复使用，避免多效果叠加时速度错乱
+    /// </summary>
+    public float BaseMoveSpeed { get; private set; }
     public int ContactDamage => _contactDamage;
+
+    // ── 集中速度管理（FrostEffect/StaticStackEffect 只设置这些标志，不直接改 MoveSpeed） ──
+    /// <summary>霜冻减速乘数（0~1，1=无减速，0=完全停止）</summary>
+    public float FrostSlowMultiplier { get; set; } = 1f;
+    /// <summary>是否处于静电硬直中</summary>
+    public bool IsStaticStunned { get; set; } = false;
 
     protected override void Awake()
     {
         base.Awake();
         _rb = GetComponent<Rigidbody2D>();
+        BaseMoveSpeed = _moveSpeed; // 缓存初始移速
         _damageable = GetComponent<Damageable>();
         _killRewarder = GetComponent<KillRewarder>();
         _rb.gravityScale = 0f;
@@ -66,6 +77,11 @@ public class EnemyBase : BaseEntity
         PhysicsLayerSetup.SetAsEnemy(gameObject); // #17 Enemy Layer
         base.OnEnable(); // 重置 _alive = true
         RegisterDeathEvent();
+
+        // 对象池回收时重置移速到基础值（避免上一次DOT效果残留的减速/暂停）
+        _moveSpeed = BaseMoveSpeed;
+        FrostSlowMultiplier = 1f;
+        IsStaticStunned = false;
 
         // 对象池回收时重置血条状态（组件已在 Awake 中创建）
         if (_damageable == null)
@@ -162,7 +178,9 @@ public class EnemyBase : BaseEntity
         if (ShouldUpdateThisFrame || _lastAiUpdateFrame < 0)
         {
             Vector2 direction = (_target.position - transform.position).normalized;
-            _rb.linearVelocity = direction * _moveSpeed * DebugConfigPanel.DebugEnemySpeedMultiplier;
+            // 集中计算实际速度：基础速度 × 霜冻减速 × 静电硬直
+            float effectiveSpeed = IsStaticStunned ? 0f : BaseMoveSpeed * FrostSlowMultiplier;
+            _rb.linearVelocity = direction * effectiveSpeed * DebugConfigPanel.DebugEnemySpeedMultiplier;
             _lastAiUpdateFrame = _globalFrameCounter;
         }
     }
@@ -233,6 +251,7 @@ public class EnemyBase : BaseEntity
     public void Setup(float speed, int damage, int xpReward, int coinReward)
     {
         _moveSpeed = speed;
+        BaseMoveSpeed = speed; // 同步基础移速，供DOT效果恢复使用
         _contactDamage = damage;
         _killRewarder.SetRewards(xpReward, coinReward);
     }

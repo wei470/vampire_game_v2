@@ -31,7 +31,8 @@ public class TemporaryBuffSystem : MonoBehaviour
     private List<ActiveBuff> _activeBuffs = new List<ActiveBuff>();
 
     // 原始值缓存
-    private float _originalMoveSpeed = -1f;
+    #pragma warning disable CS0414
+    private float _originalMoveSpeed = -1f; // 保留用于未来扩展
     private int _originalArmor = 0;
 
     public bool HasBuff(BuffType type)

@@ -128,21 +128,17 @@ public class FrostEffect : MonoBehaviour
     public bool _canCrit; public float _critChance, _critMult;
     private EnemyBase _enemyBase;
     private Damageable _damageable;
-    private float _originalSpeed;
     private SpriteRenderer _sr;
     private Color _originalColor;
-    private bool _speedCaptured;
+    private DotColorBlender _blender;
     private int _frostStacks = 0;
-    private int _lastVisualStacks = -1; // 上次更新视觉的层数，避免重复更新颜色
 
     private const float BASE_SLOW = 0.30f;
     private const float PER_STACK_SLOW = 0.05f;
     private const float MAX_SLOW = 0.90f;
-    private const float SPEED_CHECK_INTERVAL = 0.5f;
-    private float _nextSpeedCheckTime;
 
     /// <summary>
-    /// 施加霜冻减速（永久直到敌人死亡）
+    /// 施加霜冻减速 — 通过 EnemyBase.FrostSlowMultiplier 集中管理
     /// </summary>
     public void ApplyFreeze(float freezeDuration, float slowPercent, float frostDps,
         bool canCrit, float critChance, float critMult)
@@ -152,24 +148,14 @@ public class FrostEffect : MonoBehaviour
         _frostStacks++;
         _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
 
+        // 确保已捕获原始颜色（ApplyFreeze可能在Start之前被调用）
+        EnsureColorCaptured();
+
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null)
         {
-            if (!_speedCaptured)
-            {
-                _originalSpeed = _enemyBase.MoveSpeed;
-                _speedCaptured = true;
-            }
-            // 永久减速，不设时间限制
-            _enemyBase.MoveSpeed = _originalSpeed * (1f - _slowPercent);
-        }
-
-        // 只在层数变化时更新视觉效果
-        if (_sr != null && _frostStacks != _lastVisualStacks)
-        {
-            float t = Mathf.Min(1f, _frostStacks * 0.1f); // 层数越多越蓝
-            _sr.color = Color.Lerp(_originalColor, new Color(0.3f, 0.5f, 1f), Mathf.Lerp(0.2f, 0.7f, t));
-            _lastVisualStacks = _frostStacks;
+            // 通过集中管理接口设置减速乘数
+            _enemyBase.FrostSlowMultiplier = 1f - _slowPercent;
         }
     }
 
@@ -177,19 +163,30 @@ public class FrostEffect : MonoBehaviour
 
     private void OnEnable()
     {
-        RestoreSpeed();
-        _speedCaptured = false;
         _slowPercent = 0f;
         _frostStacks = 0;
         _frostDps = 0f;
+        // 恢复霜冻减速乘数（对象池复用时）
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
+        if (_enemyBase != null) _enemyBase.FrostSlowMultiplier = 1f;
     }
 
     private void Start()
     {
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         _damageable = GetComponent<Damageable>();
-        _sr = GetComponent<SpriteRenderer>();
-        if (_sr != null) _originalColor = _sr.color;
+        _blender = GetComponent<DotColorBlender>();
+        EnsureColorCaptured();
+    }
+
+    /// <summary>确保已捕获原始颜色（ApplyFreeze可能在Start之前被调用）</summary>
+    private void EnsureColorCaptured()
+    {
+        if (_sr == null)
+        {
+            _sr = GetComponent<SpriteRenderer>();
+            if (_sr != null) _originalColor = _sr.color;
+        }
     }
 
     private void Update()
@@ -197,35 +194,50 @@ public class FrostEffect : MonoBehaviour
         // 敌人死亡时清理
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 降频：每0.5秒检查一次速度，而非每帧
-        if (Time.time >= _nextSpeedCheckTime)
+        // 每帧同步霜冻减速乘数到 EnemyBase（由 EnemyBase.FixedUpdate 统一计算速度）
+        if (_frostStacks > 0 && _enemyBase != null)
         {
-            _nextSpeedCheckTime = Time.time + SPEED_CHECK_INTERVAL;
-            if (_enemyBase != null && _speedCaptured)
-            {
-                float targetSpeed = _originalSpeed * (1f - _slowPercent);
-                if (Mathf.Abs(_enemyBase.MoveSpeed - targetSpeed) > 0.01f)
-                    _enemyBase.MoveSpeed = targetSpeed;
-            }
+            _enemyBase.FrostSlowMultiplier = 1f - _slowPercent;
         }
+    }
+
+    /// <summary>
+    /// 在 LateUpdate 中设置颜色，确保在 DotColorBlender 之后执行
+    /// 1层≈3%蓝，5层≈15%蓝，20层≈60%蓝，34层以上完全蓝色
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (_frostStacks <= 0 || _sr == null) return;
+        if (_damageable == null || _damageable.CurrentHp <= 0) return;
+
+        // 注销 DotColorBlender 的 frost 注册（我们自己管理颜色）
+        if (_blender != null) _blender.UnregisterDot("frost");
+
+        float intensity = Mathf.Clamp01(_frostStacks / 34f);
+        _sr.color = Color.Lerp(_originalColor, DotColorBlender.FROST_BLUE, intensity);
     }
 
     private void Cleanup()
     {
-        RestoreSpeed();
+        // 恢复霜冻减速乘数
+        if (_enemyBase != null) _enemyBase.FrostSlowMultiplier = 1f;
+        // 恢复原始颜色
         if (_sr != null) _sr.color = _originalColor;
+        UnregisterColor();
         Destroy(this);
     }
-
-    private void RestoreSpeed()
+    private void UnregisterColor()
     {
-        if (_enemyBase != null && _speedCaptured)
-        {
-            _enemyBase.MoveSpeed = _originalSpeed;
-            _speedCaptured = false;
-        }
+        if (_blender != null) _blender.UnregisterDot("frost");
     }
 
-    private void OnDisable() { RestoreSpeed(); }
-    private void OnDestroy() { RestoreSpeed(); if (_sr != null) _sr.color = _originalColor; }
+    private void OnDisable()
+    {
+        // 恢复霜冻减速乘数
+        if (_enemyBase != null && _frostStacks > 0) _enemyBase.FrostSlowMultiplier = 1f;
+        // 恢复原始颜色
+        if (_sr != null && _frostStacks > 0) _sr.color = _originalColor;
+        UnregisterColor();
+    }
+    private void OnDestroy() { UnregisterColor(); }
 }

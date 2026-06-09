@@ -19,7 +19,7 @@ MonoBehaviour:
   icon: {fileID: 0}
   characterColor: {r: 0.7058824, g: 0.15686275, b: 0.7058824, a: 1}
   maxHP: 1000
-  moveSpeed: 3.5
+  moveSpeed: 7.0
   armor: 0
   attackDamage: 12
   attackCooldown: 0.5

@@ -20,7 +20,7 @@ public class CharacterData : ScriptableObject
 
     [Header("基础属性")]
     public int maxHP = 1000;
-    public float moveSpeed = 3.5f;
+    public float moveSpeed = 7.0f;
     public int armor = 0;
 
     [Header("攻击属性")]

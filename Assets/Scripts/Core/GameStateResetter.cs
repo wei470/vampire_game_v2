@@ -16,7 +16,7 @@ public static class GameStateResetter
         Time.timeScale = 0f;
 
         // 0.5 停止场景中所有 MonoBehaviour 协程（防止 WaitForSeconds 卡死）
-        var allMono = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        var allMono = Object.FindObjectsByType<MonoBehaviour>();
         if (allMono != null)
         {
             for (int i = 0; i < allMono.Length; i++)
@@ -76,6 +76,9 @@ public static class GameStateResetter
         SaveAndDestroySingletonImmediate<SaveManager>();
         DestroySingletonImmediate<OffScreenCuller>();
 
+        // 8.5 清理场景中残留的战斗对象（毒雾池、DOT子弹、火焰区域等）
+        CleanupLingeringCombatObjects();
+
         // 9. 清理场景中残留的敌人
         int enemyCount = 0;
         foreach (var enemy in Object.FindObjectsByType<EnemyBase>())
@@ -96,6 +99,9 @@ public static class GameStateResetter
         }
         if (enemyCount > 0)
             DebugHelper.Log($"[GameStateResetter] Destroyed {enemyCount} enemies");
+
+        // 9.5 清除 ChainLine 等临时特效对象
+        CleanupTempEffects();
 
         // 10. 清除 DamagePopup 对象池
         DamagePopup.ResetPool();
@@ -118,6 +124,106 @@ public static class GameStateResetter
             SaveManager.Instance.Save();
             Object.DestroyImmediate(SaveManager.Instance.gameObject);
         }
+    }
+
+    /// <summary>
+    /// 清理所有战斗残留物：毒雾池、DOT子弹、火焰区域等
+    /// </summary>
+    private static void CleanupLingeringCombatObjects()
+    {
+        int count = 0;
+
+        // 清理毒液池
+        foreach (var obj in Object.FindObjectsByType<PoisonPuddle>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理DOT子弹（毒/雷/冰/火/暗）
+        foreach (var obj in Object.FindObjectsByType<PoisonBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+        foreach (var obj in Object.FindObjectsByType<LightningBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+        foreach (var obj in Object.FindObjectsByType<FrostBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+        foreach (var obj in Object.FindObjectsByType<BurnBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+        foreach (var obj in Object.FindObjectsByType<DarkBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理火焰区域
+        foreach (var obj in Object.FindObjectsByType<FireZone>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理毒药瓶
+        foreach (var obj in Object.FindObjectsByType<PoisonPotion>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理其他通用投射物（子弹、弹幕）
+        foreach (var obj in Object.FindObjectsByType<Projectile>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理追踪投射物
+        foreach (var obj in Object.FindObjectsByType<HomingProjectile>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理敌人子弹
+        foreach (var obj in Object.FindObjectsByType<EnemyBullet>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理地雷陷阱
+        foreach (var obj in Object.FindObjectsByType<MineTrap>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        // 清理毒液飞镖
+        foreach (var obj in Object.FindObjectsByType<VenomDart>())
+        {
+            if (obj != null) { Object.DestroyImmediate(obj.gameObject); count++; }
+        }
+
+        if (count > 0)
+            DebugHelper.Log($"[GameStateResetter] Destroyed {count} lingering combat objects");
+    }
+
+    /// <summary>
+    /// 清理临时特效对象（连锁闪电线条等）
+    /// </summary>
+    private static void CleanupTempEffects()
+    {
+        // 清理场景中所有名为 "ChainLine" 的临时特效
+        int count = 0;
+        foreach (var obj in Object.FindObjectsByType<GameObject>())
+        {
+            if (obj != null && obj.name == "ChainLine")
+            {
+                Object.DestroyImmediate(obj);
+                count++;
+            }
+        }
+        if (count > 0)
+            DebugHelper.Log($"[GameStateResetter] Destroyed {count} temp effect objects");
     }
 
     private static T GetSingletonInstance<T>() where T : MonoBehaviour

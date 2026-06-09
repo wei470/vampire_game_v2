@@ -239,6 +239,15 @@ public class PoisonPuddle : MonoBehaviour
     {
         _radius = radius; _duration = duration; _baseDps = baseDps;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
+        // 立即应用半径到scale和collider（OnEnable时_radius可能为0）
+        ApplyRadius();
+    }
+
+    private void ApplyRadius()
+    {
+        transform.localScale = Vector3.one * _radius;
+        if (_cachedCol == null) _cachedCol = GetComponent<CircleCollider2D>();
+        if (_cachedCol != null) { _cachedCol.isTrigger = true; _cachedCol.radius = _radius; }
     }
 
     private void Awake()
@@ -250,9 +259,7 @@ public class PoisonPuddle : MonoBehaviour
     private void OnEnable()
     {
         _spawnTime = Time.time; _lastTick = Time.time - 0.5f;
-        transform.localScale = Vector3.one * _radius;
-        if (_cachedCol == null) _cachedCol = GetComponent<CircleCollider2D>();
-        if (_cachedCol != null) { _cachedCol.isTrigger = true; _cachedCol.radius = _radius; }
+        ApplyRadius();
         if (_cachedSr != null) _cachedSr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f);
     }
 
@@ -337,10 +344,8 @@ public class PoisonStackEffect : MonoBehaviour
     private int _stacks;
     public bool _canCrit; public float _critChance, _critMult;
     private float _tickAccumulator;
-    private float _lastVisualUpdate;
     private Damageable _damageable;
-    private SpriteRenderer _sr;
-    private Color _originalColor;
+    private DotColorBlender _blender;
     private const float BASE_TICK_INTERVAL = 1f;
     private const float TICK_DECAY = 0.9f;
     private const float MIN_TICK_INTERVAL = 0.2f;
@@ -359,8 +364,7 @@ public class PoisonStackEffect : MonoBehaviour
     private void Start()
     {
         _damageable = GetComponent<Damageable>();
-        _sr = GetComponent<SpriteRenderer>();
-        if (_sr != null) _originalColor = _sr.color;
+        _blender = GetComponent<DotColorBlender>();
     }
 
     private void Update()
@@ -368,11 +372,12 @@ public class PoisonStackEffect : MonoBehaviour
         if (_stacks <= 0) { Cleanup(); return; }
         if (_damageable != null && _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        if (_sr != null && Time.time - _lastVisualUpdate >= 0.15f)
+        // 通过 DotColorBlender 更新中毒颜色贡献
+        if (_blender == null) _blender = DotBulletHelper.EnsureColorBlender(gameObject);
+        if (_blender != null)
         {
-            _lastVisualUpdate = Time.time;
-            float pulse = Mathf.Sin(Time.time * 8f) * 0.3f;
-            _sr.color = Color.Lerp(_originalColor, new Color(0.1f, 0.8f, 0.1f), 0.5f + pulse * 0.2f);
+            float intensity = Mathf.Clamp01(_stacks / 10f);
+            _blender.RegisterDot("poison", DotColorBlender.POISON_GREEN, intensity, 6f);
         }
 
         float tickInterval = BASE_TICK_INTERVAL;
@@ -388,6 +393,7 @@ public class PoisonStackEffect : MonoBehaviour
         }
     }
 
-    private void Cleanup() { if (_sr != null) _sr.color = _originalColor; _stacks = 0; Destroy(this); }
-    private void OnDestroy() { if (_sr != null) _sr.color = _originalColor; }
+    private void Cleanup() { UnregisterColor(); _stacks = 0; Destroy(this); }
+    private void OnDestroy() { UnregisterColor(); }
+    private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("poison"); }
 }

@@ -7,6 +7,17 @@ using UnityEngine;
 public static class DotBulletHelper
 {
     /// <summary>
+    /// 确保敌人有 DotColorBlender（颜色混合系统）
+    /// </summary>
+    public static DotColorBlender EnsureColorBlender(GameObject enemy)
+    {
+        var blender = enemy.GetComponent<DotColorBlender>();
+        if (blender == null)
+            blender = enemy.AddComponent<DotColorBlender>();
+        return blender;
+    }
+
+    /// <summary>
     /// 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
     /// </summary>
     public static void EnsureStatusEffectManager(GameObject enemy)

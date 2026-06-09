@@ -88,7 +88,7 @@ public class MenuSceneCreator
         GameObject subtitleObj = new GameObject("Subtitle");
         subtitleObj.transform.SetParent(canvasObj.transform, false);
         Text subtitleText = subtitleObj.AddComponent<Text>();
-        subtitleText.text = "Unity Remake - Inc 0~7";
+        subtitleText.text = "";
         subtitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         subtitleText.fontSize = 24;
         subtitleText.color = new Color(0.6f, 0.6f, 0.7f);
@@ -183,7 +183,7 @@ public class MenuSceneCreator
         GameObject helpObj = new GameObject("HelpText");
         helpObj.transform.SetParent(canvasObj.transform, false);
         Text helpText = helpObj.AddComponent<Text>();
-        helpText.text = "WASD=Move  Mouse=Aim  E=Skill  ESC=Pause  R=Restart";
+        helpText.text = "WASD=Move  Mouse=Aim  E=Detonate  F=Skill  ESC=Pause  R=Restart";
         helpText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         helpText.fontSize = 16;
         helpText.color = new Color(0.5f, 0.5f, 0.5f);

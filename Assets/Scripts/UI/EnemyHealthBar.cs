@@ -93,8 +93,15 @@ public class EnemyHealthBar : MonoBehaviour
 
         if (currentHp >= 1f)
         {
-            // 确保满血时血条隐藏，然后跳过后续更新
-            if (_lastHpPercent >= 1f) return;
+            // 确保满血时血条隐藏，但仍需更新DOT指示器（雷电/霜冻不造成伤害但需要显示叠层）
+            if (_lastHpPercent >= 1f)
+            {
+                // 满血时跳过血条更新，但DOT指示器仍需刷新
+                if (_dotIndicator != null)
+                    _dotIndicator.Update(gameObject);
+                _barTransform.rotation = Quaternion.identity;
+                return;
+            }
         }
 
         // 距离优化：远距离敌人降低更新频率

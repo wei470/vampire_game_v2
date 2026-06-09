@@ -17,7 +17,8 @@ public class StatusEffectManager : MonoBehaviour
     private float _lastTickTime;
     private const float BASE_TICK_INTERVAL = 0.5f;
     private float _tickInterval = 0.5f;
-    private int _erosionDotHitCount;
+    #pragma warning disable CS0414
+    private int _erosionDotHitCount; // 侵蚀冲击计数器（保留用于未来扩展）
     private DotParticleVFX _dotVFX;
     private EnemyDotResistance _dotResistance;
     private DotComboSystem _comboSystem;

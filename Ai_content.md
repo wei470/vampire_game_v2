@@ -242,6 +242,12 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **（V8新增）PoisonPuddle去重**：移除OnTriggerStay2D，仅保留Update中的ApplyPoisonToNearby。
 - **（V8新增）升级移除**：蓄力精通、碎裂强化、末日审判、元素护盾、侵蚀、溢出弹已从config移除（枚举保留兼容）。
 - **（V8新增）升级描述简化**：所有升级描述改为2-4字+数值格式，如"护甲-10%"、"攻速+15% 速度+10%"。
+- **（V10新增）敌人速度集中管理**：EnemyBase新增 `FrostSlowMultiplier`（霜冻减速乘数）和 `IsStaticStunned`（静电硬直标志），FixedUpdate统一计算实际速度 `effectiveSpeed = IsStaticStunned ? 0f : BaseMoveSpeed * FrostSlowMultiplier`。FrostEffect和StaticStackEffect不再直接修改MoveSpeed，只设置标志
+- **（V10新增）霜冻变蓝视觉**：FrostEffect在LateUpdate中根据霜冻层数逐渐变蓝（1层≈3%蓝，5层≈15%蓝，20层≈60%蓝，34层以上完全蓝色），通过`_frostStacks/34f`计算强度
+- **（V10新增）静电命中特效**：StaticStackEffect.AddStack()每次命中播放青色爆炸特效（首次1.2f，后续0.6f）
+- **（V10新增）角色速度×2**：所有8个角色初始速度×2（Warrior 5.6, Mage 7.0, Necromancer 6.4, Berserker 7.6, Ranger 9.0, Paladin 5.0, Vampire 7.0, Assassin 10.0）
+- **（V10新增）废弃API清理**：GameStateResetter移除FindObjectsSortMode参数
+- **修改文件**：EnemyBase/FrostBullet/LightningBullet/DotColorBlender/GameStateResetter/StatusEffectSystem/TemporaryBuffSystem/CharacterData/GameDataLoader + 8个角色.asset
 
 ## 15. 重构进度 — 全部完成 ✅
 

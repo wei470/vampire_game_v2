@@ -127,12 +127,8 @@ public class BurnStackEffect : MonoBehaviour
     public bool _canCrit; public float _critChance, _critMult;
     private float _lastTick;
     private Damageable _damageable;
-    private SpriteRenderer _sr;
-    private Color _originalColor;
+    private DotColorBlender _blender;
     private float _tickAccumulator;
-    private int _lastVisualStacks = -1; // 只在层数变化时更新视觉
-    private float _lastVisualUpdate;
-    private const float VISUAL_UPDATE_INTERVAL = 0.15f;
 
     public void AddStack(float baseDps, float duration, bool canCrit, float critChance, float critMult)
     {
@@ -146,22 +142,20 @@ public class BurnStackEffect : MonoBehaviour
     private void Start()
     {
         _damageable = GetComponent<Damageable>();
-        _sr = GetComponent<SpriteRenderer>();
-        if (_sr != null) _originalColor = _sr.color;
+        _blender = GetComponent<DotColorBlender>();
         _lastTick = Time.time;
     }
 
     private void Update()
     {
-        if (_damageable == null || _damageable.CurrentHp <= 0 || _stacks <= 0) { _stacks = 0; if (_sr != null) _sr.color = _originalColor; Destroy(this); return; }
+        if (_damageable == null || _damageable.CurrentHp <= 0 || _stacks <= 0) { _stacks = 0; UnregisterColor(); Destroy(this); return; }
 
-        // 只在层数变化时更新视觉，降频到0.15s
-        if (_sr != null && (_stacks != _lastVisualStacks || Time.time - _lastVisualUpdate >= VISUAL_UPDATE_INTERVAL))
+        // 通过 DotColorBlender 更新燃烧颜色贡献
+        if (_blender == null) _blender = GetComponent<DotColorBlender>();
+        if (_blender != null)
         {
-            _lastVisualUpdate = Time.time;
-            _lastVisualStacks = _stacks;
-            float pulse = Mathf.Sin(Time.time * 10f) * 0.3f;
-            _sr.color = Color.Lerp(_originalColor, new Color(1f, 0.5f + pulse, 0f), 0.6f);
+            float intensity = Mathf.Clamp01(_stacks / 10f);
+            _blender.RegisterDot("burn", DotColorBlender.BURN_ORANGE, intensity, 10f);
         }
 
         float tickInterval = Mathf.Max(0.2f, 1.0f / _stacks);
@@ -179,8 +173,6 @@ public class BurnStackEffect : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        if (_sr != null) _sr.color = _originalColor;
-    }
+    private void OnDestroy() { UnregisterColor(); }
+    private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("burn"); }
 }
