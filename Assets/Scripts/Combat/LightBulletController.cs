@@ -300,33 +300,37 @@ public class LightMarkEffect : MonoBehaviour
         return 1f + _stackCount * 0.005f;
     }
 
+    private TextMesh _cachedTextMesh; // 缓存 TextMesh 组件
+    private int _lastDisplayStacks = -1; // 只在层数变化时更新文字
+
     private void UpdateStackText()
     {
         if (_stackTextObj == null)
         {
-            // 不设为子物体，手动跟随位置，避免被敌人旋转/缩放影响
             _stackTextObj = new GameObject("LightMarkText");
             _stackTextObj.transform.localScale = Vector3.one * 0.3f;
 
-            var tm = _stackTextObj.AddComponent<TextMesh>();
-            tm.characterSize = 0.2f;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.fontSize = 40;
-            tm.color = new Color(1f, 1f, 0.8f);
-            tm.fontStyle = FontStyle.Bold;
+            _cachedTextMesh = _stackTextObj.AddComponent<TextMesh>();
+            _cachedTextMesh.characterSize = 0.2f;
+            _cachedTextMesh.anchor = TextAnchor.MiddleCenter;
+            _cachedTextMesh.alignment = TextAlignment.Center;
+            _cachedTextMesh.fontSize = 40;
+            _cachedTextMesh.color = new Color(1f, 1f, 0.8f);
+            _cachedTextMesh.fontStyle = FontStyle.Bold;
+            _lastDisplayStacks = -1; // 强制首次更新
         }
 
-        // 每帧更新位置到敌人头顶，保持固定旋转
-        _stackTextObj.transform.position = transform.position + new Vector3(0, 0.6f, 0);
-        _stackTextObj.transform.rotation = Quaternion.identity;
-
-        var textMesh = _stackTextObj.GetComponent<TextMesh>();
-        if (textMesh != null)
+        // 只在层数变化时更新文字内容
+        if (_stackCount != _lastDisplayStacks)
         {
-            textMesh.text = $"x{_stackCount}";
-            float t = Mathf.Clamp01(_stackCount / 50f);
-            textMesh.color = Color.Lerp(new Color(1f, 1f, 0.7f), new Color(1f, 0.9f, 0.3f), t);
+            _lastDisplayStacks = _stackCount;
+            if (_cachedTextMesh == null) _cachedTextMesh = _stackTextObj.GetComponent<TextMesh>();
+            if (_cachedTextMesh != null)
+            {
+                _cachedTextMesh.text = $"x{_stackCount}";
+                float t = Mathf.Clamp01(_stackCount / 50f);
+                _cachedTextMesh.color = Color.Lerp(new Color(1f, 1f, 0.7f), new Color(1f, 0.9f, 0.3f), t);
+            }
         }
     }
 

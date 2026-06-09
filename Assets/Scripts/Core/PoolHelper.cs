@@ -37,6 +37,14 @@ public static class PoolHelper
     public const string EXPLOSION_VFX = "ExplosionVFX";
     public const string LIGHTNING_LINE = "LightningLine";
 
+    // ── DOT子弹池键常量 ──
+    public const string DOT_POISON_BULLET = "DotBullet_Poison";
+    public const string DOT_BURN_BULLET = "DotBullet_Burn";
+    public const string DOT_FROST_BULLET = "DotBullet_Frost";
+    public const string DOT_LIGHTNING_BULLET = "DotBullet_Lightning";
+    public const string DOT_DARK_BULLET = "DotBullet_Dark";
+    public const string DOT_POISON_PUDDLE = "DotEffect_PoisonPuddle";
+
     // ── 掉落物池键常量 ──
     public const string XP_GEM = "Loot_XPGem";
     public const string COIN = "Loot_Coin";

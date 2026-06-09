@@ -204,7 +204,7 @@ public class DamagePopup : MonoBehaviour
     }
 
     /// <summary>
-    /// 创建 DOT 伤害数字（按 DOT 类型着色）
+    /// 创建 DOT 伤害数字（按 DOT 类型着色，字号比普通伤害大20%便于区分）
     /// </summary>
     public static void CreateDOT(Vector3 position, int damage, string dotType)
     {
@@ -219,7 +219,19 @@ public class DamagePopup : MonoBehaviour
             "light" => ColorLight,
             _ => Color.white
         };
-        Create(position, damage, color, false);
+        // DOT伤害数字使用更大字号，便于与普通伤害区分
+        InitPool();
+        var popup = GetFromPool();
+        popup.Reset(position, color, 0.8f, 2f, false);
+        if (popup._textMesh != null)
+        {
+            popup._textMesh.text = damage.ToString();
+            popup._textMesh.fontSize = 72; // 比普通60大20%
+            popup._textMesh.fontStyle = FontStyle.Normal;
+            popup._textMesh.characterSize = 0.14f; // 比普通0.12大
+        }
+        if (popup._meshRenderer != null)
+            popup._meshRenderer.sortingOrder = 100;
     }
 
     /// <summary>

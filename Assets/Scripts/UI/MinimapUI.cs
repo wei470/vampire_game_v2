@@ -86,7 +86,6 @@ public class MinimapUI : MonoBehaviour
         DrawEnvironmentZones(center, scale, playerPos);
         DrawLootDots(center, scale, playerPos);
         DrawEnemyDots(center, scale, playerPos);
-        DrawEliteDots(center, scale, playerPos);
 
         // ── 玩家（荧光青色大点）──
         DrawDot(center - 3, center - 3, 6, _playerColor);
@@ -126,41 +125,56 @@ public class MinimapUI : MonoBehaviour
         _bossFlashTimer -= Time.unscaledDeltaTime;
         bool bossFlash = _bossFlashTimer > 0f && Mathf.Sin(Time.unscaledTime * 12f) > 0f;
 
-        var enemies = FindObjectsByType<EnemyBase>();
-        foreach (var enemy in enemies)
+        // 优化：使用 SpawnManager.ActiveEnemies 代替 FindObjectsByType
+        // 合并精英绘制到单次遍历，限制最大显示数量
+        var spawnMgr = GameReferences.SpawnManager;
+        IReadOnlyList<UnityEngine.GameObject> activeEnemies = spawnMgr?.ActiveEnemies;
+        if (activeEnemies == null) return;
+
+        int drawCount = 0;
+        const int MAX_DOTS = 40; // 小地图最多显示40个敌人点
+
+        for (int i = 0; i < activeEnemies.Count && drawCount < MAX_DOTS; i++)
         {
-            if (enemy == null) continue;
-            Vector3 offset = enemy.transform.position - playerPos;
+            var enemyGo = activeEnemies[i];
+            if (enemyGo == null || !enemyGo.activeInHierarchy) continue;
+
+            Vector3 offset = enemyGo.transform.position - playerPos;
             float dist = offset.magnitude;
             if (dist > _worldRange) continue;
 
             float px = center + offset.x * scale;
             float py = center - offset.y * scale;
 
-            bool isBoss = enemy is BossEnemy;
-            float dotSize = isBoss ? 6f : 3f;
-            
-            // #26 Boss 闪烁效果
-            Color dotColor;
+            // 检查精英（合并 DrawEliteDots 逻辑）
+            var elite = enemyGo.GetComponent<EliteModifierSystem>();
+            bool isElite = elite != null && elite.IsElite;
+
+            // 检查 Boss
+            bool isBoss = enemyGo.GetComponent<BossEnemy>() != null;
+
             if (isBoss)
             {
-                dotColor = bossFlash
-                    ? new Color(1f, 0.2f, 0.2f, 1f) // 亮红闪烁
+                Color dotColor = bossFlash
+                    ? new Color(1f, 0.2f, 0.2f, 1f)
                     : UIColorTheme.AccentPink;
-                dotSize = bossFlash ? 8f : 6f;
+                float bossSize = bossFlash ? 8f : 6f;
+                DrawDot(px - bossSize / 2, py - bossSize / 2, bossSize, dotColor);
+                DrawDot(px - 4, py - 8, 2, new Color(1f, 0.85f, 0.2f, 0.8f)); // 金色顶部标记
+            }
+            else if (isElite)
+            {
+                // 精英：橙色菱形
+                DrawDot(px - 4, py - 4, 8, new Color(1f, 0.5f, 0f, 0.3f)); // 光晕
+                DrawDot(px - 3, py - 3, 6, new Color(1f, 0.6f, 0.1f));     // 精英点
             }
             else
             {
-                dotColor = _enemyColor;
+                // 普通敌人
+                DrawDot(px - 1.5f, py - 1.5f, 3, _enemyColor);
             }
-            
-            DrawDot(px - dotSize / 2, py - dotSize / 2, dotSize, dotColor);
-            
-            // #26 Boss 指示三角标记
-            if (isBoss)
-            {
-                DrawDot(px - 4, py - 8, 2, new Color(1f, 0.85f, 0.2f, 0.8f)); // 金色顶部标记
-            }
+
+            drawCount++;
         }
     }
 
@@ -191,29 +205,7 @@ public class MinimapUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 绘制精英敌人（橙色菱形点，比普通红点更大）
-    /// </summary>
-    private void DrawEliteDots(float center, float scale, Vector3 playerPos)
-    {
-        var enemies = FindObjectsByType<EnemyBase>();
-        foreach (var enemy in enemies)
-        {
-            if (enemy == null) continue;
-            var ebs = enemy.GetComponent<EliteModifierSystem>();
-            if (ebs == null || !ebs.IsElite) continue;
-
-            Vector3 offset = enemy.transform.position - playerPos;
-            if (offset.magnitude > _worldRange) continue;
-
-            float px = center + offset.x * scale;
-            float py = center - offset.y * scale;
-
-            // 橙色大点 + 外圈光晕
-            DrawDot(px - 4, py - 4, 8, new Color(1f, 0.5f, 0f, 0.3f)); // 光晕
-            DrawDot(px - 3, py - 3, 6, new Color(1f, 0.6f, 0.1f));     // 精英点
-        }
-    }
+    // DrawEliteDots 已合并到 DrawEnemyDots 中（单次遍历）
 
     /// <summary>
     /// 绘制环境区域（半透明圆圈）

@@ -17,6 +17,8 @@ public class LightningBullet : MonoBehaviour
     private float _chainRadius = 8f;
     private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
     private bool _consumed = false;
+    private Rigidbody2D _cachedRb;
+    private PenetrateHandler _cachedPenetrate;
 
     public void Setup(float speed, int impactDmg, float dmgMult)
     {
@@ -24,11 +26,18 @@ public class LightningBullet : MonoBehaviour
     }
     public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
     private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
-    private void Start() { _spawnTime = Time.time; }
-    private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private Rigidbody2D _cachedRb;
-    private void Awake() { _cachedRb = GetComponent<Rigidbody2D>(); }
-    private void FixedUpdate() { _cachedRb.linearVelocity = _direction * _speed; }
+
+    private void Awake() { _cachedRb = GetComponent<Rigidbody2D>(); _cachedPenetrate = GetComponent<PenetrateHandler>(); }
+    private void OnEnable()
+    {
+        _spawnTime = Time.time;
+        _consumed = false;
+        _hitEnemies.Clear();
+        if (_cachedRb == null) _cachedRb = GetComponent<Rigidbody2D>();
+        if (_cachedRb != null) _cachedRb.linearVelocity = Vector2.zero;
+    }
+    private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
+    private void FixedUpdate() { if (_cachedRb != null) _cachedRb.linearVelocity = _direction * _speed; }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -44,11 +53,10 @@ public class LightningBullet : MonoBehaviour
             ChainLightning(other.gameObject);
         }
         _consumed = true;
-        var penetrate = GetComponent<PenetrateHandler>();
-        if (penetrate != null && penetrate.TryPenetrate(other)) { _consumed = false; return; }
+        if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) { _consumed = false; return; }
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) { _consumed = false; return; }
-        Destroy(gameObject);
+        DespawnSelf();
     }
 
     private void ApplyStaticToEnemy(GameObject enemy)
@@ -108,6 +116,7 @@ public class LightningBullet : MonoBehaviour
 
     private void CreateChainLine(Vector2 from, Vector2 to)
     {
+        CombatManager.CreateExplosionEffect(from, 0.15f, new Color(0.5f, 0.8f, 1f, 0.9f), 0.3f);
         var lineObj = new GameObject("ChainLine");
         lineObj.transform.position = from;
         var lr = lineObj.AddComponent<LineRenderer>();
@@ -120,13 +129,18 @@ public class LightningBullet : MonoBehaviour
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        Destroy(lineObj, 0.3f);
+        Object.Destroy(lineObj, 0.3f);
     }
 
-    public static LightningBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg, float dmgMult)
+    private void DespawnSelf()
+    {
+        PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_LIGHTNING_BULLET);
+    }
+
+    private static GameObject BuildTemplate()
     {
         var go = new GameObject("LightningBullet");
-        go.transform.position = pos; go.tag = "Untagged";
+        go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get();
@@ -136,9 +150,46 @@ public class LightningBullet : MonoBehaviour
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
         DotBulletVisualEffects.AttachLightningTrail(go);
-        var b = go.AddComponent<LightningBullet>();
+        go.AddComponent<LightningBullet>();
+        return go;
+    }
+
+    public static LightningBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg, float dmgMult)
+    {
+        var pool = ObjectPool.Instance;
+        GameObject go = null;
+        if (pool != null && pool.HasPool(PoolHelper.DOT_LIGHTNING_BULLET))
+        {
+            go = pool.Spawn(PoolHelper.DOT_LIGHTNING_BULLET, pos, Quaternion.identity);
+        }
+        else
+        {
+            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_LIGHTNING_BULLET, BuildTemplate, 15);
+            go = pool != null ? pool.Spawn(PoolHelper.DOT_LIGHTNING_BULLET, pos, Quaternion.identity) : null;
+        }
+
+        if (go == null)
+        {
+            go = new GameObject("LightningBullet");
+            go.tag = "Untagged";
+            PhysicsLayerSetup.SetAsBullet(go);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = DotSpriteCache.Get();
+            sr.color = new Color(0.3f, 0.8f, 1f);
+            sr.sortingOrder = 15;
+            go.transform.localScale = Vector3.one * 0.5f;
+            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+            var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
+            DotBulletVisualEffects.AttachLightningTrail(go);
+            go.AddComponent<LightningBullet>();
+        }
+
+        go.transform.position = pos;
+        go.SetActive(true);
+        var b = go.GetComponent<LightningBullet>();
         b.Setup(speed, impactDmg, dmgMult);
         b.SetDirection(dir);
+        b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
     }
 }

@@ -20,8 +20,6 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private int _curseSpreadTargets = 1;
     [SerializeField] private float _dotFrequencyBonus = 0f;
     [SerializeField] private float _dotCritBurstChance = 0f;
-    [SerializeField] private int _erosionTriggerCount = 5;
-    [SerializeField] private float _erosionDamagePercent = 0f;
 
     [Header("子弹增强属性")]
     [SerializeField] private float _attackSpeedBonus = 0f;
@@ -36,8 +34,6 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _dotSaturationBonus = 0f;   // 饱和：每种DOT加成
     [SerializeField] private float _detonateExtraPerDot = 0f;  // 元素引爆：每种DOT额外伤害
     [SerializeField] private float _dotLifestealPerTick = 0f;  // 吸血法术：每次DOT回复
-    [SerializeField] private int _overflowExtraStacks = 0;     // 溢出弹：额外叠层数
-    [SerializeField] private int _overflowMaxExtra = 0;        // 溢出弹：最大额外层数
 
     [Header("P1 深度玩法属性")]
     [SerializeField] private float _pandemicBonus = 0f;        // 蔓延：传播效率加成
@@ -127,8 +123,6 @@ public class MagePassive : MonoBehaviour
     public int CurseSpreadTargets { get => _curseSpreadTargets; set => _curseSpreadTargets = value; }
     public float DotFrequencyBonus { get => _dotFrequencyBonus; set => _dotFrequencyBonus = value; }
     public float DotCritBurstChance { get => _dotCritBurstChance; set => _dotCritBurstChance = value; }
-    public int ErosionTriggerCount { get => _erosionTriggerCount; set => _erosionTriggerCount = Mathf.Max(2, value); }
-    public float ErosionDamagePercent { get => _erosionDamagePercent; set => _erosionDamagePercent = value; }
     public float AttackSpeedBonus { get => _attackSpeedBonus; set => _attackSpeedBonus = value; }
     public float BulletSpeedBonus { get => _bulletSpeedBonus; set => _bulletSpeedBonus = value; }
     public int BulletCountBonus { get => _bulletCountBonus; set => _bulletCountBonus = value; }
@@ -141,8 +135,6 @@ public class MagePassive : MonoBehaviour
     public float DotSaturationBonus { get => _dotSaturationBonus; set => _dotSaturationBonus = value; }
     public float DetonateExtraPerDot { get => _detonateExtraPerDot; set => _detonateExtraPerDot = value; }
     public float DotLifestealPerTick { get => _dotLifestealPerTick; set => _dotLifestealPerTick = value; }
-    public int OverflowExtraStacks { get => _overflowExtraStacks; set => _overflowExtraStacks = value; }
-    public int OverflowMaxExtra { get => _overflowMaxExtra; set => _overflowMaxExtra = value; }
 
     // ── P1 深度玩法属性访问器 ──
     public float PandemicBonus { get => _pandemicBonus; set => _pandemicBonus = value; }

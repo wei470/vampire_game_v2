@@ -90,20 +90,19 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 | 黑暗 | DarkBullet | 0.33/s | 缓慢子弹(40%速度)，击中后消失，施加黑暗标记(永久)。命中的敌人略微变黑。敌人死亡时所有DOT按50%效果传播给3范围敌人(黑暗标记本身不传播)。不造成直接伤害 |
 | 光明 | LightBulletController | 0.2/s | 蓄力3秒(玩家头上蓄力条，不减速)后，朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。命中施加光明标记：每层受伤+0.5%，无上限，敌人身上显示xN层数 |
 
-- **中毒叠加**：基础2+每层+1，间隔1s×0.9^(n-1)，最低0.2s
+- **中毒叠加**：基础2+每层+1，固定间隔1s（不随层数变化）
 - **毒液池**：每秒叠一层中毒
 - **霜冻**：永久减速30%基础，每层+5%，上限90%（不造成伤害，只减速，不再冰冻敌人）
 - **静电**：雷电子弹不造成直接伤害，只叠层+连锁；首次命中触发1秒静电，后续命中触发0.1秒静电；定时基础5秒放电(每层-0.2秒，最低2秒)暂停0.5秒；静电不造成伤害，纯控制效果
 - **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时通过BaseEntity.OnDeath事件传播所有DOT给周围敌人，同时传播StatusEffectManager效果和独立DOT组件(流血/燃烧/中毒/霜冻)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害。死亡时从敌人到最近敌人画暗紫色锁链
 - **光明标记**：每层受到伤害+0.5%，无上限(公式：1.0+stack×0.005)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。敌人身上用TextMesh显示"xN"层数
 
-## 6. Mage 升级系统（41种）✅ 全部已实现
-- DOT子弹(7)：流血/中毒/燃烧/霜冻/雷电/黑暗/光明
+## 6. Mage 升级系统（38种）✅ 全部已实现
+- DOT子弹(6)：中毒/燃烧/霜冻/雷电/黑暗/光明
 - DOT增强(4)：腐蚀/诅咒/痛苦/凋零
 - 引爆增强(2)：辐射/污染
-- DOT时间(1)：侵蚀
-- 子弹增强(3)：急速/弹幕/反弹
-- P0强化(4)：饱和/元素引爆/吸血法术/溢出弹
+- 子弹增强(3)：急速/弹幕/贯穿弹
+- P0强化(3)：饱和/元素引爆/吸血法术
 - P1深度(4)：蔓延/连锁反应/双持/蓄力精通
 - P2协同(8)：共鸣/剧毒天赋/腐化之触/元素风暴/暗影链接/光明审判/静电领域/霜爆
 - 子弹扩展(3)：弹药精通/元素亲和/贯穿弹
@@ -237,13 +236,24 @@ Singleton.cs, BaseEntity.cs, ObjectPool.cs, Interfaces.cs, EnemyBase.cs
 - **（V7新增）蓄力移速惩罚50%**：DetonateSystem 蓄力时移速惩罚从30%改为50%。
 - **（V8新增）Boss测试模式**：主菜单按B键或点击"Boss Test"按钮进入Boss-only模式，每波只生成Boss。
 - **（V8新增）中毒层数上限**：PoisonStackEffect最大20层，修复Boss高频毒伤bug。
+- **（V8新增）中毒伤害频率修复**：移除PoisonStackEffect中的TICK_DECAY加速机制，毒伤害改为固定1秒间隔，不再随层数加快。
 - **（V8新增）PoisonPuddle去重**：移除OnTriggerStay2D，仅保留Update中的ApplyPoisonToNearby。
-- **（V8新增）升级移除**：蓄力精通、碎裂强化、末日审判、元素护盾已从config移除（枚举保留兼容）。
+- **（V8新增）升级移除**：蓄力精通、碎裂强化、末日审判、元素护盾、侵蚀、溢出弹已从config移除（枚举保留兼容）。
 - **（V8新增）升级描述简化**：所有升级描述改为2-4字+数值格式，如"护甲-10%"、"攻速+15% 速度+10%"。
 
 ## 15. 重构进度 — 全部完成 ✅
 
-> **V1+V2 重构已全部完成**，V3 性能优化已全部完成，V4 文件拆分已完成，V5 玩法扩展已完成，fixme.md 已删除。
+> **V1+V2 重构已全部完成**，V3 性能优化已全部完成，V4 文件拆分已完成，V5 玩法扩展已完成，V9 性能+代码质量优化已完成，fixme.md 已删除。
+
+### V9 性能+代码质量优化总结
+**对象池化**：DOT弹幕(5种)+毒液池 → RegisterVirtualPrefab + Spawn/DespawnOrDestroy，OnEnable重置状态
+**Update优化**：StatusEffectManager HashSet缓存、PoisonStackEffect视觉降频(0.15s)、FrostEffect只在层数变化时更新、EnemyDotResistance GetComponent缓存
+**物理优化**：PoisonPuddle/WindErosionVortex 0.5s检测间隔、CurseSpreadSystem单次OverlapCircleAll
+**渲染优化**：BurnStackEffect视觉降频、EnemyHealthBar距离优化(远距离每5帧)、MinimapUI用ActiveEnemies+MAX_DOTS=40
+**DOT系统优化**：LightMarkEffect TextMesh缓存+只在层数变化时更新、DOT伤害字号加大20%
+**代码清理**：侵蚀/溢出弹死代码移除、SpawnBleed死代码移除、DrawEliteDots合并到DrawEnemyDots
+**测试覆盖**：新增16个单元测试（DOT伤害公式/引爆边界/升级叠加/暴击计算/Boss循环）
+**修改文件**：PoolHelper/PoisonBullet/BurnBullet/FrostBullet/LightningBullet/DarkBullet/LightBulletController/MinimapUI/DamagePopup/CoreSystemTests
 
 ### V5 玩法扩展总结
 **Phase 1（内容扩展）**：黑暗子弹+光明子弹+7种DOT组合+临时道具+击杀连击+波次挑战+伤害数字颜色

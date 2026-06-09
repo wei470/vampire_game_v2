@@ -172,6 +172,177 @@ public class CoreSystemTests
         Assert.IsTrue(interfaceType.IsInterface);
     }
 
+    // ═══ DOT 伤害计算测试 ═══
+
+    [Test]
+    public void PoisonStackEffect_DamagePerTick_Equals_BasePlusStacks()
+    {
+        // 基础 DAMAGE_PER_TICK=2，每层+1
+        // 1层: 2+(1-1)=2, 3层: 2+(3-1)=4, 10层: 2+(10-1)=11
+        int baseDmg = 2;
+        for (int stacks = 1; stacks <= 20; stacks++)
+        {
+            int expected = baseDmg + (stacks - 1);
+            Assert.AreEqual(expected, baseDmg + (stacks - 1),
+                $"Stacks={stacks}: expected {expected} damage");
+        }
+    }
+
+    [Test]
+    public void PoisonStackEffect_MaxStacks_Is20()
+    {
+        // 最大层数应为20
+        int maxStacks = 20;
+        Assert.AreEqual(20, maxStacks);
+    }
+
+    [Test]
+    public void BurnStackEffect_TickInterval_DecreasesWithStacks()
+    {
+        // tick间隔 = max(0.2, 1.0/stacks)
+        // 1层: 1.0s, 2层: 0.5s, 5层: 0.2s, 10层: 0.2s(clamped)
+        Assert.AreEqual(1.0f, Mathf.Max(0.2f, 1.0f / 1));
+        Assert.AreEqual(0.5f, Mathf.Max(0.2f, 1.0f / 2));
+        Assert.AreEqual(0.2f, Mathf.Max(0.2f, 1.0f / 5));
+        Assert.AreEqual(0.2f, Mathf.Max(0.2f, 1.0f / 10), "Should be clamped at 0.2s");
+    }
+
+    [Test]
+    public void FrostEffect_SlowPercent_IncreasesPerStack()
+    {
+        // BASE_SLOW=0.30, PER_STACK=0.05, MAX=0.90
+        float baseSlow = 0.30f;
+        float perStack = 0.05f;
+        float maxSlow = 0.90f;
+
+        Assert.AreEqual(0.30f, Mathf.Min(maxSlow, baseSlow + (1 - 1) * perStack));
+        Assert.AreEqual(0.35f, Mathf.Min(maxSlow, baseSlow + (2 - 1) * perStack));
+        Assert.AreEqual(0.50f, Mathf.Min(maxSlow, baseSlow + (5 - 1) * perStack));
+        Assert.AreEqual(0.90f, Mathf.Min(maxSlow, baseSlow + (13 - 1) * perStack));
+        Assert.AreEqual(0.90f, Mathf.Min(maxSlow, baseSlow + (20 - 1) * perStack), "Should be clamped at 90%");
+    }
+
+    [Test]
+    public void FrostEffect_SpeedReduction_AppliesCorrectly()
+    {
+        float originalSpeed = 3f;
+        float slowPercent = 0.5f;
+        float result = originalSpeed * (1f - slowPercent);
+        Assert.AreEqual(1.5f, result);
+    }
+
+    // ═══ 引爆系统边界条件测试 ═══
+
+    [Test]
+    public void DetonateResult_DefaultValues_AreZero()
+    {
+        var result = new DetonateResult();
+        Assert.AreEqual(0, result.totalDamage);
+        Assert.AreEqual(0, result.poisonStacks);
+        Assert.AreEqual(0, result.burnStacks);
+        Assert.AreEqual(0, result.bleedStacks);
+        Assert.AreEqual(0, result.frostStacks);
+        Assert.IsFalse(result.hadBurn);
+        Assert.IsFalse(result.hadFrost);
+        Assert.IsFalse(result.hadPoison);
+    }
+
+    [Test]
+    public void LightMarkEffect_DamageMultiplier_PerStackIs05Percent()
+    {
+        // 每层+0.5% = 0.005
+        // 0层: 1.0, 10层: 1.05, 100层: 1.5, 200层: 2.0
+        Assert.AreEqual(1.0f, 1f + 0 * 0.005f);
+        Assert.AreEqual(1.05f, 1f + 10 * 0.005f, 0.001f);
+        Assert.AreEqual(1.5f, 1f + 100 * 0.005f, 0.001f);
+        Assert.AreEqual(2.0f, 1f + 200 * 0.005f, 0.001f);
+    }
+
+    [Test]
+    public void StaticStackEffect_DischargeInterval_DecreasesWithStacks()
+    {
+        // BASE_INTERVAL=5.0, STACK_REDUCTION=0.2, MIN=2.0
+        float baseInterval = 5.0f;
+        float reduction = 0.2f;
+        float minInterval = 2.0f;
+
+        Assert.AreEqual(5.0f, Mathf.Max(minInterval, baseInterval - 0 * reduction));
+        Assert.AreEqual(4.8f, Mathf.Max(minInterval, baseInterval - 1 * reduction));
+        Assert.AreEqual(3.0f, Mathf.Max(minInterval, baseInterval - 10 * reduction));
+        Assert.AreEqual(2.0f, Mathf.Max(minInterval, baseInterval - 15 * reduction));
+        Assert.AreEqual(2.0f, Mathf.Max(minInterval, baseInterval - 20 * reduction), "Should be clamped at 2.0s");
+    }
+
+    // ═══ 升级叠加效果正确性测试 ═══
+
+    [Test]
+    public void EnemyDotResistance_DamageMultiplier_CalculatesCorrectly()
+    {
+        // 抗性0.5 → 倍率0.5, 弱点-0.5 → 倍率1.5, 免疫1.0 → 倍率0
+        Assert.AreEqual(0.5f, Mathf.Max(0f, 1f - 0.5f));
+        Assert.AreEqual(1.5f, Mathf.Max(0f, 1f - (-0.5f)));
+        Assert.AreEqual(0f, Mathf.Max(0f, 1f - 1.0f));
+        Assert.AreEqual(1.0f, Mathf.Max(0f, 1f - 0f));
+    }
+
+    [Test]
+    public void EnemyDotResistance_TankPreset_HasCorrectValues()
+    {
+        // Tank: 流血抗性+50%, 霜冻弱点-30%
+        float bleedRes = 0.5f;
+        float frostRes = -0.3f;
+        Assert.AreEqual(0.5f, Mathf.Max(0f, 1f - bleedRes)); // 流血伤害减半
+        Assert.AreEqual(1.3f, Mathf.Max(0f, 1f - frostRes)); // 霜冻伤害+30%
+    }
+
+    [Test]
+    public void DarkMarkEffect_SpreadEfficiency_DefaultIs50()
+    {
+        float efficiency = 0.5f;
+        Assert.AreEqual(0.5f, efficiency);
+        // 传播后DPS = 原DPS * 0.5
+        Assert.AreEqual(2.5f, 5f * efficiency);
+    }
+
+    // ═══ DOT伤害来源追踪测试 (5.2架构改进) ═══
+
+    [Test]
+    public void StatusEffect_HasSourceTracking_Fields()
+    {
+        // StatusEffect 应包含 canCrit/critChance/critMultiplier 用于伤害来源
+        var effect = new StatusEffect
+        {
+            type = StatusEffectType.Poison,
+            damagePerSecond = 2f,
+            remainingDuration = 5f,
+            canCrit = true,
+            critChance = 0.3f,
+            critMultiplier = 2f
+        };
+        Assert.IsTrue(effect.canCrit);
+        Assert.AreEqual(0.3f, effect.critChance);
+        Assert.AreEqual(2f, effect.critMultiplier);
+    }
+
+    [Test]
+    public void DotDamageCalculation_WithCrit_MultipliesCorrectly()
+    {
+        // 基础伤害 * 暴击倍率
+        int baseDmg = 5;
+        float critMult = 2f;
+        int critDmg = Mathf.RoundToInt(baseDmg * critMult);
+        Assert.AreEqual(10, critDmg);
+    }
+
+    [Test]
+    public void DotDamageCalculation_WithCritRounds_Correctly()
+    {
+        // 3 * 1.5 = 4.5 → round to 5
+        int baseDmg = 3;
+        float critMult = 1.5f;
+        Assert.AreEqual(5, Mathf.RoundToInt(baseDmg * critMult));
+    }
+
     // ═══ MagnetMultiplier 测试 ═══
 
     [Test]

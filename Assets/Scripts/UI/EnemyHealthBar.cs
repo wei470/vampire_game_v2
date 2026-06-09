@@ -24,6 +24,13 @@ public class EnemyHealthBar : MonoBehaviour
     // DOT 指示器（委托组件）
     private DotStatusIndicator _dotIndicator;
 
+    // 性能优化：距离远的敌人降低更新频率
+    private Transform _cameraTransform;
+    private float _lastHpPercent = -1f;
+    private int _skipFrameCounter = 0;
+    private const int FAR_SKIP_FRAMES = 4; // 距离远时每5帧更新一次
+    private const float FAR_DISTANCE_SQ = 225f; // 15单位的平方（屏幕外）
+
     /// <summary>
     /// 初始化血条（由 EnemyBase 调用）
     /// </summary>
@@ -81,9 +88,40 @@ public class EnemyHealthBar : MonoBehaviour
     {
         if (_damageable == null || _barTransform == null) return;
 
-        UpdateFill();
+        // 性能优化：满血时完全跳过更新
+        float currentHp = _damageable.HpPercent;
 
-        // 委托 DOT 更新
+        if (currentHp >= 1f)
+        {
+            // 确保满血时血条隐藏，然后跳过后续更新
+            if (_lastHpPercent >= 1f) return;
+        }
+
+        // 距离优化：远距离敌人降低更新频率
+        if (_cameraTransform == null) _cameraTransform = Camera.main?.transform;
+        if (_cameraTransform != null)
+        {
+            float distSq = (_cameraTransform.position - transform.position).sqrMagnitude;
+            if (distSq > FAR_DISTANCE_SQ)
+            {
+                _skipFrameCounter++;
+                if (_skipFrameCounter < FAR_SKIP_FRAMES) 
+                {
+                    _barTransform.rotation = Quaternion.identity; // 保持水平
+                    return;
+                }
+                _skipFrameCounter = 0;
+            }
+        }
+
+        // 只在HP变化时更新血条填充和颜色
+        if (Mathf.Abs(currentHp - _lastHpPercent) > 0.001f)
+        {
+            UpdateFill();
+            _lastHpPercent = currentHp;
+        }
+
+        // 委托 DOT 更新（内部已有频率控制）
         if (_dotIndicator != null)
             _dotIndicator.Update(gameObject);
 

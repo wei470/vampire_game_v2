@@ -17,6 +17,8 @@ public class PoisonBullet : MonoBehaviour
     private bool _exploded;
     private float _spawnTime;
     private float _lifetime = 5f;
+    private Rigidbody2D _rb;
+    private PenetrateHandler _cachedPenetrate;
 
     public void Setup(float speed, float poisonDps, float poisonDuration, float explosionRadius,
         float dmgMult, bool canCrit, float critChance, float critMult)
@@ -27,9 +29,23 @@ public class PoisonBullet : MonoBehaviour
     }
     public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
     private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
-    private void Start() { _spawnTime = Time.time; }
-    private void Update() { if (!_exploded && Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private void FixedUpdate() { if (!_exploded) GetComponent<Rigidbody2D>().linearVelocity = _direction * _speed; }
+
+    private void Awake()
+    {
+        _rb = GetComponent<Rigidbody2D>();
+        _cachedPenetrate = GetComponent<PenetrateHandler>();
+    }
+
+    private void OnEnable()
+    {
+        _spawnTime = Time.time;
+        _exploded = false;
+        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null) _rb.linearVelocity = Vector2.zero;
+    }
+
+    private void Update() { if (!_exploded && Time.time - _spawnTime > _lifetime) DespawnSelf(); }
+    private void FixedUpdate() { if (!_exploded && _rb != null) _rb.linearVelocity = _direction * _speed; }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -38,8 +54,7 @@ public class PoisonBullet : MonoBehaviour
         DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
 
         // 穿透检查：先对当前敌人施加中毒DOT，然后检查是否可以继续穿透
-        var penetrate = GetComponent<PenetrateHandler>();
-        if (penetrate != null && penetrate.TryPenetrate(other))
+        if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other))
         {
             // 穿透成功：对当前敌人施加中毒效果但不爆炸
             var dmg = other.GetComponent<Damageable>();
@@ -58,7 +73,7 @@ public class PoisonBullet : MonoBehaviour
     private void LeavePuddle(Vector2 center)
     {
         _exploded = true;
-        GetComponent<Rigidbody2D>().linearVelocity = Vector2.zero;
+        if (_rb != null) _rb.linearVelocity = Vector2.zero;
         Collider2D[] hits = Physics2D.OverlapCircleAll(center, _explosionRadius);
         foreach (var hit in hits)
         {
@@ -70,24 +85,68 @@ public class PoisonBullet : MonoBehaviour
             poison.AddStack(_poisonDps * _damageMultiplier, _poisonDuration, _canCrit, _critChance, _critMult);
         }
         PoisonPuddle.Create(center, 0.5f, 2f, _poisonDps * _damageMultiplier, _canCrit, _critChance, _critMult);
-        Destroy(gameObject);
+        DespawnSelf();
+    }
+
+    private void DespawnSelf()
+    {
+        PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_POISON_BULLET);
+    }
+
+    private static GameObject BuildTemplate()
+    {
+        var go = new GameObject("PoisonBullet");
+        go.tag = "Untagged";
+        PhysicsLayerSetup.SetAsBullet(go);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
+        go.transform.localScale = Vector3.one * 0.25f;
+        var rb = go.AddComponent<Rigidbody2D>(); rb.gravityScale = 0f;
+        var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+        DotBulletVisualEffects.AttachTrail(go, new Color(0.1f, 0.9f, 0.2f, 0.6f), 0.4f, 0.03f);
+        go.AddComponent<PoisonBullet>();
+        return go;
     }
 
     public static PoisonBullet Create(Vector2 pos, Vector2 dir, float speed,
         float poisonDps, float poisonDuration, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var go = new GameObject("PoisonBullet");
-        go.transform.position = pos; go.tag = "Untagged";
-        PhysicsLayerSetup.SetAsBullet(go);
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
-        go.transform.localScale = Vector3.one * 0.25f;
-        go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-        var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
-        DotBulletVisualEffects.AttachTrail(go, new Color(0.1f, 0.9f, 0.2f, 0.6f), 0.4f, 0.03f);
-        var b = go.AddComponent<PoisonBullet>();
+        // 尝试从对象池取出
+        var pool = ObjectPool.Instance;
+        GameObject go = null;
+        if (pool != null && pool.HasPool(PoolHelper.DOT_POISON_BULLET))
+        {
+            go = pool.Spawn(PoolHelper.DOT_POISON_BULLET, pos, Quaternion.identity);
+        }
+        else
+        {
+            // 首次：注册虚拟预制体
+            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_POISON_BULLET, BuildTemplate, 15);
+            go = pool != null ? pool.Spawn(PoolHelper.DOT_POISON_BULLET, pos, Quaternion.identity) : null;
+        }
+
+        if (go == null)
+        {
+            // 池回退：直接创建
+            go = new GameObject("PoisonBullet");
+            go.tag = "Untagged";
+            PhysicsLayerSetup.SetAsBullet(go);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.9f, 0.2f); sr.sortingOrder = 15;
+            go.transform.localScale = Vector3.one * 0.25f;
+            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+            var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+            DotBulletVisualEffects.AttachTrail(go, new Color(0.1f, 0.9f, 0.2f, 0.6f), 0.4f, 0.03f);
+            go.AddComponent<PoisonBullet>();
+        }
+
+        go.transform.position = pos;
+        go.SetActive(true);
+        var b = go.GetComponent<PoisonBullet>();
         b.Setup(speed, poisonDps, poisonDuration, 0.5f, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
+        // 刷新穿透缓存（可能被 AttachRicochetIfAvailable 动态添加）
+        b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
     }
 }
@@ -173,6 +232,8 @@ public class PoisonPuddle : MonoBehaviour
     private bool _canCrit; private float _critChance, _critMult;
     private float _spawnTime;
     private float _lastTick;
+    private CircleCollider2D _cachedCol;
+    private SpriteRenderer _cachedSr;
 
     public void Setup(float radius, float duration, float baseDps, bool canCrit, float critChance, float critMult)
     {
@@ -180,17 +241,24 @@ public class PoisonPuddle : MonoBehaviour
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
 
-    private void Start()
+    private void Awake()
+    {
+        _cachedCol = GetComponent<CircleCollider2D>();
+        _cachedSr = GetComponent<SpriteRenderer>();
+    }
+
+    private void OnEnable()
     {
         _spawnTime = Time.time; _lastTick = Time.time - 0.5f;
         transform.localScale = Vector3.one * _radius;
-        var col = gameObject.AddComponent<CircleCollider2D>();
-        col.isTrigger = true; col.radius = _radius;
+        if (_cachedCol == null) _cachedCol = GetComponent<CircleCollider2D>();
+        if (_cachedCol != null) { _cachedCol.isTrigger = true; _cachedCol.radius = _radius; }
+        if (_cachedSr != null) _cachedSr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f);
     }
 
     private void Update()
     {
-        if (Time.time - _spawnTime > _duration) { Destroy(gameObject); return; }
+        if (Time.time - _spawnTime > _duration) { DespawnSelf(); return; }
         if (Time.time - _lastTick < 0.5f) return;
         _lastTick = Time.time;
         ApplyPoisonToNearby();
@@ -212,27 +280,64 @@ public class PoisonPuddle : MonoBehaviour
         }
     }
 
+    private void DespawnSelf()
+    {
+        PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_POISON_PUDDLE);
+    }
+
+    private static GameObject BuildPuddleTemplate()
+    {
+        var go = new GameObject("PoisonPuddle");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f); sr.sortingOrder = 1;
+        var col = go.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        go.AddComponent<PoisonPuddle>();
+        return go;
+    }
+
     public static PoisonPuddle Create(Vector2 pos, float radius, float duration, float baseDps,
         bool canCrit, float critChance, float critMult)
     {
-        var go = new GameObject("PoisonPuddle");
+        var pool = ObjectPool.Instance;
+        GameObject go = null;
+        if (pool != null && pool.HasPool(PoolHelper.DOT_POISON_PUDDLE))
+        {
+            go = pool.Spawn(PoolHelper.DOT_POISON_PUDDLE, pos, Quaternion.identity);
+        }
+        else
+        {
+            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_POISON_PUDDLE, BuildPuddleTemplate, 8);
+            go = pool != null ? pool.Spawn(PoolHelper.DOT_POISON_PUDDLE, pos, Quaternion.identity) : null;
+        }
+
+        if (go == null)
+        {
+            go = new GameObject("PoisonPuddle");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f); sr.sortingOrder = 1;
+            var col = go.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            go.AddComponent<PoisonPuddle>();
+        }
+
         go.transform.position = pos;
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f); sr.sortingOrder = 1;
-        var p = go.AddComponent<PoisonPuddle>();
+        go.SetActive(true);
+        var p = go.GetComponent<PoisonPuddle>();
         p.Setup(radius, duration, baseDps, canCrit, critChance, critMult);
         return p;
     }
 }
 
 /// <summary>
-/// 中毒叠加效果 — 每tick掉2滴血，tick间隔随层数加速
+/// 中毒叠加效果 — 每tick掉2滴血，固定1秒间隔，每层+1伤害
 /// </summary>
 public class PoisonStackEffect : MonoBehaviour
 {
     private int _stacks;
     public bool _canCrit; public float _critChance, _critMult;
     private float _tickAccumulator;
+    private float _lastVisualUpdate;
     private Damageable _damageable;
     private SpriteRenderer _sr;
     private Color _originalColor;
@@ -263,13 +368,14 @@ public class PoisonStackEffect : MonoBehaviour
         if (_stacks <= 0) { Cleanup(); return; }
         if (_damageable != null && _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        if (_sr != null)
+        if (_sr != null && Time.time - _lastVisualUpdate >= 0.15f)
         {
+            _lastVisualUpdate = Time.time;
             float pulse = Mathf.Sin(Time.time * 8f) * 0.3f;
             _sr.color = Color.Lerp(_originalColor, new Color(0.1f, 0.8f, 0.1f), 0.5f + pulse * 0.2f);
         }
 
-        float tickInterval = Mathf.Max(MIN_TICK_INTERVAL, BASE_TICK_INTERVAL * Mathf.Pow(TICK_DECAY, _stacks - 1));
+        float tickInterval = BASE_TICK_INTERVAL;
         _tickAccumulator += Time.deltaTime;
         if (_tickAccumulator < tickInterval) return;
         _tickAccumulator -= tickInterval;

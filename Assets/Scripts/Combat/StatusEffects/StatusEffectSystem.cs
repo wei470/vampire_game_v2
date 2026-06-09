@@ -21,6 +21,7 @@ public class StatusEffectManager : MonoBehaviour
     private DotParticleVFX _dotVFX;
     private EnemyDotResistance _dotResistance;
     private DotComboSystem _comboSystem;
+    private HashSet<StatusEffectType> _seenTypesCache = new HashSet<StatusEffectType>();
 
     // DOT 频率加成（痛苦升级）
     public float DotFrequencyBonus
@@ -43,10 +44,7 @@ public class StatusEffectManager : MonoBehaviour
     public float CurseDamageAmplify { get; set; } = 0f;
     public float AgonyMissingHpScale { get; set; } = 0f;
     public bool WitherActive { get; set; } = false;
-    public float ErosionMaxHpReduce { get; set; } = 0f;
     public float WindErosionKnockback { get; set; } = 0f;
-    public float ErosionDamagePercent { get; set; } = 0f;
-    public int ErosionTriggerCount { get; set; } = 5;
     public float ContaminateRange { get; set; } = 0f;
     public float RadiateRange { get; set; } = 0f;
     public float RadiateDamagePercent { get; set; } = 0f;
@@ -56,8 +54,6 @@ public class StatusEffectManager : MonoBehaviour
     public float DotSaturationBonus { get; set; } = 0f;
     /// <summary>吸血法术：DOT每次tick回复生命</summary>
     public float DotLifestealPerTick { get; set; } = 0f;
-    /// <summary>溢出弹：额外叠层数</summary>
-    public int OverflowExtraStacks { get; set; } = 0;
 
     // ── P2 新增强化 ──
     /// <summary>共鸣：DOT触发时不消耗持续时间的几率</summary>
@@ -126,9 +122,6 @@ public class StatusEffectManager : MonoBehaviour
         if (existing != null)
         {
             existing.Refresh(dps * DotDamageMultiplier, duration, stackDps: (type == StatusEffectType.Bleed || type == StatusEffectType.Immolate));
-            // 溢出弹：命中已有同类型DOT的敌人时，额外叠层
-            if (OverflowExtraStacks > 0 && existing.stackCount > 0)
-                existing.stackCount += OverflowExtraStacks;
         }
         else
         {
@@ -164,11 +157,11 @@ public class StatusEffectManager : MonoBehaviour
         int distinctDotCount = 0;
         if (DotSaturationBonus > 0)
         {
-            var seenTypes = new HashSet<StatusEffectType>();
+            _seenTypesCache.Clear();
             for (int k = 0; k < _activeEffects.Count; k++)
                 if (_activeEffects[k].type != StatusEffectType.Radiate && _activeEffects[k].type != StatusEffectType.Wither)
-                    seenTypes.Add(_activeEffects[k].type);
-            distinctDotCount = seenTypes.Count;
+                    _seenTypesCache.Add(_activeEffects[k].type);
+            distinctDotCount = _seenTypesCache.Count;
         }
 
         for (int i = _activeEffects.Count - 1; i >= 0; i--)
@@ -236,28 +229,6 @@ public class StatusEffectManager : MonoBehaviour
             }
             if (DamageMeter.Instance != null && _activeEffects.Count > 0)
                 DamageMeter.Instance.RecordDotDamage(_activeEffects[0].type, Mathf.RoundToInt(totalTickDamage));
-            // 侵蚀冲击：每5次造成灰色冲击，DOT总伤10%
-            if (ErosionDamagePercent > 0)
-            {
-                _erosionDotHitCount++;
-                if (_erosionDotHitCount >= ErosionTriggerCount)
-                {
-                    _erosionDotHitCount = 0;
-                    // 基于上一次DOT tick总伤的百分比
-                    int eDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamageForErosion * ErosionDamagePercent));
-                    _damageable.TakeDamage(eDmg, Color.gray);
-                    // 灰色字体弹出
-                    DamagePopup.Create(transform.position, eDmg, new Color(0.6f, 0.6f, 0.6f), false, "侵蚀！");
-                    // 灰色冲击特效
-                    CombatManager.CreateExplosionEffect(transform.position, 2f, new Color(0.5f, 0.5f, 0.5f), 0.5f);
-                    if (_sr != null)
-                    {
-                        Color flash = Color.Lerp(_sr.color, Color.gray, 0.7f);
-                        _sr.color = flash;
-                    }
-                    DebugHelper.Log($"[DOT] EROSION! {eDmg} bonus damage (10% of {totalTickDamageForErosion:F0})");
-                }
-            }
         }
 
         // 风蚀击退
@@ -284,10 +255,6 @@ public class StatusEffectManager : MonoBehaviour
                 var hd = e.GetComponent<Damageable>(); if (hd != null && hd.CurrentHp > 0) hd.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(radiateDmg))); } }
         }
 
-        // 侵蚀降最大生命
-        if (ErosionMaxHpReduce > 0 && _damageable != null)
-        { int r = Mathf.RoundToInt(_damageable.MaxHp * ErosionMaxHpReduce * _tickInterval);
-          if (r > 0) _damageable.SetMaxHp(Mathf.Max(1, _damageable.MaxHp - r)); }
     }
 
     /// <summary>

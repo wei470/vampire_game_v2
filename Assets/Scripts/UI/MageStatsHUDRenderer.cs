@@ -194,7 +194,6 @@ public static class MageStatsHUDRenderer
         cy = DrawStatRow(x + 8, cy, panelW - 16, "Corrosion", $"{mage.CorrosionArmorReduction * 100:F0}%/stack", TextPrimary, lineHeight, labelStyle, valueStyle);
         cy = DrawStatRow(x + 8, cy, panelW - 16, "Curse Spread", $"{mage.CurseSpreadTargets} targets", TextPrimary, lineHeight, labelStyle, valueStyle);
         cy = DrawStatRow(x + 8, cy, panelW - 16, "Wither Burst", $"{mage.DotCritBurstChance * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
-        cy = DrawStatRow(x + 8, cy, panelW - 16, "Erosion", $"every {mage.ErosionTriggerCount} ticks ({mage.ErosionDamagePercent * 100:F0}%)", TextPrimary, lineHeight, labelStyle, valueStyle);
 
         // ── 子弹增强属性 ──
         cy = DrawStatRow(x + 8, cy, panelW - 16, "Attack Speed +", $"{mage.AttackSpeedBonus * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);

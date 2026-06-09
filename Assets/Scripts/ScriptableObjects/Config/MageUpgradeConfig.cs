@@ -149,17 +149,7 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
 
-        // ═══ DOT 时间增强（1 种）═══
-        new UpgradeEntry
-        {
-            upgradeId = "erosion",
-            upgradeName = "侵蚀 (Erosion)",
-            description = "DOT每5次冲击50%伤害",
-            category = CharacterUpgradeOption.UpgradeCategory.DotTrigger,
-            value1 = 1f, value2 = 0.50f, value3 = 0f, maxStacks = 0
-        },
-
-        // ═══ P0 新增强化（4 种）═══
+        // ═══ P0 新增强化（3 种）═══
         new UpgradeEntry
         {
             upgradeId = "saturation",
@@ -183,14 +173,6 @@ public class MageUpgradeConfig : ScriptableObject
             description = "每次DOT回0.3血",
             category = CharacterUpgradeOption.UpgradeCategory.DotLifesteal,
             value1 = 0.3f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "overflow",
-            upgradeName = "溢出弹 (Overflow)",
-            description = "额外叠1层,上限3层",
-            category = CharacterUpgradeOption.UpgradeCategory.DotOverflow,
-            value1 = 1f, value2 = 3f, value3 = 0f, maxStacks = 3
         },
 
         // ═══ 子弹增强（3 种）═══

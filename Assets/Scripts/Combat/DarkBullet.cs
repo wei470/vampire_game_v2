@@ -6,18 +6,23 @@ using UnityEngine;
 /// </summary>
 public class DarkBullet : MonoBehaviour
 {
-    private float _speed = 6f;       // 缓慢子弹（约40%普通子弹速度）
+    private float _speed = 6f;
     private float _lifetime = 5f;
-    private float _markSpreadRadius = 3f;   // 死亡传播半径
-    private float _markSpreadEfficiency = 0.5f; // 传播效率50%
+    private float _markSpreadRadius = 3f;
+    private float _markSpreadEfficiency = 0.5f;
     private Vector2 _direction;
     private float _spawnTime;
     private Rigidbody2D _rb;
 
     private void Awake() { _rb = GetComponent<Rigidbody2D>(); }
-    private void Start() { _spawnTime = Time.time; }
-    private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private void FixedUpdate() { _rb.linearVelocity = _direction * _speed; }
+    private void OnEnable()
+    {
+        _spawnTime = Time.time;
+        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null) _rb.linearVelocity = Vector2.zero;
+    }
+    private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
+    private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }
 
     public void SetDirection(Vector2 dir)
     {
@@ -50,34 +55,67 @@ public class DarkBullet : MonoBehaviour
         CombatManager.CreateExplosionEffect(other.transform.position, 0.4f,
             new Color(0.4f, 0.1f, 0.6f, 0.6f), 0.3f);
 
-        Destroy(gameObject);
+        DespawnSelf();
     }
 
-    /// <summary>
-    /// 创建黑暗子弹
-    /// </summary>
-    public static DarkBullet Create(Vector2 pos, Vector2 dir, float speed,
-        float spreadRadius, float spreadEfficiency)
+    private void DespawnSelf()
+    {
+        PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_DARK_BULLET);
+    }
+
+    private static GameObject BuildTemplate()
     {
         var go = new GameObject("DarkBullet");
-        go.transform.position = pos;
         go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go);
-
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get();
-        sr.color = new Color(0.4f, 0.1f, 0.6f); // 暗紫色
+        sr.color = new Color(0.4f, 0.1f, 0.6f);
         sr.sortingOrder = 15;
-
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<BoxCollider2D>();
         col.isTrigger = true;
         col.size = new Vector2(0.6f, 0.3f);
-
-        // 暗紫色拖尾
         DotBulletVisualEffects.AttachTrail(go, new Color(0.4f, 0.1f, 0.6f, 0.7f), 0.8f, 0.05f);
+        go.AddComponent<DarkBullet>();
+        return go;
+    }
 
-        var bullet = go.AddComponent<DarkBullet>();
+    public static DarkBullet Create(Vector2 pos, Vector2 dir, float speed,
+        float spreadRadius, float spreadEfficiency)
+    {
+        var pool = ObjectPool.Instance;
+        GameObject go = null;
+        if (pool != null && pool.HasPool(PoolHelper.DOT_DARK_BULLET))
+        {
+            go = pool.Spawn(PoolHelper.DOT_DARK_BULLET, pos, Quaternion.identity);
+        }
+        else
+        {
+            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_DARK_BULLET, BuildTemplate, 10);
+            go = pool != null ? pool.Spawn(PoolHelper.DOT_DARK_BULLET, pos, Quaternion.identity) : null;
+        }
+
+        if (go == null)
+        {
+            go = new GameObject("DarkBullet");
+            go.tag = "Untagged";
+            PhysicsLayerSetup.SetAsBullet(go);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = DotSpriteCache.Get();
+            sr.color = new Color(0.4f, 0.1f, 0.6f);
+            sr.sortingOrder = 15;
+            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            col.size = new Vector2(0.6f, 0.3f);
+            DotBulletVisualEffects.AttachTrail(go, new Color(0.4f, 0.1f, 0.6f, 0.7f), 0.8f, 0.05f);
+            go.AddComponent<DarkBullet>();
+        }
+
+        go.transform.position = pos;
+        go.SetActive(true);
+        var bullet = go.GetComponent<DarkBullet>();
         bullet.Setup(speed, spreadRadius, spreadEfficiency);
         bullet.SetDirection(dir);
         return bullet;

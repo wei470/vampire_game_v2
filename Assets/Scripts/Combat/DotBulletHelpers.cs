@@ -24,7 +24,6 @@ public static class DotBulletHelper
             sem.WindErosionKnockback = magePassive.KnockbackBonus;
             sem.DotSaturationBonus = magePassive.DotSaturationBonus;
             sem.DotLifestealPerTick = magePassive.DotLifestealPerTick;
-            sem.OverflowExtraStacks = magePassive.OverflowExtraStacks;
             // P2 新增强化同步
             sem.ResonanceChance = magePassive.ResonanceChance;
             sem.ToxicologyCritBonus = magePassive.ToxicologyCritBonus;

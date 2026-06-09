@@ -43,10 +43,8 @@ public static class MageUpgradeApplier
             case CharacterUpgradeOption.UpgradeCategory.DotCritBurst: mage.DotCritBurstChance += ue.value1; break;
             case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier: mage.DetonateMultiplier += ue.value1; break;
             case CharacterUpgradeOption.UpgradeCategory.DetonateAbility: mage.DetonateCooldownValue *= (1f - ue.value1); break;
-            case CharacterUpgradeOption.UpgradeCategory.DotTrigger:
-                mage.ErosionTriggerCount = Mathf.Max(2, mage.ErosionTriggerCount - (int)ue.value1);
-                mage.ErosionDamagePercent += ue.value2;
-                break;
+            // DotTrigger(侵蚀)已移除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.DotTrigger: break;
             case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
                 mage.AttackSpeedBonus += ue.value1;
                 mage.BulletSpeedBonus += ue.value2;
@@ -70,10 +68,8 @@ public static class MageUpgradeApplier
             case CharacterUpgradeOption.UpgradeCategory.DotLifesteal:
                 mage.DotLifestealPerTick += ue.value1;
                 break;
-            case CharacterUpgradeOption.UpgradeCategory.DotOverflow:
-                mage.OverflowExtraStacks += (int)ue.value1;
-                mage.OverflowMaxExtra = (int)ue.value2;
-                break;
+            // DotOverflow(溢出弹)已移除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.DotOverflow: break;
 
             // ── P1 深度玩法 ──
             case CharacterUpgradeOption.UpgradeCategory.DotPandemic:
@@ -335,8 +331,7 @@ public static class MageUpgradeApplier
 
         bool hasRadiate = mage.DetonateMultiplier > 3.01f;
         bool hasContaminate = mage.DetonateCooldownValue < 11.99f;
-        bool hasErosion = mage.ErosionDamagePercent > 0.001f;
-        TryActivateSynergy(mage, "judgment_day", SynergyType.JudgmentDay, hasRadiate && hasContaminate && hasErosion);
+        TryActivateSynergy(mage, "judgment_day", SynergyType.JudgmentDay, hasRadiate && hasContaminate);
     }
 
     private static void TryActivateSynergy(MagePassive mage, string synergyId, SynergyType type, bool conditionMet)

@@ -16,6 +16,8 @@ public class FrostBullet : MonoBehaviour
     private bool _canCrit; private float _critChance, _critMult;
     private Vector2 _direction;
     private float _spawnTime;
+    private Rigidbody2D _rb;
+    private PenetrateHandler _cachedPenetrate;
 
     public void Setup(float speed, int impactDmg, float frostDps, float freezeDuration,
         float slowPercent, float dmgMult, bool canCrit, float critChance, float critMult)
@@ -27,11 +29,16 @@ public class FrostBullet : MonoBehaviour
     }
     public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
     private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
-    private void Start() { _spawnTime = Time.time; }
-    private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private Rigidbody2D _rb;
-    private void Awake() { _rb = GetComponent<Rigidbody2D>(); }
-    private void FixedUpdate() { _rb.linearVelocity = _direction * _speed; }
+
+    private void Awake() { _rb = GetComponent<Rigidbody2D>(); _cachedPenetrate = GetComponent<PenetrateHandler>(); }
+    private void OnEnable()
+    {
+        _spawnTime = Time.time;
+        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null) _rb.linearVelocity = Vector2.zero;
+    }
+    private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
+    private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -39,25 +46,26 @@ public class FrostBullet : MonoBehaviour
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
         {
-            // 霜冻子弹不造成伤害，只施加减速
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             var frost = other.GetComponent<FrostEffect>();
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
             frost.ApplyFreeze(_freezeDuration, _slowPercent, 0f, false, 0f, 0f);
         }
-        var penetrate = GetComponent<PenetrateHandler>();
-        if (penetrate != null && penetrate.TryPenetrate(other)) return;
+        if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
-        Destroy(gameObject);
+        DespawnSelf();
     }
 
-    public static FrostBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
-        float frostDps, float freezeDuration, float slowPercent, float dmgMult,
-        bool canCrit, float critChance, float critMult)
+    private void DespawnSelf()
+    {
+        PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_FROST_BULLET);
+    }
+
+    private static GameObject BuildTemplate()
     {
         var go = new GameObject("FrostBullet");
-        go.transform.position = pos; go.tag = "Untagged";
+        go.tag = "Untagged";
         PhysicsLayerSetup.SetAsBullet(go);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.3f, 0.6f, 1f); sr.sortingOrder = 15;
@@ -65,9 +73,46 @@ public class FrostBullet : MonoBehaviour
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
         var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
         DotBulletVisualEffects.AttachFrostTrail(go);
-        var b = go.AddComponent<FrostBullet>();
+        go.AddComponent<FrostBullet>();
+        return go;
+    }
+
+    public static FrostBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
+        float frostDps, float freezeDuration, float slowPercent, float dmgMult,
+        bool canCrit, float critChance, float critMult)
+    {
+        var pool = ObjectPool.Instance;
+        GameObject go = null;
+        if (pool != null && pool.HasPool(PoolHelper.DOT_FROST_BULLET))
+        {
+            go = pool.Spawn(PoolHelper.DOT_FROST_BULLET, pos, Quaternion.identity);
+        }
+        else
+        {
+            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_FROST_BULLET, BuildTemplate, 15);
+            go = pool != null ? pool.Spawn(PoolHelper.DOT_FROST_BULLET, pos, Quaternion.identity) : null;
+        }
+
+        if (go == null)
+        {
+            go = new GameObject("FrostBullet");
+            go.tag = "Untagged";
+            PhysicsLayerSetup.SetAsBullet(go);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.3f, 0.6f, 1f); sr.sortingOrder = 15;
+            go.transform.localScale = Vector3.one * 0.5f;
+            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
+            var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
+            DotBulletVisualEffects.AttachFrostTrail(go);
+            go.AddComponent<FrostBullet>();
+        }
+
+        go.transform.position = pos;
+        go.SetActive(true);
+        var b = go.GetComponent<FrostBullet>();
         b.Setup(speed, impactDmg, frostDps, freezeDuration, slowPercent, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
+        b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
     }
 }
@@ -88,10 +133,13 @@ public class FrostEffect : MonoBehaviour
     private Color _originalColor;
     private bool _speedCaptured;
     private int _frostStacks = 0;
+    private int _lastVisualStacks = -1; // 上次更新视觉的层数，避免重复更新颜色
 
     private const float BASE_SLOW = 0.30f;
     private const float PER_STACK_SLOW = 0.05f;
     private const float MAX_SLOW = 0.90f;
+    private const float SPEED_CHECK_INTERVAL = 0.5f;
+    private float _nextSpeedCheckTime;
 
     /// <summary>
     /// 施加霜冻减速（永久直到敌人死亡）
@@ -116,9 +164,13 @@ public class FrostEffect : MonoBehaviour
             _enemyBase.MoveSpeed = _originalSpeed * (1f - _slowPercent);
         }
 
-        // 永久视觉效果：蓝白色调
-        if (_sr != null)
-            _sr.color = Color.Lerp(_originalColor, new Color(0.5f, 0.7f, 1f), 0.3f);
+        // 只在层数变化时更新视觉效果
+        if (_sr != null && _frostStacks != _lastVisualStacks)
+        {
+            float t = Mathf.Min(1f, _frostStacks * 0.1f); // 层数越多越蓝
+            _sr.color = Color.Lerp(_originalColor, new Color(0.3f, 0.5f, 1f), Mathf.Lerp(0.2f, 0.7f, t));
+            _lastVisualStacks = _frostStacks;
+        }
     }
 
     public int FrostStacks => _frostStacks;
@@ -145,12 +197,16 @@ public class FrostEffect : MonoBehaviour
         // 敌人死亡时清理
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 确保速度保持正确（防止其他系统覆盖）
-        if (_enemyBase != null && _speedCaptured)
+        // 降频：每0.5秒检查一次速度，而非每帧
+        if (Time.time >= _nextSpeedCheckTime)
         {
-            float targetSpeed = _originalSpeed * (1f - _slowPercent);
-            if (Mathf.Abs(_enemyBase.MoveSpeed - targetSpeed) > 0.01f)
-                _enemyBase.MoveSpeed = targetSpeed;
+            _nextSpeedCheckTime = Time.time + SPEED_CHECK_INTERVAL;
+            if (_enemyBase != null && _speedCaptured)
+            {
+                float targetSpeed = _originalSpeed * (1f - _slowPercent);
+                if (Mathf.Abs(_enemyBase.MoveSpeed - targetSpeed) > 0.01f)
+                    _enemyBase.MoveSpeed = targetSpeed;
+            }
         }
     }
 
