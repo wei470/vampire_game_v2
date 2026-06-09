@@ -32,6 +32,37 @@ public class TestBulletSelectUI : MonoBehaviour
 
     private bool _isVisible = true;
 
+    /// <summary>类别颜色缓存（自动从 config 生成）</summary>
+    private static Dictionary<string, Color> _categoryColorCache = new Dictionary<string, Color>();
+    private static int _lastCacheConfigHash = -1;
+
+    /// <summary>
+    /// 根据 MageUpgradeConfig 动态生成类别颜色。
+    /// 使用 category 名称的哈希生成唯一颜色，新增升级自动获得颜色。
+    /// </summary>
+    private void RebuildCategoryColorCache()
+    {
+        _categoryColorCache.Clear();
+        if (_config == null || _config.upgradeEntries == null) return;
+
+        int hash = 0;
+        for (int i = 0; i < _config.upgradeEntries.Length; i++)
+        {
+            string cat = _config.upgradeEntries[i].category.ToString();
+            if (!_categoryColorCache.ContainsKey(cat))
+            {
+                // 用类别名哈希生成确定性颜色（相同类别总是同一颜色）
+                int h = cat.GetHashCode();
+                float hue = (h & 0xFF) / 255f;
+                float sat = 0.5f + ((h >> 8) & 0x7F) / 256f * 0.4f; // 0.5~0.9
+                float val = 0.7f + ((h >> 16) & 0x7F) / 256f * 0.3f; // 0.7~1.0
+                _categoryColorCache[cat] = Color.HSVToRGB(hue, sat, val);
+            }
+            hash ^= _config.upgradeEntries[i].upgradeId.GetHashCode();
+        }
+        _lastCacheConfigHash = hash;
+    }
+
     // ── 布局常量（全屏利用 1920×1080）──
     private const float SCREEN_W = 1920f;
     private const float SCREEN_H = 1080f;
@@ -178,10 +209,25 @@ public class TestBulletSelectUI : MonoBehaviour
             GUI.DrawTexture(new Rect(5f, yPos, 8f, itemH - 6f), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            // 勾选框
+            // 点击整行切换选中
             bool isSelected = _bulletSelections[id];
             float checkY = yPos + 14f;
-            _bulletSelections[id] = GUI.Toggle(new Rect(24f, checkY, 36f, 36f), isSelected, "");
+
+            // 整行可点击区域
+            Rect rowRect = new Rect(5f, yPos, contentW - 10f, itemH - 6f);
+            if (GUI.Button(rowRect, "", GUIStyle.none))
+                _bulletSelections[id] = !isSelected;
+            isSelected = _bulletSelections[id];
+
+            // 勾选框（纯视觉）
+            GUI.color = isSelected ? new Color(0.3f, 1f, 0.3f) : new Color(0.3f, 0.3f, 0.3f);
+            GUI.DrawTexture(new Rect(24f, checkY, 36f, 36f), Texture2D.whiteTexture);
+            if (isSelected)
+            {
+                GUI.color = new Color(0.1f, 0.3f, 0.1f);
+                GUI.DrawTexture(new Rect(28f, checkY + 4f, 28f, 28f), Texture2D.whiteTexture);
+            }
+            GUI.color = Color.white;
 
             // 名称
             var nameStyle = new GUIStyle(GUI.skin.label)
@@ -224,7 +270,7 @@ public class TestBulletSelectUI : MonoBehaviour
     private void DrawUpgradePanel()
     {
         float pad = 20f;
-        float itemH = 80f;
+        float itemH = 110f;
         float contentW = PANEL_W - pad * 2 - 20f;
         float totalH = _upgradeSelections.Count * itemH + pad;
 
@@ -233,48 +279,10 @@ public class TestBulletSelectUI : MonoBehaviour
 
         _upgradeScrollPos = GUI.BeginScrollView(scrollRect, _upgradeScrollPos, scrollView);
 
-        // 类别颜色
-        var catColors = new Dictionary<string, Color>
-        {
-            { "DotType", new Color(0.9f, 0.4f, 0.4f) },
-            { "ArmorReduction", new Color(0.8f, 0.6f, 0.2f) },
-            { "DotSpread", new Color(0.4f, 0.8f, 0.4f) },
-            { "DotFrequency", new Color(0.6f, 0.4f, 0.9f) },
-            { "DotCritBurst", new Color(0.9f, 0.2f, 0.4f) },
-            { "DetonateMultiplier", new Color(1f, 0.5f, 0f) },
-            { "DetonateAbility", new Color(0.9f, 0.3f, 0f) },
-            { "DotTrigger", new Color(0.5f, 0.7f, 0.9f) },
-            { "DotSaturation", new Color(0.3f, 0.9f, 0.9f) },
-            { "DetonateExtra", new Color(1f, 0.6f, 0.1f) },
-            { "DotLifesteal", new Color(0.9f, 0.1f, 0.3f) },
-            { "DotOverflow", new Color(0.4f, 0.6f, 1f) },
-            { "AttackSpeed", new Color(0.8f, 0.8f, 0.2f) },
-            { "BulletCount", new Color(0.7f, 0.7f, 0.3f) },
-            { "Ricochet", new Color(0.6f, 0.8f, 0.5f) },
-            { "DotPandemic", new Color(0.3f, 0.7f, 0.3f) },
-            { "ChainReaction", new Color(1f, 0.3f, 0.1f) },
-            { "DualWield", new Color(0.5f, 0.5f, 0.9f) },
-            { "DotResonance", new Color(0.4f, 0.4f, 1f) },
-            { "Toxicology", new Color(0.2f, 0.8f, 0.3f) },
-            { "CorruptTouch", new Color(0.5f, 0.2f, 0.6f) },
-            { "ElementalStorm", new Color(0.9f, 0.6f, 0.9f) },
-            { "ShadowLink", new Color(0.3f, 0.1f, 0.5f) },
-            { "LightJudgment", new Color(1f, 1f, 0.7f) },
-            { "StaticField", new Color(0.4f, 0.8f, 1f) },
-            { "FrostExplosion", new Color(0.5f, 0.8f, 1f) },
-            { "AmmoMastery", new Color(0.7f, 0.6f, 0.4f) },
-            { "ElementalAffinity", new Color(0.6f, 0.3f, 0.9f) },
-            { "Penetrate", new Color(0.8f, 0.7f, 0.3f) },
-            { "ElementalShield", new Color(0.3f, 0.6f, 0.8f) },
-            { "PhaseShift", new Color(0.6f, 0.4f, 0.8f) },
-            { "SoulSiphon", new Color(0.7f, 0.2f, 0.5f) },
-            { "EmberBoost", new Color(1f, 0.4f, 0.1f) },
-            { "ShatterBoost", new Color(0.4f, 0.7f, 1f) },
-            { "ElementalMaster", new Color(0.9f, 0.7f, 0.1f) },
-            { "Doomsday", new Color(0.8f, 0.1f, 0.1f) },
-            { "EternalAgony", new Color(0.5f, 0.1f, 0.3f) },
-            { "AnnihilationZone", new Color(0.2f, 0.1f, 0.6f) }
-        };
+        // 类别颜色：从 MageUpgradeConfig 动态生成，新增升级无需手动维护
+        var catColors = _categoryColorCache;
+        if (catColors.Count == 0) RebuildCategoryColorCache();
+        catColors = _categoryColorCache;
 
         float yPos = 0f;
         var entries = _config.upgradeEntries;
@@ -303,6 +311,27 @@ public class TestBulletSelectUI : MonoBehaviour
             GUI.DrawTexture(new Rect(5f, yPos, 8f, itemH - 5f), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
+            // 左键+1，右键-1
+            Rect rowRect = new Rect(5f, yPos, contentW - 10f, itemH - 5f);
+            if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
+            {
+                if (Event.current.button == 0) // 左键
+                {
+                    bool canInc = entry.maxStacks == 0 || stacks < entry.maxStacks;
+                    if (canInc) _upgradeSelections[id] = stacks + 1;
+                    Event.current.Use();
+                }
+                else if (Event.current.button == 1) // 右键
+                {
+                    if (stacks > 0) _upgradeSelections[id] = stacks - 1;
+                    Event.current.Use();
+                }
+            }
+            // 绘制透明按钮覆盖（捕获hover高亮）
+            GUI.Button(rowRect, "", GUIStyle.none);
+            stacks = _upgradeSelections[id];
+            active = stacks > 0;
+
             // 名称
             var nameStyle = new GUIStyle(GUI.skin.label)
             {
@@ -310,7 +339,7 @@ public class TestBulletSelectUI : MonoBehaviour
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = active ? Color.white : new Color(0.5f, 0.5f, 0.5f) }
             };
-            GUI.Label(new Rect(24f, yPos + 6f, 420f, 28f), entry.upgradeName, nameStyle);
+            GUI.Label(new Rect(24f, yPos + 6f, contentW - 80f, 28f), entry.upgradeName, nameStyle);
 
             // 描述
             var descStyle = new GUIStyle(GUI.skin.label)
@@ -319,73 +348,29 @@ public class TestBulletSelectUI : MonoBehaviour
                 wordWrap = true,
                 normal = { textColor = active ? new Color(0.85f, 0.85f, 0.85f) : new Color(0.45f, 0.45f, 0.45f) }
             };
-            GUI.Label(new Rect(24f, yPos + 34f, 650f, 44f), entry.description, descStyle);
+            GUI.Label(new Rect(24f, yPos + 34f, contentW - 80f, 44f), entry.description, descStyle);
 
-            // ── 叠加控制 ──
-            float ctrlX = contentW - 460f;
-            float ctrlY = yPos + 12f;
-            float btnH = 34f;
-            float smallBtnH = 30f;
-
-            // 减少
-            GUI.color = stacks > 0 ? new Color(0.9f, 0.3f, 0.3f) : new Color(0.25f, 0.25f, 0.25f);
-            if (GUI.Button(new Rect(ctrlX, ctrlY, 42f, btnH), "−"))
-                if (stacks > 0) _upgradeSelections[id] = stacks - 1;
-            GUI.color = Color.white;
-
-            // 数字显示
+            // 层数显示（右侧）
             var stackStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 22,
+                fontSize = 28,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
+                alignment = TextAnchor.MiddleRight,
                 normal = { textColor = active ? new Color(0.3f, 1f, 0.3f) : new Color(0.45f, 0.45f, 0.45f) }
             };
             string stackText = entry.maxStacks > 0 ? $"{stacks}/{entry.maxStacks}" : $"{stacks}";
-            GUI.Label(new Rect(ctrlX + 48f, ctrlY, 80f, btnH), stackText, stackStyle);
+            GUI.Label(new Rect(contentW - 220f, yPos + 20f, 200f, 40f), stackText, stackStyle);
 
-            // 增加
-            bool canInc = entry.maxStacks == 0 || stacks < entry.maxStacks;
-            GUI.color = canInc ? new Color(0.3f, 0.9f, 0.3f) : new Color(0.25f, 0.25f, 0.25f);
-            if (GUI.Button(new Rect(ctrlX + 134f, ctrlY, 42f, btnH), "+"))
-                if (canInc) _upgradeSelections[id] = stacks + 1;
-            GUI.color = Color.white;
-
-            // 快捷按钮
-            var quickStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, fontStyle = FontStyle.Bold };
-
-            GUI.color = canInc ? new Color(0.2f, 0.7f, 0.2f) : new Color(0.25f, 0.25f, 0.25f);
-            if (GUI.Button(new Rect(ctrlX + 190f, ctrlY + 2f, 55f, smallBtnH), "×5", quickStyle))
-            {
-                int t = stacks + 5;
-                if (entry.maxStacks > 0) t = Mathf.Min(t, entry.maxStacks);
-                _upgradeSelections[id] = t;
-            }
-
-            GUI.color = canInc ? new Color(0.1f, 0.5f, 0.9f) : new Color(0.25f, 0.25f, 0.25f);
-            if (GUI.Button(new Rect(ctrlX + 250f, ctrlY + 2f, 60f, smallBtnH), "×10", quickStyle))
-            {
-                int t = stacks + 10;
-                if (entry.maxStacks > 0) t = Mathf.Min(t, entry.maxStacks);
-                _upgradeSelections[id] = t;
-            }
-
-            GUI.color = canInc ? new Color(0.9f, 0.7f, 0.1f) : new Color(0.25f, 0.25f, 0.25f);
-            if (GUI.Button(new Rect(ctrlX + 315f, ctrlY + 2f, 65f, smallBtnH), "MAX", quickStyle))
-            {
-                _upgradeSelections[id] = entry.maxStacks > 0 ? entry.maxStacks : 99;
-            }
-            GUI.color = Color.white;
-
-            // 类别 + 上限标签
+            // 类别 + 提示标签
             var infoStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 12,
                 fontStyle = FontStyle.Italic,
+                alignment = TextAnchor.MiddleRight,
                 normal = { textColor = new Color(catCol.r, catCol.g, catCol.b, active ? 0.9f : 0.4f) }
             };
-            string infoText = entry.maxStacks > 0 ? $"{catName}  (上限 {entry.maxStacks})" : catName;
-            GUI.Label(new Rect(ctrlX + 190f, ctrlY + smallBtnH + 4f, 200f, 20f), infoText, infoStyle);
+            string infoText = entry.maxStacks > 0 ? $"{catName}  (上限 {entry.maxStacks})  左键+ 右键-" : $"{catName}  左键+ 右键-";
+            GUI.Label(new Rect(contentW - 320f, yPos + 75f, 300f, 20f), infoText, infoStyle);
 
             yPos += itemH;
         }

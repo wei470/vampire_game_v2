@@ -97,18 +97,18 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时通过BaseEntity.OnDeath事件传播所有DOT给周围敌人，同时传播StatusEffectManager效果和独立DOT组件(流血/燃烧/中毒/霜冻)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害。死亡时从敌人到最近敌人画暗紫色锁链
 - **光明标记**：每层受到伤害+0.5%，无上限(公式：1.0+stack×0.005)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。敌人身上用TextMesh显示"xN"层数
 
-## 6. Mage 升级系统（38种）✅ 全部已实现
+## 6. Mage 升级系统（33种）✅ 全部已实现
 - DOT子弹(6)：中毒/燃烧/霜冻/雷电/黑暗/光明
 - DOT增强(4)：腐蚀/诅咒/痛苦/凋零
 - 引爆增强(2)：辐射/污染
 - 子弹增强(3)：急速/弹幕/贯穿弹
 - P0强化(3)：饱和/元素引爆/吸血法术
-- P1深度(4)：蔓延/连锁反应/双持/蓄力精通
-- P2协同(8)：共鸣/剧毒天赋/腐化之触/元素风暴/暗影链接/光明审判/静电领域/霜爆
-- 子弹扩展(3)：弹药精通/元素亲和/贯穿弹
-- 生存(4)：元素护盾/相位移动/灵魂虹吸
-- P3终极(6)：余烬强化/碎裂强化/元素大师/末日审判/永恒痛苦/湮灭领域
-- **升级数量**: 40种（原41种，移除蓄力精通/碎裂强化/末日审判/元素护盾）
+- P1深度(1)：连锁反应
+- P2协同(7)：共鸣/腐化之触/元素风暴/暗影链接/光明审判/静电领域/霜爆
+- 子弹扩展(2)：弹药精通/元素亲和
+- 生存(2)：相位移动/灵魂虹吸
+- P3终极(3)：余烬强化/元素大师/湮灭领域
+- **升级数量**: 33种（移除蔓延/双持/剧毒天赋/碎裂强化 + 重复贯穿弹(penetrate) + 蓄力精通/元素护盾）
 - **实现文件**: `MageUpgradeConfig`(配置) → `MagePassive`(属性) → `MageUpgradeApplier`(应用) → `CharacterUpgradeData`(枚举)
 - **联动文件**: `StatusEffectSystem`(DOT回调) / `DetonateSystem`(引爆) / `CurseSpreadSystem`(传播)
 - **设计文档**: 已归档（删除）
@@ -140,7 +140,7 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 ## 12. 音效系统（V6 新增）
 
 ### 架构
-- **`SoundTrack`** (ScriptableObject) — 统一音效配置包，36种音效条目
+- **`SgenoundTrack`** (ScriptableObject) — 统一音效配置包，36种音效条目
 - **`ProceduralSFX`** — 纯代码程序化音效生成（正弦波/噪声/频率扫描），无需外部音频文件
 - **`SFXManager`** (单例) — 音效管理器，事件驱动+对象池
 - **`BGMManager`** (单例) — 背景音乐管理器
@@ -159,11 +159,13 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - **Damageable.TakeDamage() 未调用 EventManager.TriggerDamage()**，导致子弹命中音效不播放
 - 修复：在 `Damageable.cs` 的 `OnDamaged?.Invoke` 之后添加 `EventManager.TriggerDamage(gameObject, actualDamage, transform.position);`
 
-## 13. Test 模式（V6 更新）
+## 13. Test 模式（V10 更新）
 - **`TestBulletSelectUI`** — 双标签页：子弹选择 + 升级叠加
-- 子弹标签：多选DOT子弹类型
-- 强化标签：+/-按钮调整叠加次数，支持×5/×10/MAX快捷
+- 子弹标签：多选DOT子弹类型，点击整行切换选中
+- 强化标签：左键+1层，右键-1层，点击整行操作
+- 类别颜色自动从 `MageUpgradeConfig` 动态生成（哈希HSV），新增升级无需维护TestUI
 - 确认后通过 `MageUpgradeApplier.ApplyUpgrade()` 应用
+- BuildSettings中BossTest/Inc3_Test场景已禁用(enabled=0)
 
 ## 14. 关键文件索引
 

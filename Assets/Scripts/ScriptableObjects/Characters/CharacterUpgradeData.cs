@@ -60,13 +60,13 @@ public class CharacterUpgradeOption
         DotOverflow,        // 溢出弹 — DOT枪命中已有同DOT敌人时额外叠层
 
         // ── P1 深度玩法类别 ──
-        DotPandemic,        // 蔓延 — DOT传播效率+15%
+        DotPandemic,        // [已弃用]蔓延 — DOT传播效率+15%
         ChainReaction,      // 连锁反应 — 引爆杀死敌人时二次引爆
-        DualWield,          // 双持 — 随机DOT枪射速+15%
+        DualWield,          // [已弃用]双持 — 随机DOT枪射速+15%
 
         // ── P2 协同/趣味类别 ──
         DotResonance,       // 共鸣 — DOT触发10%不消耗持续时间
-        Toxicology,         // 剧毒天赋 — DOT暴击率+8%
+        Toxicology,         // [已弃用]剧毒天赋 — DOT暴击率+8%
         CorruptTouch,       // 腐化之触 — DOT命中时弱化debuff
         ElementalStorm,     // 元素风暴 — 3种以上DOT时全局被动伤害
         ShadowLink,         // 暗影链接 — 黑暗标记传播范围+1，效率+10%
@@ -90,6 +90,6 @@ public class CharacterUpgradeOption
         EternalAgony,       // 永恒痛苦 — DOT持续时间×2，单次伤害-15%
         AnnihilationZone,   // 湮灭领域 — 引爆后留下元素领域
         EmberBoost,         // 余烬强化 — 余烬伤害+25%，持续+1秒
-        ShatterBoost        // 碎裂强化（已弃用）
+        ShatterBoost        // [已弃用]碎裂强化 — 碎片+2 伤害+15%
     }
 }

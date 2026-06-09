@@ -36,15 +36,15 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _dotLifestealPerTick = 0f;  // 吸血法术：每次DOT回复
 
     [Header("P1 深度玩法属性")]
-    [SerializeField] private float _pandemicBonus = 0f;        // 蔓延：传播效率加成
+    [SerializeField] private float _pandemicBonus = 0f;        // [已弃用]蔓延：传播效率加成
     [SerializeField] private int _chainReactionCount = 0;      // 连锁反应：二次引爆次数
-    [SerializeField] private float _dualWieldBonus = 0f;       // 双持：射速加成
+    [SerializeField] private float _dualWieldBonus = 0f;       // [已弃用]双持：射速加成
     [SerializeField] private float _chargeSpeedBonus = 0f;     // 引爆蓄力速度加成
     [SerializeField] private float _chargeDamageBonus = 0f;    // 引爆蓄力伤害加成
 
     [Header("P2 协同/趣味属性")]
     [SerializeField] private float _resonanceChance = 0f;      // 共鸣：不消耗持续时间几率
-    [SerializeField] private float _toxicologyCritBonus = 0f;  // 剧毒天赋：DOT暴击率加成
+    [SerializeField] private float _toxicologyCritBonus = 0f;  // [已弃用]剧毒天赋：DOT暴击率加成
     [SerializeField] private float _corruptTouchDebuff = 0f;   // 腐化之触：攻击力降低
     [SerializeField] private float _elementalStormDmg = 0f;    // 元素风暴：全局被动伤害
     [SerializeField] private float _elementalStormInterval = 0f; // 元素风暴：触发间隔
@@ -73,8 +73,8 @@ public class MagePassive : MonoBehaviour
     [SerializeField] private float _annihilationZoneDuration = 0f; // 湮灭领域：持续时间
     [SerializeField] private float _emberBoostBonus = 0f;      // 余烬强化：伤害加成
     [SerializeField] private float _emberBoostDuration = 0f;   // 余烬强化：持续加成
-    [SerializeField] private int _shatterBoostFragments = 0;   // 碎裂强化：碎片数量
-    [SerializeField] private float _shatterBoostDmg = 0f;      // 碎裂强化：碎片伤害
+    [SerializeField] private int _shatterBoostFragments = 0;   // [已弃用]碎裂强化：碎片数量
+    [SerializeField] private float _shatterBoostDmg = 0f;      // [已弃用]碎裂强化：碎片伤害
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
     private WeaponController _weaponController;

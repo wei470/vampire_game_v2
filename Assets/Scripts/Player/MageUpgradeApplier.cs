@@ -72,24 +72,19 @@ public static class MageUpgradeApplier
             case CharacterUpgradeOption.UpgradeCategory.DotOverflow: break;
 
             // ── P1 深度玩法 ──
-            case CharacterUpgradeOption.UpgradeCategory.DotPandemic:
-                mage.PandemicBonus += ue.value1;
-                // 同步到 CurseSpreadSystem
-                CurseSpreadSystem.PandemicEfficiencyBonus = mage.PandemicBonus;
-                break;
+            // DotPandemic(蔓延)已删除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.DotPandemic: break;
             case CharacterUpgradeOption.UpgradeCategory.ChainReaction:
                 mage.ChainReactionCount += (int)ue.value1;
                 break;
-            case CharacterUpgradeOption.UpgradeCategory.DualWield:
-                mage.DualWieldBonus += ue.value1;
-                break;
+            // DualWield(双持)已删除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.DualWield: break;
             // ── P2 协同/趣味 ──
             case CharacterUpgradeOption.UpgradeCategory.DotResonance:
                 mage.ResonanceChance += ue.value1;
                 break;
-            case CharacterUpgradeOption.UpgradeCategory.Toxicology:
-                mage.ToxicologyCritBonus += ue.value1;
-                break;
+            // Toxicology(剧毒天赋)已删除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.Toxicology: break;
             case CharacterUpgradeOption.UpgradeCategory.CorruptTouch:
                 mage.CorruptTouchDebuff += ue.value1;
                 break;
@@ -156,10 +151,8 @@ public static class MageUpgradeApplier
                 mage.EmberBoostBonus += ue.value1;
                 mage.EmberBoostDuration += ue.value2;
                 break;
-            case CharacterUpgradeOption.UpgradeCategory.ShatterBoost:
-                mage.ShatterBoostFragments += (int)ue.value1;
-                mage.ShatterBoostDmg += ue.value2;
-                break;
+            // ShatterBoost(碎裂强化)已删除 — 空操作保留兼容
+            case CharacterUpgradeOption.UpgradeCategory.ShatterBoost: break;
             case CharacterUpgradeOption.UpgradeCategory.ElementalMaster:
                 if (mage.DotGuns.Count >= 5)
                 {

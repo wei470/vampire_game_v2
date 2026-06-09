@@ -201,15 +201,7 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 3
         },
 
-        // ═══ P1 深度玩法（3 种）═══
-        new UpgradeEntry
-        {
-            upgradeId = "pandemic",
-            upgradeName = "蔓延 (Pandemic)",
-            description = "传播效率+15%",
-            category = CharacterUpgradeOption.UpgradeCategory.DotPandemic,
-            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
+        // ═══ P1 深度玩法（2 种）═══（蔓延已删除）
         new UpgradeEntry
         {
             upgradeId = "chain_reaction",
@@ -218,16 +210,7 @@ public class MageUpgradeConfig : ScriptableObject
             category = CharacterUpgradeOption.UpgradeCategory.ChainReaction,
             value1 = 1f, value2 = 0.5f, value3 = 0f, maxStacks = 3
         },
-        new UpgradeEntry
-        {
-            upgradeId = "dual_wield",
-            upgradeName = "双持 (Dual Wield)",
-            description = "DOT枪射速+15%",
-            category = CharacterUpgradeOption.UpgradeCategory.DualWield,
-            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-
-        // ═══ P2 协同/趣味（8 种）═══
+        // ═══ P2 协同/趣味（7 种）═══（剧毒天赋已删除）
         new UpgradeEntry
         {
             upgradeId = "resonance",
@@ -235,14 +218,6 @@ public class MageUpgradeConfig : ScriptableObject
             description = "DOT触发10%不消耗持续",
             category = CharacterUpgradeOption.UpgradeCategory.DotResonance,
             value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 5
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "toxicology",
-            upgradeName = "剧毒天赋 (Toxicology)",
-            description = "DOT暴击率+8%",
-            category = CharacterUpgradeOption.UpgradeCategory.Toxicology,
-            value1 = 0.08f, value2 = 0f, value3 = 0f, maxStacks = 5
         },
         new UpgradeEntry
         {
@@ -310,16 +285,7 @@ public class MageUpgradeConfig : ScriptableObject
             category = CharacterUpgradeOption.UpgradeCategory.ElementalAffinity,
             value1 = 0.03f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
-        new UpgradeEntry
-        {
-            upgradeId = "penetrate",
-            upgradeName = "贯穿弹 (Penetrate)",
-            description = "DOT枪穿透+1",
-            category = CharacterUpgradeOption.UpgradeCategory.Penetrate,
-            value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 3
-        },
-
-        // ═══ 生存向（4 种）═══
+        // ═══ 生存向（2 种）═══
         new UpgradeEntry
         {
             upgradeId = "phase_shift",
@@ -337,7 +303,7 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 1f, value2 = 0.5f, value3 = 0.30f, maxStacks = 0
         },
 
-        // ═══ P3 终极/高级（6 种）═══
+        // ═══ P3 终极/高级（5 种）═══（碎裂强化已删除）
         new UpgradeEntry
         {
             upgradeId = "ember_boost",
@@ -345,14 +311,6 @@ public class MageUpgradeConfig : ScriptableObject
             description = "余烬伤害+25% 持续+1秒",
             category = CharacterUpgradeOption.UpgradeCategory.EmberBoost,
             value1 = 0.25f, value2 = 1f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "shatter_boost",
-            upgradeName = "碎裂强化 (Shatter Boost)",
-            description = "碎片+2 伤害+15%",
-            category = CharacterUpgradeOption.UpgradeCategory.ShatterBoost,
-            value1 = 2f, value2 = 0.15f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
