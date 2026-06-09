@@ -173,6 +173,23 @@ public class WindErosionEffect : MonoBehaviour
         AddWindStack();
     }
 
+    /// <summary>
+    /// 消耗一层风化（用于元素反应：燃烧扩散）。返回是否成功消耗。
+    /// </summary>
+    public bool ConsumeStack()
+    {
+        if (_windStacks <= 0) return false;
+        _windStacks--;
+        UpdateStackText();
+        DebugHelper.Log($"[WindErosion] Stack consumed! Remaining={_windStacks}");
+        // 风化层数归零时清理效果
+        if (_windStacks <= 0)
+        {
+            Cleanup();
+        }
+        return true;
+    }
+
     private void AddWindStack()
     {
         _windStacks++;

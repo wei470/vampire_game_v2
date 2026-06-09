@@ -50,11 +50,29 @@ public class FrostBullet : MonoBehaviour
             var frost = other.GetComponent<FrostEffect>();
             if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
             frost.ApplyFreeze(_freezeDuration, _slowPercent, 0f, false, 0f, 0f);
+
+            // ── 元素反应：霜电（霜冻 × 雷电）──
+            // 霜冻子弹命中带静电层数的敌人时，消耗一层静电，生成冰场
+            var staticEffect = other.GetComponent<StaticStackEffect>();
+            if (staticEffect != null && staticEffect.StackCount > 0)
+            {
+                TryTriggerFrostLightning(other.transform.position, staticEffect);
+            }
         }
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         DespawnSelf();
+    }
+
+    /// <summary>
+    /// 元素反应：霜电 — 消耗一层静电，在敌人周围生成冰场
+    /// </summary>
+    private static void TryTriggerFrostLightning(Vector2 pos, StaticStackEffect staticEff)
+    {
+        if (!staticEff.ConsumeStack()) return;
+        FrostLightningField.Create(pos, 1f, 2f);
+        DebugHelper.Log($"[FrostLightning] 霜电反应触发！pos={pos}");
     }
 
     private void DespawnSelf()
@@ -160,6 +178,19 @@ public class FrostEffect : MonoBehaviour
     }
 
     public int FrostStacks => _frostStacks;
+
+    /// <summary>
+    /// 消耗一层霜冻（用于元素反应：霜电）。返回是否成功消耗。
+    /// </summary>
+    public bool ConsumeStack()
+    {
+        if (_frostStacks <= 0) return false;
+        _frostStacks--;
+        _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
+        if (_frostStacks <= 0) _slowPercent = 0f;
+        DebugHelper.Log($"[FrostEffect] Stack consumed! Remaining={_frostStacks}");
+        return true;
+    }
 
     private void OnEnable()
     {

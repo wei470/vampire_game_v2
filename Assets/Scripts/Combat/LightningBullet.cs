@@ -227,6 +227,25 @@ public class StaticStackEffect : MonoBehaviour
     public int StackCount => _stackCount;
 
     /// <summary>
+    /// 消耗一层静电（用于元素反应：霜电）。返回是否成功消耗。
+    /// </summary>
+    public bool ConsumeStack()
+    {
+        if (_stackCount <= 0) return false;
+        _stackCount--;
+        // 层归零时必须清除硬直标志，否则Update跳过恢复逻辑会导致永久暂停
+        if (_stackCount <= 0)
+        {
+            if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
+            if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
+            // 同时重置 stunEndTime，防止后续逻辑残留
+            _stunEndTime = 0f;
+        }
+        DebugHelper.Log($"[StaticStackEffect] Stack consumed! Remaining={_stackCount}");
+        return true;
+    }
+
+    /// <summary>
     /// 当前是否处于硬直状态（供FrostEffect等其他DOT效果查询）
     /// </summary>
     public bool HasStun() => Time.time < _stunEndTime;
@@ -294,6 +313,9 @@ public class StaticStackEffect : MonoBehaviour
         _stackCount = 0;
         _lastTickTime = Time.time;
         _stunEndTime = 0f;
+        // 对象池复用时必须清除硬直标志，否则敌人会永久暂停
+        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
+        if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
     }
 
     private void Start()

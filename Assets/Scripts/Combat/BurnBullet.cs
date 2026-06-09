@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 燃烧子弹 — 慢速橙色子弹，命中叠加燃烧层数
@@ -48,11 +49,99 @@ public class BurnBullet : MonoBehaviour
             var burn = other.GetComponent<BurnStackEffect>();
             if (burn == null) burn = other.gameObject.AddComponent<BurnStackEffect>();
             burn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
+
+            // ── 元素反应：燃烧扩散（燃烧 × 风化）──
+            // 当燃烧子弹打中带有风化层数的敌人时，消耗一层风化，
+            // 敌人的燃烧效果会扩散至一个圆，圆内所有敌人都施加一层燃烧
+            var windEffect = other.GetComponent<WindErosionEffect>();
+            if (windEffect != null && windEffect.WindStacks > 0)
+            {
+                TriggerBurnSpread(other.transform.position, burn);
+            }
         }
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         DespawnSelf();
+    }
+
+    /// <summary>
+    /// 元素反应：燃烧扩散 — 消耗一层风化，将燃烧扩散到周围所有敌人
+    /// </summary>
+    private void TriggerBurnSpread(Vector2 center, BurnStackEffect sourceBurn)
+    {
+        // 查找中心敌人并消耗风化层数
+        var spawnMgr = GameReferences.SpawnManager;
+        if (spawnMgr == null) return;
+
+        // 消耗一层风化
+        var centerEnemy = sourceBurn.GetComponent<WindErosionEffect>();
+        if (centerEnemy == null || !centerEnemy.ConsumeStack()) return;
+
+        // 燃烧扩散范围（缩小为原来的30%：5 * 0.3 = 1.5）
+        const float SPREAD_RADIUS = 1.5f;
+        float radiusSqr = SPREAD_RADIUS * SPREAD_RADIUS;
+
+        // 视觉特效：燃烧扩散爆发
+        CombatManager.CreateExplosionEffect(center, SPREAD_RADIUS,
+            new Color(1f, 0.5f, 0f, 0.5f), 0.4f);
+
+        // 显示"扩散！"文字
+        ShowSpreadText(center);
+
+        // 遍历所有敌人，对范围内的施加燃烧
+        IReadOnlyList<GameObject> enemies = spawnMgr.ActiveEnemies;
+        if (enemies == null) return;
+
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var e = enemies[i];
+            if (e == null || !e.activeInHierarchy) continue;
+            if (e.transform.position == (Vector3)center) continue; // 跳过源敌人
+
+            // 范围检测
+            Vector2 delta = (Vector2)e.transform.position - center;
+            if (delta.sqrMagnitude > radiusSqr) continue;
+
+            // 检查是否存活
+            var enemyDmg = e.GetComponent<Damageable>();
+            if (enemyDmg == null || enemyDmg.CurrentHp <= 0) continue;
+
+            // 施加燃烧
+            DotBulletHelper.EnsureStatusEffectManager(e);
+            var targetBurn = e.GetComponent<BurnStackEffect>();
+            if (targetBurn == null) targetBurn = e.AddComponent<BurnStackEffect>();
+            targetBurn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
+
+            // 扩散视觉特效（小）
+            CombatManager.CreateExplosionEffect(e.transform.position, 0.4f,
+                new Color(1f, 0.5f, 0f, 0.4f), 0.25f);
+        }
+
+        DebugHelper.Log($"[BurnSpread] 燃烧扩散触发！范围={SPREAD_RADIUS}，消耗1层风化");
+    }
+
+    /// <summary>
+    /// 在扩散圆心显示"扩散！"文字，1秒后自动销毁
+    /// </summary>
+    private static void ShowSpreadText(Vector2 pos)
+    {
+        var textObj = new GameObject("BurnSpreadText");
+        textObj.transform.position = pos + new Vector2(0, 0.6f);
+        textObj.transform.localScale = Vector3.one * 0.3f;
+
+        var textMesh = textObj.AddComponent<TextMesh>();
+        textMesh.text = "扩散！";
+        textMesh.characterSize = 0.2f;
+        textMesh.anchor = TextAnchor.MiddleCenter;
+        textMesh.alignment = TextAlignment.Center;
+        textMesh.fontSize = 50;
+        textMesh.fontStyle = FontStyle.Bold;
+        textMesh.color = new Color(1f, 0.5f, 0f); // 橙色，与燃烧同色
+
+        // 向上飘动 + 自动销毁
+        var ticker = textObj.AddComponent<BurnSpreadTextTicker>();
+        ticker.Lifetime = 1.0f;
     }
 
     private void DespawnSelf()
@@ -175,4 +264,54 @@ public class BurnStackEffect : MonoBehaviour
 
     private void OnDestroy() { UnregisterColor(); }
     private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("burn"); }
+}
+
+/// <summary>
+/// 燃烧扩散文字 — 向上飘动并淡出，1秒后自动销毁
+/// </summary>
+public class BurnSpreadTextTicker : MonoBehaviour
+{
+    public float Lifetime = 1.0f;
+    private float _spawnTime;
+    private TextMesh _textMesh;
+
+    private void Awake()
+    {
+        _spawnTime = Time.time;
+        _textMesh = GetComponent<TextMesh>();
+        // 安全兜底：无论如何都在 Lifetime+1 秒后销毁
+        Destroy(gameObject, Lifetime + 1f);
+    }
+
+    private void OnEnable()
+    {
+        _spawnTime = Time.time;
+    }
+
+    private void Update()
+    {
+        float elapsed = Time.time - _spawnTime;
+        if (elapsed >= Lifetime)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // 向上飘动
+        transform.position += Vector3.up * Time.deltaTime * 1.5f;
+
+        // 淡出
+        if (_textMesh != null)
+        {
+            Color c = _textMesh.color;
+            c.a = Mathf.Clamp01(1f - (elapsed / Lifetime));
+            _textMesh.color = c;
+        }
+    }
+
+    private void OnDisable()
+    {
+        // 场景重置时确保销毁
+        if (gameObject != null) Destroy(gameObject);
+    }
 }

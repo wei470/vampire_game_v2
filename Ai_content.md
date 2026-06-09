@@ -98,6 +98,18 @@ TakeDamage → HP≤0 → Die() → OnDeath事件 → EnemyBase.Despawn
 - **黑暗标记**：永久标记，命中的敌人略微变黑。敌人死亡时通过BaseEntity.OnDeath事件传播所有DOT给周围敌人，同时传播StatusEffectManager效果和独立DOT组件(流血/燃烧/中毒/霜冻)。传播效率50%，范围3。DarkBullet无穿透，不造成直接伤害。死亡时从敌人到最近敌人画暗紫色锁链
 - **光明标记**：每层受到伤害+0.5%，无上限(公式：1.0+stack×0.005)。LightBulletController蓄力3秒(头部蓄力条)后朝鼠标方向射出激光，顺时针扫45度，每3帧触发一次伤害1点。敌人身上用TextMesh显示"xN"层数
 
+## 5.5 元素反应系统（V11 新增）
+
+| 反应名 | 触发条件 | 效果 |
+|--------|----------|------|
+| 燃烧扩散 | 燃烧子弹命中带风化层数的敌人 | 消耗1层风化，以敌人为圆心(r=1.5)对范围内所有敌人施加1层燃烧，显示"扩散！" |
+| 霜电 | 霜冻子弹命中带静电层数的敌人 | 消耗1层静电，生成冰场(r=1, 2秒)，冰场内每1.25秒施加1层霜冻(30%减速，每层+5%)，显示"霜电！" |
+
+- **反应触发文件**：`BurnBullet.cs`(燃烧扩散) / `FrostBullet.cs`(霜电)
+- **反应组件文件**：`FrostLightningField.cs`(霜电冰场) / `ReactionTextTicker`(通用反应文字)
+- **ConsumeStack**：`WindErosionEffect.ConsumeStack()` / `StaticStackEffect.ConsumeStack()`
+- **修改的DOT组件**：`WindErosionEffect`(风化) / `StaticStackEffect`(静电) / `FrostEffect`(霜冻)
+
 ## 6. Mage 升级系统（33种）✅ 全部已实现
 - DOT子弹(7)：中毒/燃烧/霜冻/雷电/黑暗/光明/风
 - DOT增强(4)：腐蚀/诅咒/痛苦/凋零
