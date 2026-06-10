@@ -19,8 +19,6 @@ public class SummonerEnemy : EnemyBase
     [SerializeField] private Color _summonColor = new Color(0.6f, 0.2f, 0.8f);
 
     private float _lastSummonTime;
-    private Transform _target;
-    private Rigidbody2D _rb;
     private int _currentSummons = 0;
     private SpriteRenderer _sr;
     private Color _originalColor;
@@ -28,13 +26,13 @@ public class SummonerEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         // 使用全局引用缓存
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;

@@ -20,8 +20,6 @@ public class ChargerEnemy : EnemyBase
     private enum ChargerState { Chase, Windup, Charging, Stunned }
 
     private ChargerState _state = ChargerState.Chase;
-    private Transform _target;
-    private Rigidbody2D _rb;
     private float _stateTimer;
     private float _lastChargeTime;
     private Vector2 _chargeDirection;
@@ -30,12 +28,12 @@ public class ChargerEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
         _lastChargeTime = -_chargeCooldown;

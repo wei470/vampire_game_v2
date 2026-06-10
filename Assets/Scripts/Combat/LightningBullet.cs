@@ -316,6 +316,7 @@ public class StaticStackEffect : MonoBehaviour
         // 对象池复用时必须清除硬直标志，否则敌人会永久暂停
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
+        DotEffectRegistry.Register(this); // #24 注册到统一注册表
     }
 
     private void Start()
@@ -402,6 +403,7 @@ public class StaticStackEffect : MonoBehaviour
 
     private void OnDestroy()
     {
+        DotEffectRegistry.Unregister(this); // #24 注销
         if (_enemyBase != null && _stackCount > 0)
             RestoreSpeedAfterStun();
         UnregisterColor();

@@ -56,14 +56,22 @@ public static class CurseSpreadSystem
         go.TryGetComponent<FrostEffect>(out var srcFrost);
         if (!hasAnyDot && srcBleed == null && srcBurn == null && srcPoison == null && srcFrost == null) return;
 
-        // 找到范围内的敌人
-        Collider2D[] hits = Physics2D.OverlapCircleAll(go.transform.position, range);
-        var validTargets = new List<Collider2D>();
-        foreach (var hit in hits)
+        // ── 使用空间分区查询范围内敌人（替代 Physics2D.OverlapCircleAll）──
+        var spawnMgr = GameReferences.SpawnManager;
+        var nearbyEnemies = (spawnMgr != null && spawnMgr.ActiveEnemies != null && spawnMgr.ActiveEnemies.Count > 0)
+            ? SpatialGrid.QueryRadius((Vector2)go.transform.position, range)
+            : null;
+
+        var validTargets = new List<GameObject>(16);
+        if (nearbyEnemies != null)
         {
-            if (hit.gameObject == go) continue;
-            if (!hit.CompareTag("Enemy")) continue;
-            validTargets.Add(hit);
+            for (int i = 0; i < nearbyEnemies.Count; i++)
+            {
+                var e = nearbyEnemies[i];
+                if (e == null || e == go || !e.activeInHierarchy) continue;
+                if (!e.CompareTag("Enemy")) continue;
+                validTargets.Add(e);
+            }
         }
 
         int spreadCount = validTargets.Count;

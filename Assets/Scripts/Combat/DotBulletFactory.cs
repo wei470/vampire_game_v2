@@ -15,6 +15,13 @@ public static class DotBulletFactory
     private static readonly Dictionary<StatusEffectType, BulletSpawner> _spawners
         = new Dictionary<StatusEffectType, BulletSpawner>();
 
+    // P2-1: 数据驱动配置（延迟加载，避免启动时依赖）
+    private static DotBulletConfig _config;
+    private static DotBulletConfig Config
+    {
+        get { if (_config == null) _config = DotBulletConfig.GetDefault(); return _config; }
+    }
+
     static DotBulletFactory()
     {
         // 流血子弹已移除
@@ -45,22 +52,11 @@ public static class DotBulletFactory
 
     // ── 默认创建方法 ──
 
-    private static GameObject SpawnBleed(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
-        float bulletSpeedMult, float durMult, float dmgMult,
-        bool canCrit, float critChance, float critMult)
-    {
-        var go = BleedBullet.Create(pos, dir, 14f * bulletSpeedMult, gun.impactDamage,
-            gun.dotDps, gun.dotDuration * durMult, dmgMult,
-            canCrit, critChance, critMult)?.gameObject;
-        AttachRicochetIfAvailable(go);
-        return go;
-    }
-
     private static GameObject SpawnPoison(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        var go = PoisonBullet.Create(pos, dir, 14f * bulletSpeedMult,
+        var go = PoisonBullet.Create(pos, dir, Config.PoisonSpeed * bulletSpeedMult,
             gun.dotDps, gun.dotDuration * durMult, dmgMult,
             canCrit, critChance, critMult)?.gameObject;
         AttachRicochetIfAvailable(go);
@@ -71,7 +67,7 @@ public static class DotBulletFactory
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        var go = BurnBullet.Create(pos, dir, 12f * bulletSpeedMult, gun.impactDamage,
+        var go = BurnBullet.Create(pos, dir, Config.BurnSpeed * bulletSpeedMult, gun.impactDamage,
             gun.dotDps, gun.dotDuration * durMult, dmgMult,
             canCrit, critChance, critMult)?.gameObject;
         AttachRicochetIfAvailable(go);
@@ -82,8 +78,8 @@ public static class DotBulletFactory
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        var go = FrostBullet.Create(pos, dir, 20f * bulletSpeedMult, gun.impactDamage,
-            gun.dotDps, 1f, 0.3f, dmgMult,
+        var go = FrostBullet.Create(pos, dir, Config.FrostSpeed * bulletSpeedMult, gun.impactDamage,
+            gun.dotDps, Config.FrostFreezeDuration, Config.FrostBaseSlowPct, dmgMult,
             canCrit, critChance, critMult)?.gameObject;
         AttachRicochetIfAvailable(go);
         return go;
@@ -93,7 +89,7 @@ public static class DotBulletFactory
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        var go = LightningBullet.Create(pos, dir, 16f * bulletSpeedMult, gun.impactDamage,
+        var go = LightningBullet.Create(pos, dir, Config.LightningSpeed * bulletSpeedMult, gun.impactDamage,
             dmgMult)?.gameObject;
         AttachRicochetIfAvailable(go);
         return go;
@@ -103,9 +99,9 @@ public static class DotBulletFactory
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        float speed = 6f * bulletSpeedMult;
-        float radius = 3f + (gun.upgradeLevel - 1) * 0.5f; // 升级增加传播范围
-        float efficiency = 0.5f + (gun.upgradeLevel - 1) * 0.05f; // 升级增加传播效率
+        float speed = Config.DarkSpeed * bulletSpeedMult;
+        float radius = Config.DarkBaseRadius + (gun.upgradeLevel - 1) * Config.DarkRadiusPerLevel;
+        float efficiency = Config.DarkBaseEfficiency + (gun.upgradeLevel - 1) * Config.DarkEfficiencyPerLevel;
         var go = DarkBullet.Create(pos, dir, speed, radius, efficiency)?.gameObject;
         AttachRicochetIfAvailable(go);
         return go;
@@ -116,18 +112,19 @@ public static class DotBulletFactory
         bool canCrit, float critChance, float critMult)
     {
         // 光明子弹是特殊的蓄力型定向激光，不走普通子弹路径
-        float chargeDuration = Mathf.Max(1.5f, 3f - (gun.upgradeLevel - 1) * 0.3f);
-        int laserDamage = 1;
-        float sweepAngle = 45f;
-        float sweepDuration = 0.4f;
-        float laserLength = 25f;
-        float laserWidth = 1.5f;
-        float markDuration = 15f;
-        int markMaxStacks = 9999; // 无上限
+        float chargeDuration = Mathf.Max(Config.LightMinChargeDuration,
+            Config.LightChargeDuration - (gun.upgradeLevel - 1) * Config.LightChargeReductionPerLevel);
+        int laserDamage = Config.LightLaserDamage;
+        float sweepAngle = Config.LightSweepAngle;
+        float sweepDuration = Config.LightSweepDuration;
+        float laserLength = Config.LightLaserLength;
+        float laserWidth = Config.LightLaserWidth;
+        float markDuration = Config.LightMarkDuration;
+        int markMaxStacks = Config.LightMarkMaxStacks <= 0 ? 9999 : Config.LightMarkMaxStacks;
 
         var controller = LightBulletController.Create(pos);
         controller.Setup(chargeDuration, laserDamage, sweepAngle, sweepDuration,
-            laserLength, laserWidth, markDuration, markMaxStacks, 0.7f);
+            laserLength, laserWidth, markDuration, markMaxStacks, Config.LightTextureScale);
         controller.BeginCharge();
         return controller.gameObject;
     }
@@ -136,9 +133,10 @@ public static class DotBulletFactory
         float bulletSpeedMult, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
     {
-        float speed = 24f * bulletSpeedMult; // 高子弹速度
-        // 风子弹散射5发：-15°, -7.5°, 0°, +7.5°, +15°（总30°扇形）
-        float[] angles = { -15f, -7.5f, 0f, 7.5f, 15f };
+        float speed = Config.WindSpeed * bulletSpeedMult;
+        // 风子弹散射：从配置读取角度数组
+        float[] angles = Config.WindSpreadAngles != null && Config.WindSpreadAngles.Length > 0
+            ? Config.WindSpreadAngles : new float[] { -15f, -7.5f, 0f, 7.5f, 15f };
         GameObject firstGo = null;
         for (int i = 0; i < angles.Length; i++)
         {
@@ -161,7 +159,7 @@ public static class DotBulletFactory
     private static void AttachRicochetIfAvailable(GameObject bullet)
     {
         if (bullet == null) return;
-        var mage = GameReferences.Player?.GetComponent<MagePassive>();
+        var mage = GameReferences.MagePassive;
         if (mage == null) return;
 
         int pierce = mage.PiercingBonus;
@@ -256,6 +254,7 @@ public class RicochetHandler : MonoBehaviour
 
 /// <summary>
 /// #15 DOT 追踪弹桥接组件 — 挂在 HomingProjectile 上，命中敌人时附加 DOT 效果
+/// #22 优化：使用策略字典替代 switch-case，消除分支
 /// </summary>
 public class DotHomingBullet : MonoBehaviour
 {
@@ -266,6 +265,16 @@ public class DotHomingBullet : MonoBehaviour
     private float _critChance;
     private float _critMult;
     private bool _initialized;
+
+    // #22: 策略字典 — 每种 StatusEffectType 对应一个命中处理委托
+    // 参数: (enemy, gun, durMult, dmgMult, canCrit, critChance, critMult)
+    private static readonly Dictionary<StatusEffectType, System.Action<GameObject, MagePassive.DotGunState, float, float, bool, float, float>> _hitHandlers
+        = new Dictionary<StatusEffectType, System.Action<GameObject, MagePassive.DotGunState, float, float, bool, float, float>>
+    {
+        { StatusEffectType.Poison, ApplyPoison },
+        { StatusEffectType.Burn, ApplyBurn },
+        { StatusEffectType.Frostbite, ApplyFrost },
+    };
 
     public void Init(MagePassive.DotGunState gun, float durMult, float dmgMult,
         bool canCrit, float critChance, float critMult)
@@ -284,30 +293,33 @@ public class DotHomingBullet : MonoBehaviour
         if (!_initialized || enemy == null) return;
         DotBulletHelper.EnsureStatusEffectManager(enemy);
 
-        switch (_gun.effectType)
+        if (_hitHandlers.TryGetValue(_gun.effectType, out var handler))
         {
-            case StatusEffectType.Bleed:
-                var bleed = enemy.GetComponent<BleedEffect>();
-                if (bleed == null) bleed = enemy.AddComponent<BleedEffect>();
-                bleed.Refresh(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult, _canCrit, _critChance, _critMult);
-                break;
-            case StatusEffectType.Poison:
-                var poison = enemy.GetComponent<PoisonStackEffect>();
-                if (poison == null) poison = enemy.AddComponent<PoisonStackEffect>();
-                poison.AddStack(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult, _canCrit, _critChance, _critMult);
-                break;
-            case StatusEffectType.Burn:
-                var burn = enemy.GetComponent<BurnStackEffect>();
-                if (burn == null) burn = enemy.AddComponent<BurnStackEffect>();
-                burn.AddStack(_gun.dotDps * _dmgMult, _gun.dotDuration * _durMult, _canCrit, _critChance, _critMult);
-                break;
-            case StatusEffectType.Frostbite:
-                var frost = enemy.GetComponent<FrostEffect>();
-                if (frost == null) frost = enemy.AddComponent<FrostEffect>();
-                // 霜冻不造成伤害，只施加减速
-                frost.ApplyFreeze(1f, 0.3f, 0f, false, 0f, 0f);
-                break;
+            handler(enemy, _gun, _durMult, _dmgMult, _canCrit, _critChance, _critMult);
         }
+    }
+
+    // ── 策略方法（静态，无实例状态）──
+
+    private static void ApplyPoison(GameObject enemy, MagePassive.DotGunState gun, float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
+    {
+        var poison = enemy.GetComponent<PoisonStackEffect>();
+        if (poison == null) poison = enemy.AddComponent<PoisonStackEffect>();
+        poison.AddStack(gun.dotDps * dmgMult, gun.dotDuration * durMult, canCrit, critChance, critMult);
+    }
+
+    private static void ApplyBurn(GameObject enemy, MagePassive.DotGunState gun, float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
+    {
+        var burn = enemy.GetComponent<BurnStackEffect>();
+        if (burn == null) burn = enemy.AddComponent<BurnStackEffect>();
+        burn.AddStack(gun.dotDps * dmgMult, gun.dotDuration * durMult, canCrit, critChance, critMult);
+    }
+
+    private static void ApplyFrost(GameObject enemy, MagePassive.DotGunState gun, float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
+    {
+        var frost = enemy.GetComponent<FrostEffect>();
+        if (frost == null) frost = enemy.AddComponent<FrostEffect>();
+        frost.ApplyFreeze(1f, 0.3f, 0f, false, 0f, 0f);
     }
 }
 

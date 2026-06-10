@@ -1,9 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 流血子弹 — 命中后附加流血被动效果（敌人移动时受伤）
-/// 从 DotProjectile.cs 拆分而来
+/// 流血子弹 — 已弃用（V7 从游戏中移除，config 中无 bleed 条目）
+/// BleedEffect 组件仍被 DarkBullet/CurseSpreadSystem/DetonateSystem 引用，保留
 /// </summary>
+[System.Obsolete("流血子弹已从游戏中移除，BleedEffect 组件仍活跃")]
 public class BleedBullet : MonoBehaviour
 {
     private float _speed = 14f;

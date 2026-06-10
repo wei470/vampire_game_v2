@@ -13,10 +13,10 @@ public class EnemyBase : BaseEntity
     [SerializeField] private int _contactDamage = 10;
     [SerializeField] private float _attackCooldown = 1f;
 
-    private Rigidbody2D _rb;
+    protected Rigidbody2D _rb;
     private Damageable _damageable;
     private KillRewarder _killRewarder;
-    private Transform _target;
+    protected Transform _target;
     private float _lastAttackTime;
     private EnemyHealthBar _healthBar;
 

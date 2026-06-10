@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0710688bca8dbaf44a04fe97cd470ad2, type: 3}
+  m_Name: DotBulletConfig
+  m_EditorClassIdentifier: Gameplay::DotBulletConfig
+  BurnSpeed: 12
+  BurnLifetime: 8
+  BurnBaseDps: 2
+  BurnDuration: 999
+  BurnMinTickInterval: 0.2
+  PoisonSpeed: 14
+  PoisonExplosionRadius: 1.5
+  PoisonPuddleRadius: 1
+  PoisonPuddleDuration: 5
+  PoisonPuddleTickInterval: 1
+  PoisonPuddleTickDecay: 0.9
+  PoisonPuddleMinTickInterval: 0.2
+  FrostSpeed: 20
+  FrostSlowPerStack: 0.01
+  FrostBaseSlowPct: 0.9
+  FrostFreezeDuration: 999
+  FrostMaxSlow: 0.9
+  LightningSpeed: 16
+  LightningChainCount: 3
+  LightningChainRadius: 8
+  StaticBaseInterval: 5
+  StaticStackReduction: 0.2
+  StaticMinInterval: 2
+  StaticStunOnHit: 0.1
+  StaticStunOnDischarge: 0.5
+  StaticStunOnFirstStack: 1
+  StaticMaxStacks: 15
+  DarkSpeed: 6
+  DarkBaseRadius: 3
+  DarkBaseEfficiency: 0.5
+  DarkRadiusPerLevel: 0.5
+  DarkEfficiencyPerLevel: 0.05
+  DarkMarkDamageBonus: 0.01
+  LightChargeDuration: 0.5
+  LightChargeReductionPerLevel: 0.3
+  LightMinChargeDuration: 0
+  LightLaserDamage: 1
+  LightSweepAngle: 45
+  LightSweepDuration: 0.15
+  LightLaserLength: 25
+  LightLaserWidth: 1.5
+  LightMarkDuration: 15
+  LightMarkMaxStacks: 0
+  LightMarkDamagePerStack: 0.005
+  LightTextureScale: 0.7
+  LightPostFireDelay: 0
+  WindSpeed: 24
+  WindHitsPerStack: 1
+  WindKnockbackDistance: 0.6
+  WindSpreadAngles:
+  - -15
+  - -7.5
+  - 0
+  - 7.5
+  - 15
+  WindErosionKnockbackDistance: 1
+  WindMaxStacks: 999
+  BurnSpreadRadius: 5
+  FrostLightningFieldRadius: 1
+  FrostLightningFieldDuration: 2
+  FrostLightningTickInterval: 1.25
+  HomingSpeed: 10
+  HomingLifetime: 5
+  HomingTargetRadius: 6

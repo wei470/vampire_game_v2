@@ -27,7 +27,7 @@ public class GameDataLoader
         var charList = new List<CharacterData>();
         foreach (var name in charNames)
         {
-            var c = LoadAsset<CharacterData>($"Assets/ScriptableObjects/Characters/{name}.asset");
+        var c = LoadAsset<CharacterData>($"Assets/Resources/Characters/{name}.asset");
             if (c != null) charList.Add(c);
         }
         Characters = charList.Count > 0 ? charList.ToArray() : new CharacterData[0];
@@ -43,13 +43,13 @@ public class GameDataLoader
         var skillList = new List<SkillData>();
         foreach (var name in skillNames)
         {
-            var s = LoadAsset<SkillData>($"Assets/ScriptableObjects/Skills/{name}.asset");
+            var s = LoadAsset<SkillData>($"Assets/Resources/Skills/{name}.asset");
             if (s != null) skillList.Add(s);
         }
         Skills = skillList.Count > 0 ? skillList.ToArray() : new SkillData[0];
 
         // ── #38 加载 MageUpgradeConfig ──
-        MageUpgradeConfig = LoadAsset<MageUpgradeConfig>("Assets/ScriptableObjects/Config/MageUpgradeConfig.asset");
+        MageUpgradeConfig = LoadAsset<MageUpgradeConfig>("Assets/Resources/Configs/MageUpgradeConfig.asset");
         if (MageUpgradeConfig == null)
         {
             // 运行时创建默认配置（与编辑器中的 .asset 一致）
@@ -157,12 +157,48 @@ public class GameDataLoader
         return s;
     }
 
+    /// <summary>
+    /// 通用资源加载：优先 Resources.Load（打包可用），编辑器回退 AssetDatabase
+    /// </summary>
     private T LoadAsset<T>(string path) where T : UnityEngine.Object
     {
+        // 1. 尝试 Resources.Load（打包后可用）
+        //    path 形如 "Assets/Resources/Characters/Char_mage.asset" → 提取 "Characters/Char_mage"
+        //    或直接传 Resources 下相对路径
+        string resourcesPath = ExtractResourcesPath(path);
+        if (!string.IsNullOrEmpty(resourcesPath))
+        {
+            var res = Resources.Load<T>(resourcesPath);
+            if (res != null) return res;
+        }
+
 #if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<T>(path);
-#else
-        return null;
+        // 2. 编辑器回退：AssetDatabase 加载原始路径
+        var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<T>(path);
+        if (asset != null) return asset;
+
+        // 3. 编辑器回退：在 ScriptableObjects 原始目录查找
+        string soPath = path.Replace("Resources/", "");
+        asset = UnityEditor.AssetDatabase.LoadAssetAtPath<T>(soPath);
+        if (asset != null) return asset;
 #endif
+
+        DebugHelper.LogWarning($"[GameDataLoader] Failed to load: {path}");
+        return null;
+    }
+
+    /// <summary>
+    /// 从路径中提取 Resources 相对路径（不含扩展名）
+    /// "Assets/Resources/Characters/Char_mage.asset" → "Characters/Char_mage"
+    /// </summary>
+    private static string ExtractResourcesPath(string path)
+    {
+        int idx = path.IndexOf("Resources/");
+        if (idx >= 0)
+        {
+            string sub = path.Substring(idx + "Resources/".Length);
+            return System.IO.Path.ChangeExtension(sub, null);
+        }
+        return null;
     }
 }

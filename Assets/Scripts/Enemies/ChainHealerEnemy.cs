@@ -18,21 +18,19 @@ public class ChainHealerEnemy : EnemyBase
     [SerializeField] private float _healDecay = 0.8f;       // 每次跳跃治疗衰减
 
     private float _lastHealTime;
-    private Transform _target;
-    private Rigidbody2D _rb;
     private SpriteRenderer _sr;
     private Color _originalColor;
 
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
     }

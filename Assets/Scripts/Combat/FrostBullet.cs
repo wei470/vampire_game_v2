@@ -2,67 +2,40 @@ using UnityEngine;
 
 /// <summary>
 /// 霜冻子弹 — 快速子弹，冰冻敌人 + 永久减速 + 霜伤
-/// 从 DotProjectile.cs 拆分而来
+/// 从 DotProjectile.cs 拆分而来，已迁移到 DotBulletBase 基类
 /// </summary>
-public class FrostBullet : MonoBehaviour
+public class FrostBullet : DotBulletBase
 {
-    private float _speed = 20f;
-    private float _lifetime = 2f;
-    private int _impactDamage = 6;
     private float _frostDps = 2f;
     private float _freezeDuration = 1f;
     private float _slowPercent = 0.3f;
-    private float _damageMultiplier = 1f;
-    private bool _canCrit; private float _critChance, _critMult;
-    private Vector2 _direction;
-    private float _spawnTime;
-    private Rigidbody2D _rb;
-    private PenetrateHandler _cachedPenetrate;
 
-    public void Setup(float speed, int impactDmg, float frostDps, float freezeDuration,
+    protected override StatusEffectType EffectType => StatusEffectType.Frostbite;
+
+    /// <summary>
+    /// 霜冻子弹专属参数设置
+    /// </summary>
+    public void SetupFrost(float speed, int impactDmg, float frostDps, float freezeDuration,
         float slowPercent, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        _speed = speed; _impactDamage = impactDmg; _frostDps = frostDps;
-        _freezeDuration = freezeDuration; _slowPercent = slowPercent;
-        _damageMultiplier = dmgMult;
-        _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
+        SetupBullet(speed, 2f, impactDmg, dmgMult, canCrit, critChance, critMult);
+        _frostDps = frostDps;
+        _freezeDuration = freezeDuration;
+        _slowPercent = slowPercent;
     }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
-    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
 
-    private void Awake() { _rb = GetComponent<Rigidbody2D>(); _cachedPenetrate = GetComponent<PenetrateHandler>(); }
-    private void OnEnable()
+    protected override void OnHitEnemy(GameObject enemy)
     {
-        _spawnTime = Time.time;
-        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
-        if (_rb != null) _rb.linearVelocity = Vector2.zero;
-    }
-    private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
-    private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }
+        var frost = enemy.GetComponent<FrostEffect>();
+        if (frost == null) frost = enemy.AddComponent<FrostEffect>();
+        frost.ApplyFreeze(_freezeDuration, _slowPercent, 0f, false, 0f, 0f);
 
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        if (!other.CompareTag("Enemy")) return;
-        var dmg = other.GetComponent<Damageable>();
-        if (dmg != null && dmg.CurrentHp > 0)
+        // ── 元素反应：霜电（霜冻 × 雷电）──
+        var staticEffect = enemy.GetComponent<StaticStackEffect>();
+        if (staticEffect != null && staticEffect.StackCount > 0)
         {
-            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
-            var frost = other.GetComponent<FrostEffect>();
-            if (frost == null) frost = other.gameObject.AddComponent<FrostEffect>();
-            frost.ApplyFreeze(_freezeDuration, _slowPercent, 0f, false, 0f, 0f);
-
-            // ── 元素反应：霜电（霜冻 × 雷电）──
-            // 霜冻子弹命中带静电层数的敌人时，消耗一层静电，生成冰场
-            var staticEffect = other.GetComponent<StaticStackEffect>();
-            if (staticEffect != null && staticEffect.StackCount > 0)
-            {
-                TryTriggerFrostLightning(other.transform.position, staticEffect);
-            }
+            TryTriggerFrostLightning(enemy.transform.position, staticEffect);
         }
-        if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
-        var ricochet = GetComponent<RicochetHandler>();
-        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
-        DespawnSelf();
     }
 
     /// <summary>
@@ -75,7 +48,7 @@ public class FrostBullet : MonoBehaviour
         DebugHelper.Log($"[FrostLightning] 霜电反应触发！pos={pos}");
     }
 
-    private void DespawnSelf()
+    protected override void OnBulletDespawn()
     {
         PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_FROST_BULLET);
     }
@@ -128,9 +101,8 @@ public class FrostBullet : MonoBehaviour
         go.transform.position = pos;
         go.SetActive(true);
         var b = go.GetComponent<FrostBullet>();
-        b.Setup(speed, impactDmg, frostDps, freezeDuration, slowPercent, dmgMult, canCrit, critChance, critMult);
+        b.SetupFrost(speed, impactDmg, frostDps, freezeDuration, slowPercent, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
-        b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
     }
 }
@@ -197,17 +169,14 @@ public class FrostEffect : MonoBehaviour
         _slowPercent = 0f;
         _frostStacks = 0;
         _frostDps = 0f;
-        // 恢复霜冻减速乘数（对象池复用时）
+        _lastSyncedStacks = -1;
+        // 缓存组件引用（支持对象池复用）
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null) _enemyBase.FrostSlowMultiplier = 1f;
-    }
-
-    private void Start()
-    {
-        if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         _damageable = GetComponent<Damageable>();
         _blender = GetComponent<DotColorBlender>();
         EnsureColorCaptured();
+        DotEffectRegistry.Register(this); // #24 注册到统一注册表
     }
 
     /// <summary>确保已捕获原始颜色（ApplyFreeze可能在Start之前被调用）</summary>
@@ -220,14 +189,17 @@ public class FrostEffect : MonoBehaviour
         }
     }
 
+    private int _lastSyncedStacks = -1; // 只在层数变化时同步减速
+
     private void Update()
     {
         // 敌人死亡时清理
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 每帧同步霜冻减速乘数到 EnemyBase（由 EnemyBase.FixedUpdate 统一计算速度）
-        if (_frostStacks > 0 && _enemyBase != null)
+        // 只在层数变化时同步减速乘数到 EnemyBase（避免每帧赋值）
+        if (_frostStacks > 0 && _enemyBase != null && _frostStacks != _lastSyncedStacks)
         {
+            _lastSyncedStacks = _frostStacks;
             _enemyBase.FrostSlowMultiplier = 1f - _slowPercent;
         }
     }
@@ -270,5 +242,5 @@ public class FrostEffect : MonoBehaviour
         if (_sr != null && _frostStacks > 0) _sr.color = _originalColor;
         UnregisterColor();
     }
-    private void OnDestroy() { UnregisterColor(); }
+    private void OnDestroy() { DotEffectRegistry.Unregister(this); UnregisterColor(); }
 }

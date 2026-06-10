@@ -3,51 +3,47 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 毒子弹 — 直线飞行，命中第一个敌人后范围爆炸，叠加中毒层数
-/// Mage 默认攻击子弹。从 DotProjectile.cs 拆分而来。
+/// Mage 默认攻击子弹。从 DotProjectile.cs 拆分而来。已迁移到 DotBulletBase 基类。
 /// </summary>
-public class PoisonBullet : MonoBehaviour
+public class PoisonBullet : DotBulletBase
 {
-    private float _speed = 14f;
     private float _poisonDps = 2f;
     private float _poisonDuration = 5f;
     private float _explosionRadius = 0.5f;
-    private float _damageMultiplier = 1f;
-    private bool _canCrit; private float _critChance, _critMult;
-    private Vector2 _direction;
     private bool _exploded;
-    private float _spawnTime;
-    private float _lifetime = 5f;
-    private Rigidbody2D _rb;
-    private PenetrateHandler _cachedPenetrate;
 
-    public void Setup(float speed, float poisonDps, float poisonDuration, float explosionRadius,
+    protected override StatusEffectType EffectType => StatusEffectType.Poison;
+
+    public void SetupPoison(float speed, float poisonDps, float poisonDuration, float explosionRadius,
         float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        _speed = speed; _poisonDps = poisonDps; _poisonDuration = poisonDuration;
-        _explosionRadius = explosionRadius; _damageMultiplier = dmgMult;
-        _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
-    }
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
-    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
-
-    private void Awake()
-    {
-        _rb = GetComponent<Rigidbody2D>();
-        _cachedPenetrate = GetComponent<PenetrateHandler>();
+        SetupBullet(speed, 5f, 0, dmgMult, canCrit, critChance, critMult);
+        _poisonDps = poisonDps;
+        _poisonDuration = poisonDuration;
+        _explosionRadius = explosionRadius;
     }
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
-        _spawnTime = Time.time;
+        base.OnEnable();
         _exploded = false;
-        if (_rb == null) _rb = GetComponent<Rigidbody2D>();
-        if (_rb != null) _rb.linearVelocity = Vector2.zero;
     }
 
-    private void Update() { if (!_exploded && Time.time - _spawnTime > _lifetime) DespawnSelf(); }
-    private void FixedUpdate() { if (!_exploded && _rb != null) _rb.linearVelocity = _direction * _speed; }
+    protected override void Update()
+    {
+        if (!_exploded && Time.time - _spawnTime > _lifetime) DespawnSelf();
+        else if (_exploded && Time.time - _spawnTime > _lifetime + 1f) DespawnSelf();
+    }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    protected override void FixedUpdate()
+    {
+        if (!_exploded && _rb != null) _rb.linearVelocity = _direction * _speed;
+    }
+
+    /// <summary>
+    /// 重写命中逻辑：毒子弹的穿透/爆炸行为与基类不同
+    /// </summary>
+    protected override void OnTriggerEnter2D(Collider2D other)
     {
         if (_exploded) return;
         if (!other.CompareTag("Enemy")) return;
@@ -56,7 +52,6 @@ public class PoisonBullet : MonoBehaviour
         // 穿透检查：先对当前敌人施加中毒DOT，然后检查是否可以继续穿透
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other))
         {
-            // 穿透成功：对当前敌人施加中毒效果但不爆炸
             var dmg = other.GetComponent<Damageable>();
             if (dmg != null && dmg.CurrentHp > 0)
             {
@@ -67,14 +62,25 @@ public class PoisonBullet : MonoBehaviour
             return;
         }
 
-        LeavePuddle(transform.position);
+        // ── 元素反应：毒爆（中毒 × 黑暗）──
+        bool hasDarkMark = other.GetComponent<DarkMarkEffect>() != null;
+        LeavePuddle(transform.position, hasDarkMark);
     }
 
-    private void LeavePuddle(Vector2 center)
+    protected override void OnHitEnemy(GameObject enemy) { }
+
+    private void LeavePuddle(Vector2 center, bool darkMarkBonus = false)
     {
         _exploded = true;
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, _explosionRadius);
+
+        // 从 Config 实时读取毒液池参数
+        var cfg = DotBulletConfig.GetDefault();
+        float explosionRadius = darkMarkBonus ? _explosionRadius * 2f : cfg.PoisonExplosionRadius * 2f;
+        float puddleRadius = darkMarkBonus ? cfg.PoisonPuddleRadius : cfg.PoisonPuddleRadius * 0.5f;
+        float puddleDuration = cfg.PoisonPuddleDuration;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, explosionRadius);
         foreach (var hit in hits)
         {
             if (!hit.CompareTag("Enemy")) continue;
@@ -84,11 +90,39 @@ public class PoisonBullet : MonoBehaviour
             if (poison == null) poison = hit.gameObject.AddComponent<PoisonStackEffect>();
             poison.AddStack(_poisonDps * _damageMultiplier, _poisonDuration, _canCrit, _critChance, _critMult);
         }
-        PoisonPuddle.Create(center, 0.5f, 2f, _poisonDps * _damageMultiplier, _canCrit, _critChance, _critMult);
+        PoisonPuddle.Create(center, puddleRadius, puddleDuration, _poisonDps * _damageMultiplier, _canCrit, _critChance, _critMult);
+
+        if (darkMarkBonus)
+        {
+            CombatManager.CreateExplosionEffect(center, 1f,
+                new Color(0.4f, 0.1f, 0.6f, 0.6f), 0.5f);
+            ShowPoisonBurstText(center);
+            DebugHelper.Log($"[PoisonBurst] 毒爆触发！爆炸范围={explosionRadius:F1}，毒圈范围={puddleRadius:F1}");
+        }
+
         DespawnSelf();
     }
 
-    private void DespawnSelf()
+    private static void ShowPoisonBurstText(Vector2 pos)
+    {
+        var textObj = new GameObject("PoisonBurstText");
+        textObj.transform.position = pos + new Vector2(0, 0.6f);
+        textObj.transform.localScale = Vector3.one * 0.3f;
+
+        var textMesh = textObj.AddComponent<TextMesh>();
+        textMesh.text = "毒爆！";
+        textMesh.characterSize = 0.2f;
+        textMesh.anchor = TextAnchor.MiddleCenter;
+        textMesh.alignment = TextAlignment.Center;
+        textMesh.fontSize = 50;
+        textMesh.fontStyle = FontStyle.Bold;
+        textMesh.color = new Color(0.4f, 0.1f, 0.6f);
+
+        var ticker = textObj.AddComponent<PoisonBurstTextTicker>();
+        ticker.Lifetime = 1.0f;
+    }
+
+    protected override void OnBulletDespawn()
     {
         PoolHelper.DespawnOrDestroy(gameObject, PoolHelper.DOT_POISON_BULLET);
     }
@@ -111,7 +145,6 @@ public class PoisonBullet : MonoBehaviour
     public static PoisonBullet Create(Vector2 pos, Vector2 dir, float speed,
         float poisonDps, float poisonDuration, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        // 尝试从对象池取出
         var pool = ObjectPool.Instance;
         GameObject go = null;
         if (pool != null && pool.HasPool(PoolHelper.DOT_POISON_BULLET))
@@ -120,14 +153,12 @@ public class PoisonBullet : MonoBehaviour
         }
         else
         {
-            // 首次：注册虚拟预制体
             PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_POISON_BULLET, BuildTemplate, 15);
             go = pool != null ? pool.Spawn(PoolHelper.DOT_POISON_BULLET, pos, Quaternion.identity) : null;
         }
 
         if (go == null)
         {
-            // 池回退：直接创建
             go = new GameObject("PoisonBullet");
             go.tag = "Untagged";
             PhysicsLayerSetup.SetAsBullet(go);
@@ -143,10 +174,8 @@ public class PoisonBullet : MonoBehaviour
         go.transform.position = pos;
         go.SetActive(true);
         var b = go.GetComponent<PoisonBullet>();
-        b.Setup(speed, poisonDps, poisonDuration, 0.5f, dmgMult, canCrit, critChance, critMult);
+        b.SetupPoison(speed, poisonDps, poisonDuration, 0.5f, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
-        // 刷新穿透缓存（可能被 AttachRicochetIfAvailable 动态添加）
-        b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
     }
 }
@@ -239,7 +268,6 @@ public class PoisonPuddle : MonoBehaviour
     {
         _radius = radius; _duration = duration; _baseDps = baseDps;
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
-        // 立即应用半径到scale和collider（OnEnable时_radius可能为0）
         ApplyRadius();
     }
 
@@ -261,6 +289,17 @@ public class PoisonPuddle : MonoBehaviour
         _spawnTime = Time.time; _lastTick = Time.time - 0.5f;
         ApplyRadius();
         if (_cachedSr != null) _cachedSr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f);
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
+    }
+
+    private void OnDisable()
+    {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
+    }
+
+    private void RefreshFromConfig()
+    {
+        _duration = DotBulletConfig.GetDefault().PoisonPuddleDuration;
     }
 
     private void Update()
@@ -270,8 +309,6 @@ public class PoisonPuddle : MonoBehaviour
         _lastTick = Time.time;
         ApplyPoisonToNearby();
     }
-
-    // OnTriggerStay2D 已移除 — 避免与 Update 中 ApplyPoisonToNearby 重复叠毒
 
     private void ApplyPoisonToNearby()
     {
@@ -351,6 +388,7 @@ public class PoisonStackEffect : MonoBehaviour
     private const float MIN_TICK_INTERVAL = 0.2f;
     private const int DAMAGE_PER_TICK = 2;
     private const int MAX_STACKS = 20;
+    private int _lastRegisteredStacks = -1;
 
     public int StackCount => _stacks;
 
@@ -361,10 +399,13 @@ public class PoisonStackEffect : MonoBehaviour
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
 
-    private void Start()
+    private void OnEnable()
     {
         _damageable = GetComponent<Damageable>();
         _blender = GetComponent<DotColorBlender>();
+        _lastRegisteredStacks = -1;
+        _tickAccumulator = 0f;
+        DotEffectRegistry.Register(this); // #24 注册到统一注册表
     }
 
     private void Update()
@@ -372,10 +413,9 @@ public class PoisonStackEffect : MonoBehaviour
         if (_stacks <= 0) { Cleanup(); return; }
         if (_damageable != null && _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 通过 DotColorBlender 更新中毒颜色贡献
-        if (_blender == null) _blender = DotBulletHelper.EnsureColorBlender(gameObject);
-        if (_blender != null)
+        if (_blender != null && _stacks != _lastRegisteredStacks)
         {
+            _lastRegisteredStacks = _stacks;
             float intensity = Mathf.Clamp01(_stacks / 10f);
             _blender.RegisterDot("poison", DotColorBlender.POISON_GREEN, intensity, 6f);
         }
@@ -385,15 +425,54 @@ public class PoisonStackEffect : MonoBehaviour
         if (_tickAccumulator < tickInterval) return;
         _tickAccumulator -= tickInterval;
 
-        if (_damageable != null && _damageable.CurrentHp > 0)
-        {
-            int dmg = DAMAGE_PER_TICK + (_stacks - 1);
-            if (_canCrit && Random.value < _critChance) dmg = Mathf.RoundToInt(dmg * _critMult);
-            _damageable.TakeDamage(dmg, new Color(0.1f, 0.8f, 0.1f));
-        }
+        int dmg = DAMAGE_PER_TICK + (_stacks - 1);
+        if (_canCrit && Random.value < _critChance) dmg = Mathf.RoundToInt(dmg * _critMult);
+        _damageable.TakeDamage(dmg, new Color(0.1f, 0.8f, 0.1f));
     }
 
     private void Cleanup() { UnregisterColor(); _stacks = 0; Destroy(this); }
-    private void OnDestroy() { UnregisterColor(); }
+    private void OnDestroy() { DotEffectRegistry.Unregister(this); UnregisterColor(); }
     private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("poison"); }
+}
+
+/// <summary>
+/// 毒爆文字 — 向上飘动并淡出，1秒后自动销毁
+/// </summary>
+public class PoisonBurstTextTicker : MonoBehaviour
+{
+    public float Lifetime = 1.0f;
+    private float _spawnTime;
+    private TextMesh _textMesh;
+
+    private void Awake()
+    {
+        _spawnTime = Time.time;
+        _textMesh = GetComponent<TextMesh>();
+        Destroy(gameObject, Lifetime + 1f);
+    }
+
+    private void OnEnable() { _spawnTime = Time.time; }
+
+    private void Update()
+    {
+        float elapsed = Time.time - _spawnTime;
+        if (elapsed >= Lifetime)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        transform.position += Vector3.up * Time.deltaTime * 1.5f;
+        if (_textMesh != null)
+        {
+            Color c = _textMesh.color;
+            c.a = Mathf.Clamp01(1f - (elapsed / Lifetime));
+            _textMesh.color = c;
+        }
+    }
+
+    private void OnDisable()
+    {
+        // 不在 OnDisable 中 Destroy(gameObject) —— FullReset 会先 disable 所有 MB
+        // 再由 CleanupLingeringCombatObjects 统一销毁，避免级联销毁导致异常
+    }
 }

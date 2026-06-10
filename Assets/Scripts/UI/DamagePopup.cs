@@ -313,4 +313,32 @@ public class DamagePopup : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// 完全清理对象池（FullReset 时调用，销毁 DontDestroyOnLoad 池父级及所有池化对象）
+    /// 防止 DamagePopup 在 DontDestroyOnLoad 中永久残留
+    /// </summary>
+    public static void FullCleanup()
+    {
+        // 销毁所有池化对象
+        if (_pool != null)
+        {
+            for (int i = 0; i < _pool.Count; i++)
+            {
+                if (_pool[i] != null)
+                    Object.Destroy(_pool[i].gameObject);
+            }
+            _pool.Clear();
+        }
+
+        // 销毁 DontDestroyOnLoad 池父级
+        if (_poolParent != null)
+        {
+            Object.Destroy(_poolParent.gameObject);
+            _poolParent = null;
+        }
+
+        _poolInitialized = false;
+        _cachedFont = null;
+    }
 }

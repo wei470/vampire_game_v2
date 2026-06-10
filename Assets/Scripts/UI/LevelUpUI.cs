@@ -59,6 +59,9 @@ public class LevelUpUI : MonoBehaviour
     private void InitGenerator()
     {
         _mageUpgradeConfig = _magePassive?.GetUpgradeConfig();
+        // Resources fallback for builds
+        if (_mageUpgradeConfig == null)
+            _mageUpgradeConfig = Resources.Load<MageUpgradeConfig>("Configs/MageUpgradeConfig");
 #if UNITY_EDITOR
         if (_mageUpgradeConfig == null)
             _mageUpgradeConfig = UnityEditor.AssetDatabase.LoadAssetAtPath<MageUpgradeConfig>(

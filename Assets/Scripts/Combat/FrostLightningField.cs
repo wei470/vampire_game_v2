@@ -15,7 +15,7 @@ public class FrostLightningField : MonoBehaviour
     private float _duration = 2f;
     private float _spawnTime;
     private float _lastFrostTick;
-    private const float FROST_TICK_INTERVAL = 1.25f; // 每1.25秒施加一层霜冻
+    private float _frostTickInterval = 1.25f; // 每1.25秒施加一层霜冻（从配置读取）
     private const float SLOW_PERCENT = 0.30f; // 霜冻基础减速30%
 
     /// <summary>
@@ -23,6 +23,11 @@ public class FrostLightningField : MonoBehaviour
     /// </summary>
     public static FrostLightningField Create(Vector2 center, float radius, float duration)
     {
+        // 从配置读取参数（如果未指定则使用配置默认值）
+        var config = DotBulletConfig.GetDefault();
+        if (radius <= 0f) radius = config.FrostLightningFieldRadius;
+        if (duration <= 0f) duration = config.FrostLightningFieldDuration;
+
         var go = new GameObject("FrostLightningField");
         go.transform.position = center;
 
@@ -37,7 +42,8 @@ public class FrostLightningField : MonoBehaviour
         field._radius = radius;
         field._duration = duration;
         field._spawnTime = Time.time;
-        field._lastFrostTick = Time.time - FROST_TICK_INTERVAL; // 立即触发第一次
+        field._frostTickInterval = config.FrostLightningTickInterval;
+        field._lastFrostTick = Time.time - field._frostTickInterval; // 立即触发第一次
 
         // 显示"霜电！"文字
         ShowFrostLightningText(center, radius);
@@ -57,7 +63,7 @@ public class FrostLightningField : MonoBehaviour
         }
 
         // 每0.5秒对范围内敌人施加一层霜冻
-        if (Time.time - _lastFrostTick >= FROST_TICK_INTERVAL)
+        if (Time.time - _lastFrostTick >= _frostTickInterval)
         {
             _lastFrostTick = Time.time;
             ApplyFrostToTracked();
@@ -120,6 +126,20 @@ public class FrostLightningField : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
+    }
+
+    private void Awake()
+    {
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _duration = cfg.FrostLightningFieldDuration;
+        _radius = cfg.FrostLightningFieldRadius;
+        _frostTickInterval = cfg.FrostLightningTickInterval;
     }
 
     /// <summary>

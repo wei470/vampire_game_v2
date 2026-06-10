@@ -10,15 +10,17 @@ public static class DebugHelper
     /// 输出普通日志（仅在编辑器中生效）
     /// </summary>
     [Conditional("UNITY_EDITOR")]
+    [Conditional("DEVELOPMENT_BUILD")]
     public static void Log(string message)
     {
         UnityEngine.Debug.Log(message);
     }
 
     /// <summary>
-    /// 输出警告日志（仅在编辑器中生效）
+    /// 输出警告日志（仅在编辑器或 Development Build 中生效）
     /// </summary>
     [Conditional("UNITY_EDITOR")]
+    [Conditional("DEVELOPMENT_BUILD")]
     public static void LogWarning(string message)
     {
         UnityEngine.Debug.LogWarning(message);

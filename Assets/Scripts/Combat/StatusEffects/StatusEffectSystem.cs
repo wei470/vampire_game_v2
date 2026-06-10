@@ -24,6 +24,15 @@ public class StatusEffectManager : MonoBehaviour
     private DotComboSystem _comboSystem;
     private HashSet<StatusEffectType> _seenTypesCache = new HashSet<StatusEffectType>();
 
+    // ═══ P0-2: 全局 DOT 伤害倍率版本号（懒更新机制）═══
+    /// <summary>
+    /// 全局版本号，由 MagePassive.SyncDotDamageMultiplierToAll() 递增。
+    /// 每个 StatusEffectManager 在下次 tick 时检测版本变化并自动更新倍率。
+    /// 替代之前遍历所有敌人 GetComponent 的 O(n) 开销。
+    /// </summary>
+    public static int GlobalDmgMultVersion = 0;
+    private int _localDmgMultVersion = 0;
+
     // DOT 频率加成（痛苦升级）
     public float DotFrequencyBonus
     {
@@ -141,6 +150,14 @@ public class StatusEffectManager : MonoBehaviour
 
     private void Update()
     {
+        // P0-2: 懒更新 DOT 伤害倍率（仅在版本号变化时从 MagePassive 获取）
+        if (_localDmgMultVersion != GlobalDmgMultVersion)
+        {
+            _localDmgMultVersion = GlobalDmgMultVersion;
+            var mage = GameReferences.Player?.GetComponent<MagePassive>();
+            if (mage != null) DotDamageMultiplier = mage.GetDotDamageMultiplier();
+        }
+
         if (_activeEffects.Count == 0) return;
 
         bool isOffScreen = OffScreenCuller.IsOffScreen((Vector2)transform.position);

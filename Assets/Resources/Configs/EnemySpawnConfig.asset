@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47fbf421d51db814590a840dbc8e0290, type: 3}
+  m_Name: EnemySpawnConfig
+  m_EditorClassIdentifier: Gameplay::EnemySpawnConfig
+  defaultMoveSpeed: 0.75
+  defaultContactDamage: 10
+  defaultAttackCooldown: 1
+  despawnDistance: 50
+  baseEnemyCount: 3
+  enemiesPerWave: 2
+  spawnInterval: 0.5
+  spawnRadius: 15
+  damageScalingPerWave: 0.1
+  hpScalingPerWave: 0.15
+  speedScalingPerWave: 0.03
+  bossWaveInterval: 5
+  bossBaseHP: 300
+  bossHPPerWave: 100
+  bossMinionsPerWave: 3
+  lodNearRange: 15
+  lodMediumRange: 30
+  lodMediumInterval: 3
+  lodFarInterval: 10
+  eliteMinWave: 5
+  eliteChance: 0.3
+  eliteHpMultiplier: 2
+  eliteDamageMultiplier: 1.5
+  eliteRegenInterval: 1
+  eliteRegenPercent: 0.02
+  eliteShieldInterval: 5
+  eliteShieldAmount: 50
+  eliteInvisCycle: 8
+  eliteInvisDuration: 3
+  eliteSummonInterval: 10
+  eliteHasteAuraInterval: 0.5
+  eliteHasteAuraRadius: 5
+  eliteHasteAuraBonus: 0.3
+  eliteBerserkHpThreshold: 0.3
+  eliteBerserkDamageMult: 2
+  eliteThornsReflectPercent: 0.3
+  eliteSplitHpPercent: 0.5
+  deathShrinkDuration: 0.2
+  bossSlowmoDuration: 0.5
+  bossSlowmoScale: 0.3
+  enableSpecialWaves: 1
+  specialWaveMinStart: 10
+  specialWaveChance: 0.2

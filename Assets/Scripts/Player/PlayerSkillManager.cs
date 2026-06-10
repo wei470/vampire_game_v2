@@ -182,7 +182,8 @@ public class PlayerSkillManager : MonoBehaviour
         BaseSkill skill = CreateSkillComponent(data);
         if (skill == null)
         {
-            DebugHelper.LogError($"[SkillManager] Failed to create skill component for: {data.skillName}");
+            // "Default Skill" 等占位技能没有对应组件，安全跳过
+            DebugHelper.LogWarning($"[SkillManager] Skipped skill with no component: {data.skillName}");
             return null;
         }
 

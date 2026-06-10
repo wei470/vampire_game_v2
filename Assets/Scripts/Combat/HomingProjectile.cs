@@ -259,6 +259,9 @@ using System.Collections.Generic;
         homing.Setup(damage, speed, turnSpeed, lifetime);
         homing.SetDirection(direction);
 
+        // 预挂 DotHomingBullet 组件，避免每次 AddComponent
+        go.AddComponent<DotHomingBullet>();
+
         return homing;
     }
 
@@ -292,6 +295,16 @@ using System.Collections.Generic;
         tex.Apply();
         _cachedHomingSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 10f);
         return _cachedHomingSprite;
+    }
+
+    /// <summary>
+    /// 获取或添加 DotHomingBullet 组件（模板已预挂，优先 GetComponent）
+    /// </summary>
+    public DotHomingBullet GetOrAddDotHomingBullet()
+    {
+        var dot = GetComponent<DotHomingBullet>();
+        if (dot == null) dot = gameObject.AddComponent<DotHomingBullet>();
+        return dot;
     }
 
     private void OnDrawGizmosSelected()

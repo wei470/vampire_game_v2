@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 611933ce7a6005a44b7b973fc11956bb, type: 3}
+  m_Name: Char_berserker
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterData
+  characterName: Berserker
+  characterId: berserker
+  description: Gets stronger at low HP, unkillable rage
+  passiveDescription: +16 ATK, 5% lifesteal, 2 HP/s regen
+  icon: {fileID: 0}
+  characterColor: {r: 0.78431374, g: 0.19607843, b: 0.11764706, a: 1}
+  maxHP: 1000
+  moveSpeed: 7.6
+  armor: 0
+  attackDamage: 16
+  attackCooldown: 0.45
+  attackRange: 20
+  pierce: 0
+  critChance: 0.05
+  critMultiplier: 0
+  dodgeChance: 0
+  thornsDamage: 0
+  thornsRange: 0
+  hpRegen: 2
+  lifesteal: 0.05
+  auraDamage: 0
+  auraRadius: 0
+  onKillExplosionDamage: 0
+  onKillExplosionRange: 0
+  evolutionTree:
+  - milestoneId: berserker_evo_dot_duration
+    displayName: "\u5143\u7D20\u4EB2\u548C (Element Affinity)"
+    description: "DOT\u6301\u7EED\u65F6\u95F4 +20%"
+    icon: {fileID: 0}
+    glowColor: {r: 0.3, g: 0.8, b: 0.3, a: 1}
+    requiredLevel: 5
+    effectType: 0
+    value: 0.2
+    value2: 0
+  - milestoneId: berserker_evo_combo_damage
+    displayName: "\u5143\u7D20\u7CBE\u901A (Element Mastery)"
+    description: "DOT\u7EC4\u5408\u4F24\u5BB3 +30%"
+    icon: {fileID: 0}
+    glowColor: {r: 0.2, g: 0.5, b: 1, a: 1}
+    requiredLevel: 10
+    effectType: 1
+    value: 0.3
+    value2: 0
+  - milestoneId: berserker_evo_fusion_unlock
+    displayName: "\u5143\u7D20\u878D\u5408 (Element Fusion)"
+    description: "\u89E3\u9501\u5143\u7D20\u878D\u5408\u5B50\u5F39\u7CFB\u7EDF"
+    icon: {fileID: 0}
+    glowColor: {r: 1, g: 0.6, b: 0.9, a: 1}
+    requiredLevel: 15
+    effectType: 2
+    value: 1
+    value2: 0
+  - milestoneId: berserker_evo_detonate_combos
+    displayName: "\u5143\u7D20\u4E3B\u5BB0 (Element Sovereign)"
+    description: "\u5F15\u7206\u65F6\u81EA\u52A8\u89E6\u53D1\u6240\u6709DOT\u7EC4\u5408\u6548\u679C"
+    icon: {fileID: 0}
+    glowColor: {r: 1, g: 0.85, b: 0, a: 1}
+    requiredLevel: 20
+    effectType: 3
+    value: 1
+    value2: 0
+  defaultSkill: {fileID: 0}
+  customUpgrades: []
+  useGenericUpgrades: 1

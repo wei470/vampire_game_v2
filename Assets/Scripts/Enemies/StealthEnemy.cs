@@ -18,8 +18,6 @@ public class StealthEnemy : EnemyBase
     private enum StealthState { Visible, Stealthed, Attacking }
 
     private StealthState _state = StealthState.Visible;
-    private Transform _target;
-    private Rigidbody2D _rb;
     private SpriteRenderer _sr;
     private float _stateTimer;
     private float _lastStealthTime;
@@ -33,14 +31,14 @@ public class StealthEnemy : EnemyBase
         var res = GetComponent<EnemyDotResistance>();
         if (res == null) res = gameObject.AddComponent<EnemyDotResistance>();
         EnemyDotResistance.ApplyStealthPreset(res);
-        _rb = GetComponent<Rigidbody2D>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
         _originalSpeed = MoveSpeed;
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
         _lastStealthTime = Time.time;

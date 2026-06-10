@@ -144,16 +144,53 @@ public class CombatManager : Singleton<CombatManager>
     }
 
     /// <summary>
+    /// 每波开始时强制回收所有场上残留的 DOT 子弹和毒液池
+    /// </summary>
+    public static void DespawnAllDotBullets()
+    {
+        int despawned = 0;
+        // 查找所有场景中的 DOT 子弹组件并回收
+        var bullets = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        foreach (var b in bullets)
+        {
+            if (b == null) continue;
+            string typeName = b.GetType().Name;
+            string poolKey = null;
+            switch (typeName)
+            {
+                case "PoisonBullet": poolKey = PoolHelper.DOT_POISON_BULLET; break;
+                case "BurnBullet": poolKey = PoolHelper.DOT_BURN_BULLET; break;
+                case "FrostBullet": poolKey = PoolHelper.DOT_FROST_BULLET; break;
+                case "LightningBullet": poolKey = PoolHelper.DOT_LIGHTNING_BULLET; break;
+                case "DarkBullet": poolKey = PoolHelper.DOT_DARK_BULLET; break;
+                case "WindBullet": poolKey = PoolHelper.DOT_WIND_BULLET; break;
+                case "PoisonPuddle": poolKey = PoolHelper.DOT_POISON_PUDDLE; break;
+            }
+            if (poolKey != null && b.gameObject.activeInHierarchy)
+            {
+                PoolHelper.DespawnOrDestroy(b.gameObject, poolKey);
+                despawned++;
+            }
+        }
+        if (despawned > 0)
+            DebugHelper.Log($"[CombatManager] 强制回收 {despawned} 个残留子弹/毒液池");
+    }
+
+    /// <summary>
     /// 生成爆炸视觉效果
     /// </summary>
     public static void CreateExplosionEffect(Vector2 position, float radius, Color color, float duration = 0.3f)
     {
+        // 统一将特效透明度降低至30%（防止太亮刺眼）
+        Color vfxColor = color;
+        vfxColor.a *= 0.3f;
+
         var go = new GameObject("ExplosionVFX");
         go.transform.position = position;
 
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = CreateCircleSprite();
-        sr.color = color;
+        sr.color = vfxColor;
         sr.sortingOrder = 25;
 
         var effect = go.AddComponent<ExplosionVFX>();

@@ -18,26 +18,24 @@ public class RangedEnemy : EnemyBase
     [SerializeField] private float _bulletLifetime = 5f;
 
     private float _lastShootTime;
-    private Transform _target;
-    private Rigidbody2D _rb;
+    // #17 缓存自身 Damageable，避免 Update/FixedUpdate 重复 GetComponent
+    private Damageable _cachedDamageable;
 
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
+        _cachedDamageable = GetComponent<Damageable>();
     }
 
-    private new void Start()
+    protected override void Start()
     {
-        var player = GameReferences.Player;
-        if (player != null) _target = player.transform;
+        base.Start(); // 父类设置 _target
     }
 
     private void FixedUpdate()
     {
         // 安全检查：如果 HP 已归零但 _alive 标记仍为 true，强制触发死亡
-        var dmg = GetComponent<Damageable>();
-        if (dmg != null && !dmg.IsAlive && Alive)
+        if (_cachedDamageable != null && !_cachedDamageable.IsAlive && Alive)
         {
             Die();
             return;
@@ -69,8 +67,7 @@ public class RangedEnemy : EnemyBase
     private void Update()
     {
         // 安全检查：如果 HP 已归零但 _alive 标记仍为 true，强制触发死亡
-        var dmg = GetComponent<Damageable>();
-        if (dmg != null && !dmg.IsAlive && Alive)
+        if (_cachedDamageable != null && !_cachedDamageable.IsAlive && Alive)
         {
             Die();
             return;

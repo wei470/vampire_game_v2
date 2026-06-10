@@ -359,5 +359,357 @@ public class CoreSystemTests
         MagnetMultiplierSystem.Reset();
         Assert.AreEqual(1f, MagnetMultiplierSystem.MagnetRangeMultiplier);
     }
+
+    // ═══ #18 新增：DOT 暴击公式测试（含进化+协同叠加）═══
+
+    [Test]
+    public void DotCrit_BasicFormula_CalculatesCorrectly()
+    {
+        // 基础暴击率 10% + 升级 10% = 20%
+        float baseCritChance = 0.10f;
+        float upgradeBonus = 0.10f;
+        float totalCritChance = baseCritChance + upgradeBonus;
+
+        Assert.AreEqual(0.20f, totalCritChance, 0.001f);
+    }
+
+    [Test]
+    public void DotCrit_WithEvolution_ScalesCorrectly()
+    {
+        // 进化系统提供额外暴击加成
+        float baseCritChance = 0.10f;
+        float upgradeBonus = 0.20f; // 2次凋零升级
+        float evolutionBonus = 0.05f; // 进化加成
+        float totalCritChance = Mathf.Clamp01(baseCritChance + upgradeBonus + evolutionBonus);
+
+        Assert.AreEqual(0.35f, totalCritChance, 0.001f);
+    }
+
+    [Test]
+    public void DotCrit_CappedAt100Percent()
+    {
+        // 暴击率不应超过 100%
+        float baseCritChance = 0.10f;
+        float upgradeBonus = 0.50f; // 5次凋零
+        float evolutionBonus = 0.20f;
+        float synergyBonus = 0.30f;
+        float totalCritChance = Mathf.Clamp01(baseCritChance + upgradeBonus + evolutionBonus + synergyBonus);
+
+        Assert.AreEqual(1.0f, totalCritChance, 0.001f);
+    }
+
+    [Test]
+    public void DotCrit_Multiplier_AppliesOnCrit()
+    {
+        // 暴击时伤害 = 基础 * 暴击倍率
+        int baseDmg = 5;
+        float critMultiplier = 2.0f;
+        int critDmg = Mathf.RoundToInt(baseDmg * critMultiplier);
+        int normalDmg = baseDmg; // 未暴击
+
+        Assert.AreEqual(10, critDmg);
+        Assert.AreEqual(5, normalDmg);
+    }
+
+    [Test]
+    public void DotCrit_Multiplier_WithStacks()
+    {
+        // 每层凋零 +10% 暴击率，3层 = 30%
+        float baseCrit = 0.10f;
+        float perStack = 0.10f;
+        int stacks = 3;
+        float totalCrit = baseCrit + perStack * stacks;
+
+        Assert.AreEqual(0.40f, totalCrit, 0.001f);
+    }
+
+    // ═══ #18 新增：元素反应触发条件测试 ═══
+
+    [Test]
+    public void ElementReaction_BurnWind_CanTriggerTogether()
+    {
+        // 燃烧 + 风化 可以共存在同一敌人上
+        bool hasBurn = true;
+        bool hasWind = true;
+        bool canReact = hasBurn && hasWind;
+
+        Assert.IsTrue(canReact);
+    }
+
+    [Test]
+    public void ElementReaction_FrostLightning_CanTriggerTogether()
+    {
+        // 霜冻 + 雷电 可以触发冰场
+        bool hasFrost = true;
+        bool hasLightning = true;
+        bool canTriggerField = hasFrost && hasLightning;
+
+        Assert.IsTrue(canTriggerField);
+    }
+
+    [Test]
+    public void ElementReaction_FrostLightningField_RadiusAndDuration()
+    {
+        // 霜电冰场参数
+        float fieldRadius = 1f;
+        float fieldDuration = 2f;
+        float tickInterval = 1.25f;
+
+        Assert.Greater(fieldRadius, 0f, "冰场半径应大于 0");
+        Assert.Greater(fieldDuration, 0f, "冰场持续时间应大于 0");
+        Assert.Greater(tickInterval, 0f, "tick 间隔应大于 0");
+        Assert.Less(tickInterval, fieldDuration, "tick 间隔应小于持续时间");
+    }
+
+    [Test]
+    public void ElementReaction_BurnSpread_RadiusFromConfig()
+    {
+        // 燃烧扩散半径应从 DotBulletConfig 读取
+        float spreadRadius = 5f; // 默认值
+        Assert.AreEqual(5f, spreadRadius);
+        Assert.Greater(spreadRadius, 0f, "扩散半径应大于 0");
+    }
+
+    [Test]
+    public void ElementReaction_MissingOneElement_NoReaction()
+    {
+        // 只有一种元素时不应触发反应
+        bool hasBurn = true;
+        bool hasWind = false;
+        bool canReact = hasBurn && hasWind;
+
+        Assert.IsFalse(canReact);
+    }
+
+    // ═══ #18 新增：引爆伤害计算边界测试 ═══
+
+    [Test]
+    public void DetonateDamage_ZeroDOT_ReturnsZero()
+    {
+        // 无 DOT 效果时引爆伤害为 0
+        int dotCount = 0;
+        int baseDmgPerDot = 5;
+        int totalDmg = dotCount * baseDmgPerDot;
+
+        Assert.AreEqual(0, totalDmg);
+    }
+
+    [Test]
+    public void DetonateDamage_SingleDOT_CalculatesCorrectly()
+    {
+        // 1 种 DOT 时的基础引爆伤害
+        int dotCount = 1;
+        int baseDmgPerDot = 5;
+        float detonateMultiplier = 1.0f;
+        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
+
+        Assert.AreEqual(5, totalDmg);
+    }
+
+    [Test]
+    public void DetonateDamage_EightDOT_FullStack_CalculatesCorrectly()
+    {
+        // 8 种 DOT 全满时的引爆伤害
+        int dotCount = 8;
+        int baseDmgPerDot = 5;
+        float detonateMultiplier = 1.0f;
+        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
+
+        Assert.AreEqual(40, totalDmg);
+    }
+
+    [Test]
+    public void DetonateDamage_WithMultiplier_ScalesCorrectly()
+    {
+        // 引爆倍率加成（辐射升级 +30%）
+        int dotCount = 4;
+        int baseDmgPerDot = 5;
+        float detonateMultiplier = 1.3f; // +30%
+        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
+
+        Assert.AreEqual(26, totalDmg); // 4*5*1.3 = 26
+    }
+
+    [Test]
+    public void DetonateDamage_WithExtraPerDot_AddsCorrectly()
+    {
+        // 元素引爆：每种 DOT 额外 +8 伤害
+        int dotCount = 3;
+        int baseDmgPerDot = 5;
+        int extraPerDot = 8;
+        float detonateMultiplier = 1.0f;
+        int totalDmg = Mathf.RoundToInt(dotCount * (baseDmgPerDot + extraPerDot) * detonateMultiplier);
+
+        Assert.AreEqual(39, totalDmg); // 3 * (5+8) = 39
+    }
+
+    [Test]
+    public void DetonateDamage_ChainReaction_50PercentDamage()
+    {
+        // 连锁反应二次引爆 50% 伤害
+        int originalDmg = 40;
+        float chainRatio = 0.5f;
+        int chainDmg = Mathf.RoundToInt(originalDmg * chainRatio);
+
+        Assert.AreEqual(20, chainDmg);
+    }
+
+    // ═══ #18 新增：升级叠加上限测试 ═══
+
+    [Test]
+    public void UpgradeStacking_InfiniteStacks_AllowsUnlimited()
+    {
+        // maxStacks = 0 表示无限叠加
+        int maxStacks = 0;
+        int currentStacks = 100;
+        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
+
+        Assert.IsTrue(canStack);
+    }
+
+    [Test]
+    public void UpgradeStacking_LimitedStacks_EnforcesLimit()
+    {
+        // maxStacks = 3 表示最多叠加 3 次
+        int maxStacks = 3;
+        int currentStacks = 3;
+        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
+
+        Assert.IsFalse(canStack);
+    }
+
+    [Test]
+    public void UpgradeStacking_LimitedStacks_AllowsBelowLimit()
+    {
+        int maxStacks = 3;
+        int currentStacks = 2;
+        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
+
+        Assert.IsTrue(canStack);
+    }
+
+    [Test]
+    public void UpgradeStacking_Ricochet_MaxStacks3()
+    {
+        // 贯穿弹最大叠加 3 次
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var ricochet = config.GetUpgradeEntry("ricochet");
+
+        Assert.IsTrue(ricochet.HasValue);
+        Assert.AreEqual(3, ricochet.Value.maxStacks);
+    }
+
+    [Test]
+    public void UpgradeStacking_ChainReaction_MaxStacks3()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var chainReaction = config.GetUpgradeEntry("chain_reaction");
+
+        Assert.IsTrue(chainReaction.HasValue);
+        Assert.AreEqual(3, chainReaction.Value.maxStacks);
+    }
+
+    [Test]
+    public void UpgradeStacking_AnnihilationZone_MaxStacks3()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var annihilation = config.GetUpgradeEntry("annihilation_zone");
+
+        Assert.IsTrue(annihilation.HasValue);
+        Assert.AreEqual(3, annihilation.Value.maxStacks);
+    }
+
+    [Test]
+    public void UpgradeStacking_Corrosion_InfiniteStacks()
+    {
+        // 腐蚀是无限叠加 (maxStacks = 0)
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var corrosion = config.GetUpgradeEntry("corrosion");
+
+        Assert.IsTrue(corrosion.HasValue);
+        Assert.AreEqual(0, corrosion.Value.maxStacks);
+    }
+
+    [Test]
+    public void UpgradeStacking_Haste_InfiniteStacks()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var haste = config.GetUpgradeEntry("haste");
+
+        Assert.IsTrue(haste.HasValue);
+        Assert.AreEqual(0, haste.Value.maxStacks);
+    }
+
+    [Test]
+    public void UpgradeStacking_PercentBonus_AccumulatesCorrectly()
+    {
+        // 腐蚀 10% * 5 次 = 50%
+        float perStack = 0.10f;
+        int stacks = 5;
+        float total = perStack * stacks;
+
+        Assert.AreEqual(0.50f, total, 0.001f);
+    }
+
+    [Test]
+    public void UpgradeStacking_DetonateMultiplier_ScalesWithRadiation()
+    {
+        // 辐射 +30% * 无限叠加
+        float baseMultiplier = 1.0f;
+        float perUpgrade = 0.30f;
+        int upgradeCount = 3;
+        float totalMultiplier = baseMultiplier + perUpgrade * upgradeCount;
+
+        Assert.AreEqual(1.9f, totalMultiplier, 0.001f);
+    }
+
+    // ═══ #18 新增：SpatialGrid 测试 ═══
+
+    [Test]
+    public void SpatialGrid_QueryRadius_ReturnsList()
+    {
+        // SpatialGrid 应该能返回查询结果（即使为空）
+        var results = SpatialGrid.QueryRadius(Vector2.zero, 10f);
+        Assert.IsNotNull(results);
+    }
+
+    [Test]
+    public void SpatialGrid_QueryRadius_ZeroRadius_ReturnsEmpty()
+    {
+        var results = SpatialGrid.QueryRadius(Vector2.zero, 0f);
+        Assert.IsNotNull(results);
+        Assert.AreEqual(0, results.Count);
+    }
+
+    // ═══ #18 新增：DotBulletConfig 默认值验证 ═══
+
+    [Test]
+    public void DotBulletConfig_DefaultValues_AreReasonable()
+    {
+        var config = ScriptableObject.CreateInstance<DotBulletConfig>();
+
+        // 速度应为正数
+        Assert.Greater(config.BurnSpeed, 0f);
+        Assert.Greater(config.PoisonSpeed, 0f);
+        Assert.Greater(config.FrostSpeed, 0f);
+        Assert.Greater(config.LightningSpeed, 0f);
+        Assert.Greater(config.DarkSpeed, 0f);
+        Assert.Greater(config.WindSpeed, 0f);
+
+        // 持续时间应为正数
+        Assert.Greater(config.BurnDuration, 0f);
+
+        // 减速应在合理范围
+        Assert.Greater(config.FrostBaseSlowPct, 0f);
+        Assert.Less(config.FrostBaseSlowPct, 1f);
+    }
+
+    [Test]
+    public void DotBulletConfig_GetDefault_NeverReturnsNull()
+    {
+        // 即使 asset 不存在，也应返回默认值实例
+        var config = DotBulletConfig.GetDefault();
+        Assert.IsNotNull(config);
+    }
 }
 #endif

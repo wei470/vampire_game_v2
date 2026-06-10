@@ -42,6 +42,7 @@ public static class GameStateResetter
         // 2. 重置静态状态
         MagnetMultiplierSystem.Reset();
         DotComboSystem.ResetEvolutionComboMultiplier();
+        DotEffectRegistry.ClearAll();
 
         // 3. 重置全局引用缓存
         GameReferences.Reset();
@@ -103,8 +104,8 @@ public static class GameStateResetter
         // 9.5 清除 ChainLine 等临时特效对象
         CleanupTempEffects();
 
-        // 10. 清除 DamagePopup 对象池
-        DamagePopup.ResetPool();
+        // 10. 完全清理 DamagePopup 对象池（销毁 DontDestroyOnLoad 池父级）
+        DamagePopup.FullCleanup();
 
         // 11. 恢复时间缩放
         Time.timeScale = 1f;
@@ -212,11 +213,11 @@ public static class GameStateResetter
     /// </summary>
     private static void CleanupTempEffects()
     {
-        // 清理场景中所有名为 "ChainLine" 的临时特效
+        // 清理场景中所有名为 "ChainLine" 或 "PoisonBurstText" 的临时特效
         int count = 0;
         foreach (var obj in Object.FindObjectsByType<GameObject>())
         {
-            if (obj != null && obj.name == "ChainLine")
+            if (obj != null && (obj.name == "ChainLine" || obj.name == "PoisonBurstText"))
             {
                 Object.DestroyImmediate(obj);
                 count++;

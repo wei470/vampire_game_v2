@@ -16,17 +16,15 @@ public class ThrowerEnemy : EnemyBase
     [SerializeField] private float _throwArcHeight = 3f;
 
     private float _lastThrowTime;
-    private Transform _target;
-    private Rigidbody2D _rb;
 
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
     }

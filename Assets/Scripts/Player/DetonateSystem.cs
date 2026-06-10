@@ -5,6 +5,7 @@ using System.Collections.Generic;
 /// <summary>
 /// 引爆系统 — 负责所有引爆相关逻辑（蓄力引爆、连锁引爆、余烬、碎裂）
 /// 从 MagePassive 拆分而来
+/// V2: 集成 SpatialGrid 空间分区加速范围查询
 /// </summary>
 public class DetonateSystem : MonoBehaviour
 {
@@ -30,6 +31,11 @@ public class DetonateSystem : MonoBehaviour
 
     // ── 里程碑状态 ──
     private float _chainDetonateEndTime = 0f;
+    
+    // ── GC 缓存（类级复用，避免每帧分配） ──
+    private readonly List<GameObject> _cachedChainTargets = new List<GameObject>(32);
+    private readonly List<Vector3> _cachedChainSources = new List<Vector3>(32);
+    private readonly HashSet<GameObject> _cachedAlreadyHit = new HashSet<GameObject>();
 
     // ── 公共属性 ──
     public float DetonateCooldown => _detonateCooldown;
@@ -156,7 +162,7 @@ public class DetonateSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// 引爆所有敌人 DOT
+    /// 引爆所有敌人 DOT（使用 SpatialGrid 空间分区加速）
     /// </summary>
     public bool Detonate()
     {
@@ -171,22 +177,24 @@ public class DetonateSystem : MonoBehaviour
         float critMult = _magePassive.GetDotCritMultiplier();
         int totalDamage = 0;
         int enemiesHit = 0;
-        float radiusSqr = _detonateRadius * _detonateRadius;
 
         bool anyBurn = false, anyFrost = false;
         int maxBurnStacks = 0, maxFrostStacks = 0;
 
         var spawnMgr = GameReferences.SpawnManager;
-        IReadOnlyList<GameObject> enemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
-        if (enemies == null || enemies.Count == 0) return false;
+        IReadOnlyList<GameObject> allEnemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
+        if (allEnemies == null || allEnemies.Count == 0) return false;
 
-        for (int i = 0; i < enemies.Count; i++)
+        // ── 重建空间分区网格 ──
+        SpatialGrid.Rebuild(allEnemies);
+
+        // ── 使用空间分区查询范围内敌人 ──
+        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+
+        for (int i = 0; i < nearbyEnemies.Count; i++)
         {
-            var enemy = enemies[i];
+            var enemy = nearbyEnemies[i];
             if (enemy == null || !enemy.activeInHierarchy) continue;
-
-            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-            if (delta.sqrMagnitude > radiusSqr) continue;
 
             if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
 
@@ -227,6 +235,33 @@ public class DetonateSystem : MonoBehaviour
                 }
             }
 
+            // ── 霜爆（合并到主循环，避免重复遍历） ──
+            if (_magePassive.FrostExplosionPct > 0 && enemy.TryGetComponent<FrostEffect>(out var frost) && frost._slowPercent >= 0.80f)
+            {
+                int frostDmg = Mathf.Max(1, Mathf.RoundToInt(d.MaxHp * _magePassive.FrostExplosionPct));
+                d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
+                totalDamage += frostDmg;
+                enemyDmg += frostDmg;
+                CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
+                DamagePopup.Create(enemy.transform.position, frostDmg, new Color(0.4f, 0.8f, 1f), false);
+            }
+
+            // ── 末日审判（合并到主循环，避免重复遍历） ──
+            if (_magePassive.DoomsdayThreshold > 0 && sem != null)
+            {
+                int dotTypes = 0;
+                foreach (var eff in sem.ActiveEffects) if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
+                if (dotTypes >= 3 && d.HpPercent <= _magePassive.DoomsdayThreshold)
+                {
+                    int killDmg = d.CurrentHp;
+                    d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
+                    totalDamage += killDmg;
+                    enemyDmg += killDmg;
+                    DamagePopup.Create(enemy.transform.position, killDmg, new Color(1f, 0.2f, 0f), false, "DOOMSDAY!");
+                    CombatManager.CreateExplosionEffect(enemy.transform.position, 4f, new Color(1f, 0.1f, 0f), 0.8f);
+                }
+            }
+
             if (hadEffect)
             {
                 enemiesHit++;
@@ -236,10 +271,10 @@ public class DetonateSystem : MonoBehaviour
         }
 
         if (anyBurn && maxBurnStacks > 10)
-            SpawnEmberFireZones(enemies, radiusSqr, maxBurnStacks);
+            SpawnEmberFireZones(maxBurnStacks);
 
         if (anyFrost && maxFrostStacks > 0)
-            TriggerFrostShatter(enemies, radiusSqr, maxFrostStacks, critChance, critMult);
+            TriggerFrostShatter(maxFrostStacks, critChance, critMult);
 
         if (enemiesHit > 0 && totalDamage > 0)
         {
@@ -265,53 +300,7 @@ public class DetonateSystem : MonoBehaviour
             _magePassive.SyncDotDamageMultiplierToAll();
         }
 
-        // ── 霜爆 ──
-        if (_magePassive.FrostExplosionPct > 0)
-        {
-            for (int i = 0; i < enemies.Count; i++)
-            {
-                var enemy = enemies[i];
-                if (enemy == null || !enemy.activeInHierarchy) continue;
-                Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-                if (delta.sqrMagnitude > radiusSqr) continue;
-                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-                if (!enemy.TryGetComponent<FrostEffect>(out var frost)) continue;
-                if (frost._slowPercent >= 0.80f)
-                {
-                    int frostDmg = Mathf.Max(1, Mathf.RoundToInt(d.MaxHp * _magePassive.FrostExplosionPct));
-                    d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
-                    totalDamage += frostDmg;
-                    CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
-                    DamagePopup.Create(enemy.transform.position, frostDmg, new Color(0.4f, 0.8f, 1f), false);
-                }
-            }
-        }
-
-        // ── 末日审判 ──
-        if (_magePassive.DoomsdayThreshold > 0)
-        {
-            for (int i = 0; i < enemies.Count; i++)
-            {
-                var enemy = enemies[i];
-                if (enemy == null || !enemy.activeInHierarchy) continue;
-                Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-                if (delta.sqrMagnitude > radiusSqr) continue;
-                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-                if (!enemy.TryGetComponent<StatusEffectManager>(out var sem2)) continue;
-                int dotTypes = 0;
-                foreach (var eff in sem2.ActiveEffects) if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
-                if (dotTypes >= 3 && d.HpPercent <= _magePassive.DoomsdayThreshold)
-                {
-                    int killDmg = d.CurrentHp;
-                    d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
-                    totalDamage += killDmg;
-                    DamagePopup.Create(enemy.transform.position, killDmg, new Color(1f, 0.2f, 0f), false, "DOOMSDAY!");
-                    CombatManager.CreateExplosionEffect(enemy.transform.position, 4f, new Color(1f, 0.1f, 0f), 0.8f);
-                }
-            }
-        }
-
-        // ── 连锁反应 ──
+        // ── 连锁反应（使用空间分区） ──
         if (_magePassive.ChainReactionCount > 0)
         {
             int secondaryCount = _magePassive.ChainReactionCount;
@@ -319,12 +308,11 @@ public class DetonateSystem : MonoBehaviour
             for (int r = 0; r < secondaryCount; r++)
             {
                 int secDmg = 0, secHits = 0;
-                for (int i = 0; i < enemies.Count; i++)
+                var chainEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+                for (int i = 0; i < chainEnemies.Count; i++)
                 {
-                    var enemy = enemies[i];
+                    var enemy = chainEnemies[i];
                     if (enemy == null || !enemy.activeInHierarchy) continue;
-                    Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-                    if (delta.sqrMagnitude > radiusSqr) continue;
                     if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
                     if (!enemy.TryGetComponent<StatusEffectManager>(out var sem3) || !sem3.HasAnyDot) continue;
                     DetonateResult secResult;
@@ -361,32 +349,32 @@ public class DetonateSystem : MonoBehaviour
         }
 
         if (enemiesHit > 0)
-            TryChainDetonate(enemies, radiusSqr, critChance, critMult, 0);
+            TryChainDetonate(critChance, critMult, 0);
 
         DebugHelper.Log($"[DetonateSystem] DETONATE! Hit {enemiesHit} enemies for {totalDamage} total damage!");
         return enemiesHit > 0;
     }
 
-    private void TryChainDetonate(IReadOnlyList<GameObject> enemies, float originalRadiusSqr, float critChance, float critMult, int currentChain)
+    private void TryChainDetonate(float critChance, float critMult, int currentChain)
     {
         if (currentChain >= _maxChainCount) return;
-        float chainRadiusSqr = _chainRadius * _chainRadius;
         int chainDamage = 0, chainHits = 0;
-        List<GameObject> chainTargets = new List<GameObject>();
+        _cachedChainTargets.Clear();
 
-        for (int i = 0; i < enemies.Count; i++)
+        // ── 使用空间分区查询范围内敌人 ──
+        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+
+        for (int i = 0; i < nearbyEnemies.Count; i++)
         {
-            var enemy = enemies[i];
+            var enemy = nearbyEnemies[i];
             if (enemy == null || !enemy.activeInHierarchy) continue;
-            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-            if (delta.sqrMagnitude > originalRadiusSqr) continue;
             if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
 
             if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
             {
                 DetonateResult detResult;
                 int dmg = sem.Detonate(_detonateMultiplier * _chainDamageRatio, critChance, critMult, out detResult);
-                if (dmg > 0) { chainDamage += dmg; chainHits++; chainTargets.Add(enemy);
+                if (dmg > 0) { chainDamage += dmg; chainHits++; _cachedChainTargets.Add(enemy);
                     CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.6f, 0.1f, 0.9f), 0.4f);
                     DamagePopup.Create(enemy.transform.position, dmg, new Color(0.6f, 0.1f, 0.9f), false); }
             }
@@ -408,11 +396,11 @@ public class DetonateSystem : MonoBehaviour
             if (shake2 != null) shake2.Shake(1f + currentChain * 0.5f, 0.3f + currentChain * 0.1f);
             if (currentChain + 1 < _maxChainCount)
             {
-                List<Vector3> chainSources = new List<Vector3>();
-                for (int i = 0; i < chainTargets.Count; i++)
-                    if (chainTargets[i] != null) chainSources.Add(chainTargets[i].transform.position);
-                if (chainSources.Count > 0)
-                    StartCoroutine(ChainDetonateWave(chainSources, critChance, critMult, currentChain + 1));
+                _cachedChainSources.Clear();
+                for (int i = 0; i < _cachedChainTargets.Count; i++)
+                    if (_cachedChainTargets[i] != null) _cachedChainSources.Add(_cachedChainTargets[i].transform.position);
+                if (_cachedChainSources.Count > 0)
+                    StartCoroutine(ChainDetonateWave(_cachedChainSources, critChance, critMult, currentChain + 1));
             }
         }
     }
@@ -420,32 +408,28 @@ public class DetonateSystem : MonoBehaviour
     private IEnumerator ChainDetonateWave(List<Vector3> sources, float critChance, float critMult, int chainLevel)
     {
         yield return new WaitForSeconds(0.1f * chainLevel);
-        var spawnMgr = GameReferences.SpawnManager;
-        IReadOnlyList<GameObject> enemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
-        if (enemies == null || enemies.Count == 0) yield break;
 
-        float chainRadiusSqr = _chainRadius * _chainRadius;
         int chainDamage = 0, chainHits = 0;
-        List<GameObject> nextChainTargets = new List<GameObject>();
-        HashSet<GameObject> alreadyHit = new HashSet<GameObject>();
+        _cachedChainTargets.Clear();
+        _cachedAlreadyHit.Clear();
 
         for (int s = 0; s < sources.Count; s++)
         {
-            for (int i = 0; i < enemies.Count; i++)
+            // ── 使用空间分区查询连锁范围内敌人 ──
+            var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)sources[s], _chainRadius);
+            for (int i = 0; i < nearbyEnemies.Count; i++)
             {
-                var enemy = enemies[i];
-                if (enemy == null || !enemy.activeInHierarchy || alreadyHit.Contains(enemy)) continue;
-                Vector2 delta = (Vector2)(enemy.transform.position - sources[s]);
-                if (delta.sqrMagnitude > chainRadiusSqr) continue;
+                var enemy = nearbyEnemies[i];
+                if (enemy == null || !enemy.activeInHierarchy || _cachedAlreadyHit.Contains(enemy)) continue;
                 if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-                alreadyHit.Add(enemy);
+                _cachedAlreadyHit.Add(enemy);
 
                 if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
                 {
                     DetonateResult detResult;
                     float chainMult = _detonateMultiplier * _chainDamageRatio * Mathf.Pow(0.7f, chainLevel);
                     int dmg = sem.Detonate(chainMult, critChance, critMult, out detResult);
-                    if (dmg > 0) { chainDamage += dmg; chainHits++; nextChainTargets.Add(enemy); }
+                    if (dmg > 0) { chainDamage += dmg; chainHits++; _cachedChainTargets.Add(enemy); }
                 }
 
                 CombatManager.CreateExplosionEffect(enemy.transform.position, 1.5f + chainLevel * 0.3f, new Color(0.6f, 0.1f, 0.9f, 0.6f - chainLevel * 0.15f), 0.3f);
@@ -456,30 +440,25 @@ public class DetonateSystem : MonoBehaviour
         {
             var shake3 = GetScreenShake();
             if (shake3 != null) shake3.Shake(0.8f + chainLevel * 0.3f, 0.2f + chainLevel * 0.1f);
-            if (chainLevel + 1 < _maxChainCount && nextChainTargets.Count > 0)
+            if (chainLevel + 1 < _maxChainCount && _cachedChainTargets.Count > 0)
             {
-                List<Vector3> nextSources = new List<Vector3>();
-                for (int i = 0; i < nextChainTargets.Count; i++)
-                    if (nextChainTargets[i] != null) nextSources.Add(nextChainTargets[i].transform.position);
-                if (nextSources.Count > 0)
-                    StartCoroutine(ChainDetonateWave(nextSources, critChance, critMult, chainLevel + 1));
+                _cachedChainSources.Clear();
+                for (int i = 0; i < _cachedChainTargets.Count; i++)
+                    if (_cachedChainTargets[i] != null) _cachedChainSources.Add(_cachedChainTargets[i].transform.position);
+                if (_cachedChainSources.Count > 0)
+                    StartCoroutine(ChainDetonateWave(_cachedChainSources, critChance, critMult, chainLevel + 1));
             }
         }
     }
 
     private void ApplyChargeSlowdown(float slowPercent, float duration)
     {
-        var spawnMgr = GameReferences.SpawnManager;
-        if (spawnMgr == null) return;
-        var enemies = spawnMgr.ActiveEnemies;
-        if (enemies == null) return;
-        float radiusSqr = _detonateRadius * _detonateRadius;
-        for (int i = 0; i < enemies.Count; i++)
+        // ── 使用空间分区查询范围内敌人 ──
+        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+        for (int i = 0; i < nearbyEnemies.Count; i++)
         {
-            var enemy = enemies[i];
+            var enemy = nearbyEnemies[i];
             if (enemy == null || !enemy.activeInHierarchy) continue;
-            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-            if (delta.sqrMagnitude > radiusSqr) continue;
             if (!enemy.TryGetComponent<StatusEffectManager>(out var sem))
                 sem = enemy.gameObject.AddComponent<StatusEffectManager>();
             sem.ApplyEffect(StatusEffectType.Frostbite, duration, 2f);
@@ -491,17 +470,18 @@ public class DetonateSystem : MonoBehaviour
         FireZone.CreateDefault(transform.position, 8, 5f, 4f, 0.5f);
     }
 
-    private void SpawnEmberFireZones(IReadOnlyList<GameObject> enemies, float radiusSqr, int burnStacks)
+    private void SpawnEmberFireZones(int burnStacks)
     {
         int emberDmg = Mathf.Max(1, burnStacks);
         int zonesCreated = 0;
         const int MAX_ZONES = 5;
-        for (int i = 0; i < enemies.Count && zonesCreated < MAX_ZONES; i++)
+
+        // ── 使用空间分区查询范围内敌人 ──
+        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+        for (int i = 0; i < nearbyEnemies.Count && zonesCreated < MAX_ZONES; i++)
         {
-            var enemy = enemies[i];
+            var enemy = nearbyEnemies[i];
             if (enemy == null || !enemy.activeInHierarchy) continue;
-            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-            if (delta.sqrMagnitude > radiusSqr) continue;
             FireZone.CreateDefault(enemy.transform.position, emberDmg, 3f, 1.5f, 0.5f);
             zonesCreated++;
         }
@@ -509,18 +489,18 @@ public class DetonateSystem : MonoBehaviour
             DebugHelper.Log($"[DetonateSystem] EMBER! Created {zonesCreated} fire zones");
     }
 
-    private void TriggerFrostShatter(IReadOnlyList<GameObject> enemies, float radiusSqr, int frostStacks, float critChance, float critMult)
+    private void TriggerFrostShatter(int frostStacks, float critChance, float critMult)
     {
         float shatterRadius = 4f;
-        float shatterRadiusSqr = shatterRadius * shatterRadius;
         int shatterDmg = Mathf.Max(1, frostStacks * 5);
         int targetsHit = 0;
-        for (int i = 0; i < enemies.Count; i++)
+
+        // ── 使用空间分区查询碎裂范围内敌人 ──
+        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, shatterRadius);
+        for (int i = 0; i < nearbyEnemies.Count; i++)
         {
-            var enemy = enemies[i];
+            var enemy = nearbyEnemies[i];
             if (enemy == null || !enemy.activeInHierarchy) continue;
-            Vector2 delta = (Vector2)(enemy.transform.position - transform.position);
-            if (delta.sqrMagnitude > shatterRadiusSqr) continue;
             if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
             int finalDmg = shatterDmg;
             if (Random.value < critChance) finalDmg = Mathf.RoundToInt(finalDmg * critMult);

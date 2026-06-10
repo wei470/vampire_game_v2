@@ -21,18 +21,16 @@ public class BurstEnemy : EnemyBase
     private float _lastBurstTime;
     private int _shotsRemaining;
     private float _nextShotTime;
-    private Transform _target;
-    private Rigidbody2D _rb;
     private bool _isBursting;
 
     protected override void Awake()
     {
         base.Awake();
-        _rb = GetComponent<Rigidbody2D>();
     }
 
-    private new void Start()
+    protected override void Start()
     {
+        base.Start();
         var player = GameReferences.Player;
         if (player != null) _target = player.transform;
     }

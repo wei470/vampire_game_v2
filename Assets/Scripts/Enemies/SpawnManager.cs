@@ -124,6 +124,9 @@ public class SpawnManager : MonoBehaviour
         _currentWave++;
         int enemyCount = _configHelper.GetEnemyCountForWave(_currentWave, _baseEnemyCount, _enemiesPerWave);
 
+        // 每波开始时强制清除场上残留的 DOT 子弹和毒液池
+        CombatManager.DespawnAllDotBullets();
+
         EventManager.TriggerWaveStart(_currentWave);
         _waveInProgress = true;
 
@@ -403,11 +406,11 @@ public class SpawnManager : MonoBehaviour
         int destroyed = 0;
         foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
         {
-            if (enemy != null) { enemy.SetActive(false); destroyed++; }
+            if (enemy != null) { Object.DestroyImmediate(enemy); destroyed++; }
         }
         foreach (var boss in FindObjectsByType<BossEnemy>())
         {
-            if (boss != null) { boss.gameObject.SetActive(false); destroyed++; }
+            if (boss != null) { Object.DestroyImmediate(boss.gameObject); destroyed++; }
         }
         DebugHelper.Log($"[SpawnManager] ForceDestroyAllEnemies: Destroyed {destroyed} enemies");
     }

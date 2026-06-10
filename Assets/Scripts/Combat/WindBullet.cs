@@ -157,7 +157,7 @@ public class WindErosionEffect : MonoBehaviour
 
     private const int HITS_PER_STACK = 1;    // 每发子弹叠1层风化
     private const int DAMAGE_PER_STACK = 5;       // 每层风化造成5点伤害
-    private const float KNOCKBACK_DISTANCE = 3f;   // 固定击退距离（约30%屏幕）
+    private const float KNOCKBACK_DISTANCE = 1f;  // 固定击退距离（原3f的20%）
     private static readonly Color WIND_COLOR = new Color(0.7f, 0.85f, 1f);
     private static readonly Color WIND_POPUP_COLOR = new Color(0.7f, 0.85f, 1f);
 
@@ -222,32 +222,32 @@ public class WindErosionEffect : MonoBehaviour
         return KNOCKBACK_DISTANCE;
     }
 
-    private void Start()
-    {
-        _damageable = GetComponent<Damageable>();
-        _sr = GetComponent<SpriteRenderer>();
-        if (_sr != null) _originalColor = _sr.color;
-        _blender = GetComponent<DotColorBlender>();
-    }
-
     private void OnEnable()
     {
         _hitCount = 0;
         _windStacks = 0;
         _lastDisplayStacks = -1;
+        _lastRegisteredStacks = -1;
+        // 缓存组件引用（支持对象池复用）
+        _damageable = GetComponent<Damageable>();
+        _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _originalColor = _sr.color;
+        _blender = GetComponent<DotColorBlender>();
         // 清理可能残留的文字（对象池复用时）
-        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
+        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; _cachedTextMesh = null; }
     }
+
+    private int _lastRegisteredStacks = -1; // 只在层数变化时更新视觉
 
     private void Update()
     {
         if (_windStacks <= 0) return;
         if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
 
-        // 通过 DotColorBlender 更新颜色
-        if (_blender == null) _blender = GetComponent<DotColorBlender>();
-        if (_blender != null)
+        // 只在层数变化时更新视觉颜色（避免每帧 RegisterDot）
+        if (_blender != null && _windStacks != _lastRegisteredStacks)
         {
+            _lastRegisteredStacks = _windStacks;
             float intensity = Mathf.Clamp01(_windStacks / 10f);
             _blender.RegisterDot("wind", WIND_COLOR, intensity, 8f);
         }
@@ -297,10 +297,18 @@ public class WindErosionEffect : MonoBehaviour
         var player = GameReferences.Player;
         if (player == null) return;
 
-        // 直接修改位置实现击退（EnemyBase.FixedUpdate会覆盖velocity，所以用transform）
+        // 使用 Rigidbody2D.MovePosition 避免 transform 直接位移导致穿墙
         Vector2 knockDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
         float dist = GetKnockbackForce();
-        transform.position += (Vector3)(knockDir * dist);
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.MovePosition(rb.position + knockDir * dist);
+        }
+        else
+        {
+            transform.position += (Vector3)(knockDir * dist);
+        }
 
         // 击退特效
         CombatManager.CreateExplosionEffect(transform.position, 0.3f + _windStacks * 0.1f,
