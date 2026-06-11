@@ -17,6 +17,7 @@ public class DotBulletConfigInspector : Editor
     private bool _showWind = true;
     private bool _showReaction = true;
     private bool _showHoming = true;
+    private bool _showDetonate = true;
 
     public override void OnInspectorGUI()
     {
@@ -172,6 +173,12 @@ public class DotBulletConfigInspector : Editor
             FloatField(config, "冰场半径", "FrostLightningFieldRadius", "");
             FloatField(config, "冰场持续时间", "FrostLightningFieldDuration", "单位：秒");
             FloatField(config, "冰场tick间隔", "FrostLightningTickInterval", "减速施加间隔");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 霜冻 × 燃烧 → 融化 ──", EditorStyles.miniLabel);
+            FloatField(config, "灼烧持续时间", "MeltDuration", "消耗一层霜冻，DOT伤害翻倍");
+            FloatField(config, "DOT伤害倍率", "MeltDamageMultiplier", "2 = 伤害翻倍");
+
             EditorGUI.indentLevel--;
         }
 
@@ -185,6 +192,63 @@ public class DotBulletConfigInspector : Editor
             FloatField(config, "飞行速度", "HomingSpeed", "自动追踪敌人");
             FloatField(config, "存活时间", "HomingLifetime", "超时回收");
             FloatField(config, "搜索目标范围", "HomingTargetRadius", "超出此范围直线飞行");
+            EditorGUI.indentLevel--;
+        }
+
+        EditorGUILayout.Space(2);
+
+        // ── 引爆设置 ──
+        _showDetonate = EditorGUILayout.Foldout(_showDetonate, "💥 引爆设置（DetonateSystem）", true, EditorStyles.foldoutHeader);
+        if (_showDetonate)
+        {
+            EditorGUI.indentLevel++;
+
+            EditorGUILayout.LabelField("── 基础参数 ──", EditorStyles.miniLabel);
+            FloatField(config, "冷却时间", "DetonateCooldown", "单位：秒");
+            FloatField(config, "伤害倍率", "DetonateMultiplier", "DOT层数×此倍率");
+            FloatField(config, "冲击波半径", "DetonateRadius", "最大扩展范围");
+            FloatField(config, "冲击波扩散时间", "DetonateWaveDuration", "越短越快，数字显示越快");
+            BoolField(config, "冲击波期间时停", "DetonateTimeStop", "游戏暂停，冲击波继续扩散");
+            FloatField(config, "晃动强度", "DetonateShakeIntensity", "");
+            FloatField(config, "晃动持续时间", "DetonateShakeDuration", "单位：秒");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 伤害比例（基于敌人MaxHP）──", EditorStyles.miniLabel);
+            FloatField(config, "流血额外伤害%", "DetonateBleedHpPct", "0.2 = 20%MaxHP");
+            FloatField(config, "燃烧额外伤害%", "DetonateBurnHpPct", "0.15 = 15%MaxHP");
+            FloatField(config, "中毒额外伤害%", "DetonatePoisonHpPct", "0.15 = 15%MaxHP");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 连锁引爆 ──", EditorStyles.miniLabel);
+            IntField(config, "最大连锁次数", "DetonateMaxChainCount", "");
+            FloatField(config, "连锁搜索半径", "DetonateChainRadius", "");
+            FloatField(config, "连锁伤害比例", "DetonateChainDamageRatio", "每次衰减");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 蓄力引爆 ──", EditorStyles.miniLabel);
+            FloatField(config, "蓄力移速惩罚", "DetonateChargeMoveSpeedPenalty", "0.5 = 减速50%");
+            FloatField(config, "最大蓄力时间", "DetonateChargeMaxTime", "超时自动释放");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 余烬 ──", EditorStyles.miniLabel);
+            IntField(config, "触发阈值", "DetonateEmberThreshold", "燃烧叠层超过此值触发");
+            IntField(config, "最大区域数", "DetonateEmberMaxZones", "");
+            FloatField(config, "区域持续时间", "DetonateEmberDuration", "单位：秒");
+            FloatField(config, "区域半径", "DetonateEmberRadius", "");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 霜爆 ──", EditorStyles.miniLabel);
+            FloatField(config, "触发阈值", "DetonateFrostShatterThreshold", "0.8 = 减速80%时触发");
+            FloatField(config, "霜爆范围", "DetonateFrostShatterRadius", "");
+            IntField(config, "每层伤害", "DetonateFrostShatterDmgPerStack", "霜爆伤害=层数×此值");
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("── 连锁反应 ──", EditorStyles.miniLabel);
+            IntField(config, "高命中阈值", "DetonateHighHitThreshold", "命中超过此数触发连锁窗口");
+            FloatField(config, "连锁窗口", "DetonateHighHitWindow", "单位：秒");
+            FloatField(config, "连锁间隔", "DetonateChainReactionInterval", "单位：秒");
+            FloatField(config, "连锁衰减系数", "DetonateChainReactionDecay", "每次×此系数");
+
             EditorGUI.indentLevel--;
         }
 
@@ -224,6 +288,23 @@ public class DotBulletConfigInspector : Editor
 
         EditorGUI.BeginChangeCheck();
         int newValue = EditorGUILayout.IntField(content, currentValue);
+        if (EditorGUI.EndChangeCheck())
+        {
+            Undo.RecordObject(config, $"修改 {chineseLabel}");
+            field.SetValue(config, newValue);
+        }
+    }
+
+    private void BoolField(DotBulletConfig config, string chineseLabel, string fieldName, string tooltip)
+    {
+        var field = typeof(DotBulletConfig).GetField(fieldName);
+        if (field == null) return;
+
+        bool currentValue = (bool)field.GetValue(config);
+        GUIContent content = new GUIContent(chineseLabel, tooltip + "\n字段名: " + fieldName);
+
+        EditorGUI.BeginChangeCheck();
+        bool newValue = EditorGUILayout.Toggle(content, currentValue);
         if (EditorGUI.EndChangeCheck())
         {
             Undo.RecordObject(config, $"修改 {chineseLabel}");

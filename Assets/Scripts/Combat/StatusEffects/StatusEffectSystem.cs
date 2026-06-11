@@ -217,6 +217,12 @@ public class StatusEffectManager : MonoBehaviour
 
         _comboSystem.CheckComboEffects(_activeEffects, gameObject, _sr, _originalColor, transform.position);
         UpdateDotParticles();
+
+        // 融化反应：灼烧期间 DOT 伤害翻倍
+        var meltEffect = GetComponent<MeltEffect>();
+        if (meltEffect != null && meltEffect.IsActive)
+            totalTickDamage *= meltEffect.DamageMultiplier;
+
         totalTickDamage *= DebugConfigPanel.DebugDotDamageMultiplier;
 
         totalTickDamageForErosion = totalTickDamage;

@@ -35,6 +35,13 @@ public class BurnBullet : DotBulletBase
         {
             TriggerBurnSpread(enemy.transform.position, burn);
         }
+
+        // ── 元素反应：融化（霜冻 × 燃烧）──
+        var frostEffect = enemy.GetComponent<FrostEffect>();
+        if (frostEffect != null && frostEffect.FrostStacks > 0)
+        {
+            TriggerMelt(enemy, frostEffect);
+        }
     }
 
     /// <summary>
@@ -87,6 +94,43 @@ public class BurnBullet : DotBulletBase
         }
 
         DebugHelper.Log($"[BurnSpread] 燃烧扩散触发！范围={spreadRadius}，消耗1层风化");
+    }
+
+    /// <summary>
+    /// 元素反应：融化 — 消耗一层霜冻，使敌人在持续时间内所有 DOT 伤害翻倍
+    /// </summary>
+    private static void TriggerMelt(GameObject enemy, FrostEffect frostEff)
+    {
+        if (!frostEff.ConsumeStack()) return;
+
+        var config = DotBulletConfig.GetDefault();
+        var melt = enemy.GetComponent<MeltEffect>();
+        if (melt == null) melt = enemy.AddComponent<MeltEffect>();
+        melt.Activate(config.MeltDuration, config.MeltDamageMultiplier);
+
+        CombatManager.CreateExplosionEffect(enemy.transform.position, 0.6f,
+            new Color(1f, 0.3f, 0f, 0.5f), 0.3f);
+        ShowMeltText(enemy.transform.position);
+        DebugHelper.Log($"[Melt] 融化反应触发！DOT伤害翻倍 {config.MeltDuration}秒");
+    }
+
+    private static void ShowMeltText(Vector2 pos)
+    {
+        var textObj = new GameObject("MeltText");
+        textObj.transform.position = pos + new Vector2(0, 0.6f);
+        textObj.transform.localScale = Vector3.one * 0.3f;
+
+        var textMesh = textObj.AddComponent<TextMesh>();
+        textMesh.text = "融化！";
+        textMesh.characterSize = 0.2f;
+        textMesh.anchor = TextAnchor.MiddleCenter;
+        textMesh.alignment = TextAlignment.Center;
+        textMesh.fontSize = 50;
+        textMesh.fontStyle = FontStyle.Bold;
+        textMesh.color = new Color(1f, 0.3f, 0f);
+
+        var ticker = textObj.AddComponent<ReactionTextTicker>();
+        ticker.Lifetime = 1.0f;
     }
 
     /// <summary>
@@ -172,16 +216,16 @@ public class BurnBullet : DotBulletBase
 /// <summary>
 /// 燃烧叠加效果 — 层数越高，tick间隔越短（最低0.2秒）
 /// </summary>
-public class BurnStackEffect : MonoBehaviour
+public class BurnStackEffect : StackEffectBase
 {
     private int _stacks;
     public float _baseDps;
     public float _duration;
-    public int StackCount => _stacks;
+    public override int StackCount => _stacks;
+    public override StatusEffectType EffectType => StatusEffectType.Burn;
+    public override bool IsActive => _stacks > 0;
     public float _endTime;
     public bool _canCrit; public float _critChance, _critMult;
-    private float _lastTick;
-    private Damageable _damageable;
     private DotColorBlender _blender;
     private float _tickAccumulator;
     private int _lastRegisteredStacks = -1;
@@ -195,30 +239,24 @@ public class BurnStackEffect : MonoBehaviour
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
     }
 
-    private void OnEnable()
+    public override bool ConsumeStack() => false;
+
+    protected override void OnEnable()
     {
-        _damageable = GetComponent<Damageable>();
+        base.OnEnable();
         _blender = GetComponent<DotColorBlender>();
-        _lastTick = Time.time;
+        _tickAccumulator = 0f;
         _lastRegisteredStacks = -1;
-        DotEffectRegistry.Register(this); // #24 注册到统一注册表
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
-    private void OnDisable()
+    protected override void RefreshFromConfig()
     {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
-    }
-
-    private void RefreshFromConfig()
-    {
-        var cfg = DotBulletConfig.GetDefault();
-        _duration = cfg.BurnDuration;
+        _duration = DotBulletConfig.GetDefault().BurnDuration;
     }
 
     private void Update()
     {
-        if (_damageable == null || _damageable.CurrentHp <= 0 || _stacks <= 0) { _stacks = 0; DotEffectRegistry.Unregister(this); UnregisterColor(); Destroy(this); return; }
+        if (IsDead() || _stacks <= 0) { _stacks = 0; UnregisterColor(); Destroy(this); return; }
 
         if (_blender != null && _stacks != _lastRegisteredStacks)
         {
@@ -239,7 +277,7 @@ public class BurnStackEffect : MonoBehaviour
         }
     }
 
-    private void OnDestroy() { DotEffectRegistry.Unregister(this); UnregisterColor(); } // #24 注销
+    protected override void OnDestroy() { base.OnDestroy(); UnregisterColor(); }
     private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("burn"); }
 }
 

@@ -35,6 +35,7 @@ public class LightningBullet : MonoBehaviour
         _hitEnemies.Clear();
         if (_cachedRb == null) _cachedRb = GetComponent<Rigidbody2D>();
         if (_cachedRb != null) _cachedRb.linearVelocity = Vector2.zero;
+        _cachedPenetrate = GetComponent<PenetrateHandler>();
     }
     private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
     private void FixedUpdate() { if (_cachedRb != null) _cachedRb.linearVelocity = _direction * _speed; }
@@ -206,7 +207,7 @@ public class LightningBullet : MonoBehaviour
 /// - 每层减少0.2秒，最低2秒（15层叠满）
 /// - 伤害：固定为0（纯控制效果）
 /// </summary>
-public class StaticStackEffect : MonoBehaviour
+public class StaticStackEffect : StackEffectBase
 {
     private int _stackCount = 0;
     private float _baseInterval = 5.0f;
@@ -219,70 +220,47 @@ public class StaticStackEffect : MonoBehaviour
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;
-    private Damageable _damageable;
     private SpriteRenderer _sr;
     private Color _originalColor;
     private DotColorBlender _blender;
 
-    public int StackCount => _stackCount;
+    public override int StackCount => _stackCount;
+    public override StatusEffectType EffectType => StatusEffectType.Static;
+    public override bool IsActive => _stackCount > 0;
 
-    /// <summary>
-    /// 消耗一层静电（用于元素反应：霜电）。返回是否成功消耗。
-    /// </summary>
-    public bool ConsumeStack()
+    public override bool ConsumeStack()
     {
         if (_stackCount <= 0) return false;
         _stackCount--;
-        // 层归零时必须清除硬直标志，否则Update跳过恢复逻辑会导致永久暂停
         if (_stackCount <= 0)
         {
             if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
             if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
-            // 同时重置 stunEndTime，防止后续逻辑残留
             _stunEndTime = 0f;
         }
         DebugHelper.Log($"[StaticStackEffect] Stack consumed! Remaining={_stackCount}");
         return true;
     }
 
-    /// <summary>
-    /// 当前是否处于硬直状态（供FrostEffect等其他DOT效果查询）
-    /// </summary>
     public bool HasStun() => Time.time < _stunEndTime;
 
-    /// <summary>
-    /// 添加一层静电并触发效果
-    /// - 无层数时：立刻触发1秒静电 + 施加1层
-    /// - 有层数时：触发0.1秒静电 + 施加1层 + 重新计算冷却
-    /// </summary>
     public void AddStack()
     {
         bool isFirstStack = (_stackCount == 0);
         _stackCount = Mathf.Min(_stackCount + 1, _maxStacks);
 
         if (isFirstStack)
-        {
-            // 首次命中：立刻触发1秒静电
             ApplyStun(_stunDurationFirst);
-        }
         else
-        {
-            // 已有层数：触发0.1秒静电（短暂打断）
             ApplyStun(_stunDurationHit);
-        }
 
-        // 视觉特效：每次命中都播放静电闪烁
         CombatManager.CreateExplosionEffect(transform.position, isFirstStack ? 1.2f : 0.6f, 
             new Color(0.4f, 0.8f, 1f), isFirstStack ? 0.4f : 0.2f);
 
-        // 重新计算冷却（重置定时器）
         _lastTickTime = Time.time;
         DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s, First={isFirstStack}");
     }
 
-    /// <summary>
-    /// 获取当前静电触发间隔（基础5秒，每层-0.2秒，最低2秒）
-    /// </summary>
     public float GetInterval()
     {
         return Mathf.Max(_minInterval, _baseInterval - _stackCount * _stackReduction);
@@ -294,37 +272,30 @@ public class StaticStackEffect : MonoBehaviour
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null)
         {
-            // 通过集中管理接口设置硬直标志
             _enemyBase.IsStaticStunned = true;
         }
     }
 
-    /// <summary>
-    /// 恢复移动速度 — 清除硬直标志，EnemyBase.FixedUpdate 会自动重新计算速度
-    /// </summary>
     private void RestoreSpeedAfterStun()
     {
         if (_enemyBase == null) return;
         _enemyBase.IsStaticStunned = false;
     }
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
+        base.OnEnable();
         _stackCount = 0;
         _lastTickTime = Time.time;
         _stunEndTime = 0f;
-        // 对象池复用时必须清除硬直标志，否则敌人会永久暂停
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
-        DotEffectRegistry.Register(this); // #24 注册到统一注册表
         RefreshFromConfig();
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void Start()
     {
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
-        _damageable = GetComponent<Damageable>();
         _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
         _blender = GetComponent<DotColorBlender>();
@@ -334,9 +305,8 @@ public class StaticStackEffect : MonoBehaviour
     private void Update()
     {
         if (_stackCount <= 0) return;
-        if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
+        if (IsDead()) { Cleanup(); return; }
 
-        // 通过 DotColorBlender 更新静电颜色贡献（闪烁效果）
         if (_blender == null) _blender = GetComponent<DotColorBlender>();
         if (_blender != null)
         {
@@ -345,21 +315,18 @@ public class StaticStackEffect : MonoBehaviour
             _blender.RegisterDot("static", DotColorBlender.STATIC_CYAN, intensity, pulseSpeed);
         }
 
-        // 硬直期间保持暂停标志
         if (Time.time < _stunEndTime)
         {
             if (_enemyBase != null) _enemyBase.IsStaticStunned = true;
         }
         else
         {
-            // 硬直结束，清除暂停标志
             if (_enemyBase != null && _enemyBase.IsStaticStunned)
             {
                 RestoreSpeedAfterStun();
             }
         }
 
-        // 定时触发静电放电
         float interval = GetInterval();
         if (Time.time - _lastTickTime >= interval)
         {
@@ -368,51 +335,37 @@ public class StaticStackEffect : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 定时触发放电：0.5秒静电（无伤害，纯控制）
-    /// </summary>
     private void TriggerStaticDischarge()
     {
-        if (_damageable == null || _damageable.CurrentHp <= 0) return;
+        if (IsDead()) return;
 
-        // 暂停行动0.5秒
         ApplyStun(_stunDurationDischarge);
-
-        // 视觉特效
         CombatManager.CreateExplosionEffect(transform.position, 1f, new Color(0.4f, 0.8f, 1f), 0.3f);
-
         DebugHelper.Log($"[StaticStackEffect] Static discharge! stacks={_stackCount}, next in {GetInterval():F1}s");
     }
 
     private void Cleanup()
     {
-        if (_enemyBase != null)
-        {
-            RestoreSpeedAfterStun();
-        }
+        if (_enemyBase != null) RestoreSpeedAfterStun();
         UnregisterColor();
         Destroy(this);
     }
     private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("static"); }
 
-    private void OnDisable()
+    protected override void OnDisable()
     {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
-        if (_enemyBase != null && _stackCount > 0)
-        {
-            RestoreSpeedAfterStun();
-        }
+        base.OnDisable();
+        if (_enemyBase != null && _stackCount > 0) RestoreSpeedAfterStun();
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
-        DotEffectRegistry.Unregister(this); // #24 注销
-        if (_enemyBase != null && _stackCount > 0)
-            RestoreSpeedAfterStun();
+        base.OnDestroy();
+        if (_enemyBase != null && _stackCount > 0) RestoreSpeedAfterStun();
         UnregisterColor();
     }
 
-    private void RefreshFromConfig()
+    protected override void RefreshFromConfig()
     {
         var cfg = DotBulletConfig.GetDefault();
         _baseInterval = cfg.StaticBaseInterval;

@@ -361,6 +361,17 @@ public class DotBulletConfig : ScriptableObject
              "默认值：1.25")]
     public float FrostLightningTickInterval = 1.25f;
 
+    [Tooltip("融化反应的灼烧持续时间（单位：秒）。\n" +
+             "触发条件：燃烧子弹命中拥有霜冻层数的敌人。\n" +
+             "消耗一层霜冻，使敌人在持续时间内受到的所有 DOT 伤害翻倍。\n" +
+             "默认值：1")]
+    public float MeltDuration = 1f;
+
+    [Tooltip("融化反应的 DOT 伤害倍率。\n" +
+             "灼烧期间，敌人受到的所有 DOT 伤害乘以此值。\n" +
+             "默认值：2（即伤害翻倍）")]
+    public float MeltDamageMultiplier = 2f;
+
     // ══════════════════════════════════════════════════════════════
     // 通用参数
     // 追踪子弹（HomingProjectile）的共享配置，
@@ -382,6 +393,134 @@ public class DotBulletConfig : ScriptableObject
              "超出此范围则直线飞行。\n" +
              "默认值：6")]
     public float HomingTargetRadius = 6f;
+
+    // ══════════════════════════════════════════════════════════════
+    // 引爆设置（DetonateSystem）
+    // 按 E 键蓄力引爆，从玩家身上炸出红色冲击波，
+    // 接触到的敌人触发引爆伤害（仅一次）。
+    // ══════════════════════════════════════════════════════════════
+    [Header("引爆设置")]
+
+    [Tooltip("引爆技能的冷却时间（单位：秒）。\n" +
+             "每次引爆后需等待此时间才能再次使用。\n" +
+             "默认值：12")]
+    public float DetonateCooldown = 12f;
+
+    [Tooltip("引爆的基础伤害倍率。\n" +
+             "引爆伤害 = 敌人DOT层数 × 此倍率。\n" +
+             "默认值：3")]
+    public float DetonateMultiplier = 3f;
+
+    [Tooltip("引爆冲击波的最大半径（单位：Unity 场景单位）。\n" +
+             "冲击波从玩家位置扩展到此半径。\n" +
+             "默认值：50")]
+    public float DetonateRadius = 50f;
+
+    [Tooltip("引爆冲击波的扩散持续时间（单位：秒）。\n" +
+             "冲击波从玩家扩展到最大半径所需时间。\n" +
+             "越短扩散越快，总伤害数字显示越快。\n" +
+             "默认值：0.3")]
+    public float DetonateWaveDuration = 0.3f;
+
+    [Tooltip("引爆冲击波期间是否时停（游戏暂停，冲击波继续扩散）。\n" +
+             "时停期间只有冲击波和屏幕晃动生效，其他游戏逻辑冻结。\n" +
+             "冲击波结束后自动恢复。\n" +
+             "默认值：true")]
+    public bool DetonateTimeStop = true;
+
+    [Tooltip("引爆时屏幕晃动强度。\n" +
+             "默认值：2.5")]
+    public float DetonateShakeIntensity = 2.5f;
+
+    [Tooltip("引爆时屏幕晃动持续时间（单位：秒）。\n" +
+             "默认值：0.5")]
+    public float DetonateShakeDuration = 0.5f;
+
+    [Tooltip("引爆对流血敌人的额外伤害（基于最大HP的百分比）。\n" +
+             "默认值：0.2（即 20% MaxHP）")]
+    public float DetonateBleedHpPct = 0.2f;
+
+    [Tooltip("引爆对燃烧敌人的额外伤害（基于最大HP的百分比）。\n" +
+             "默认值：0.15（即 15% MaxHP）")]
+    public float DetonateBurnHpPct = 0.15f;
+
+    [Tooltip("引爆对中毒敌人的额外伤害（基于最大HP的百分比）。\n" +
+             "默认值：0.15（即 15% MaxHP）")]
+    public float DetonatePoisonHpPct = 0.15f;
+
+    [Tooltip("连锁引爆的最大次数。\n" +
+             "引爆命中后，可触发此数量的连锁引爆。\n" +
+             "默认值：3")]
+    public int DetonateMaxChainCount = 3;
+
+    [Tooltip("连锁引爆的搜索半径（单位：Unity 场景单位）。\n" +
+             "默认值：10")]
+    public float DetonateChainRadius = 10f;
+
+    [Tooltip("连锁引爆的伤害衰减比例（0~1）。\n" +
+             "每次连锁伤害 = 基础引爆伤害 × 此比例。\n" +
+             "默认值：0.5（即 50%）")]
+    public float DetonateChainDamageRatio = 0.5f;
+
+    [Tooltip("蓄力时的移动速度惩罚（0~1）。\n" +
+             "例如 0.5 表示蓄力时移速降低 50%。\n" +
+             "默认值：0.5")]
+    public float DetonateChargeMoveSpeedPenalty = 0.5f;
+
+    [Tooltip("最大蓄力时间（单位：秒）。\n" +
+             "超过此时间自动释放引爆。\n" +
+             "默认值：3")]
+    public float DetonateChargeMaxTime = 3f;
+
+    [Tooltip("余烬效果触发的最低燃烧层数。\n" +
+             "燃烧叠层超过此值时，在敌人位置生成火焰区域。\n" +
+             "默认值：10")]
+    public int DetonateEmberThreshold = 10;
+
+    [Tooltip("余烬火焰区域的最大生成数量。\n" +
+             "默认值：5")]
+    public int DetonateEmberMaxZones = 5;
+
+    [Tooltip("余烬火焰区域的持续时间（单位：秒）。\n" +
+             "默认值：3")]
+    public float DetonateEmberDuration = 3f;
+
+    [Tooltip("余烬火焰区域的半径（单位：Unity 场景单位）。\n" +
+             "默认值：1.5")]
+    public float DetonateEmberRadius = 1.5f;
+
+    [Tooltip("霜爆触发的最低减速百分比（0~1）。\n" +
+             "霜冻减速超过此值时触发霜爆。\n" +
+             "默认值：0.8（即 80%）")]
+    public float DetonateFrostShatterThreshold = 0.8f;
+
+    [Tooltip("霜爆的范围半径（单位：Unity 场景单位）。\n" +
+             "默认值：4")]
+    public float DetonateFrostShatterRadius = 4f;
+
+    [Tooltip("霜爆每层霜冻的伤害倍率。\n" +
+             "霜爆伤害 = 霜冻层数 × 此值。\n" +
+             "默认值：5")]
+    public int DetonateFrostShatterDmgPerStack = 5;
+
+    [Tooltip("触发高命中连锁引爆的最低命中敌人数量。\n" +
+             "命中超过此数量后，获得短暂的连锁引爆窗口。\n" +
+             "默认值：10")]
+    public int DetonateHighHitThreshold = 10;
+
+    [Tooltip("高命中连锁引爆的窗口持续时间（单位：秒）。\n" +
+             "默认值：3")]
+    public float DetonateHighHitWindow = 3f;
+
+    [Tooltip("连锁反应的间隔时间（单位：秒）。\n" +
+             "每次连锁反应之间的延迟。\n" +
+             "默认值：0.3")]
+    public float DetonateChainReactionInterval = 0.3f;
+
+    [Tooltip("连锁反应的伤害衰减系数。\n" +
+             "每次连锁后伤害乘以此系数。\n" +
+             "默认值：0.5")]
+    public float DetonateChainReactionDecay = 0.5f;
 
     // ── 变更通知 ──
     /// <summary>Inspector 修改值时触发，各系统订阅此事件刷新缓存</summary>

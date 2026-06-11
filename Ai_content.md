@@ -64,13 +64,14 @@ SceneManager.LoadScene(current scene)
 **元素反应**：
 - 燃烧×风化→燃烧扩散(r=配置化, 默认5) — BurnBullet 检查 WindErosionEffect
 - 霜冻×静电→霜电冰场(r=配置化, 默认1, 2s) — FrostLightningField
+- 霜冻×燃烧→融化(1s, DOT伤害×2) — BurnBullet 检查 FrostEffect，消耗霜冻层，MeltEffect 组件
 
 **关键文件**：
 | 文件 | 作用 |
 |------|------|
 | `DotBulletFactory.cs` | DOT子弹工厂（从Config读取参数创建子弹，**OnConfigChanged 清除 `_config` 缓存**） |
 | `DotBulletBase.cs` | DOT子弹基类（速度/生命周期/穿透/反弹） |
-| `DotBulletConfig.cs` | DOT子弹配置 ScriptableObject（40+字段，已中文化Tooltip，OnConfigChanged 信号） |
+| `DotBulletConfig.cs` | DOT子弹配置 ScriptableObject（50+字段，已中文化Tooltip，OnConfigChanged 信号） |
 | `DotBulletHelpers.cs` | 工具方法（EnsureStatusEffectManager/GlowReturnHelper） |
 | `DotEffectRegistry.cs` | DOT效果统一注册表（4个 HashSet: Burn/Poison/Frost/Static） |
 | `DotColorBlender.cs` | DOT 视觉颜色混合 |
@@ -79,8 +80,7 @@ SceneManager.LoadScene(current scene)
 - **实现链**：`MageUpgradeConfig`(配置) → `MagePassive`(属性, partial class) → `MageUpgradeApplier`(应用)
 - **MagePassive.cs**（属性+DOT枪管理, ~370行）+ **MagePassive.Firing.cs**（Update+子弹发射+视觉, ~160行）
 - **升级类别**：DOT子弹(7) + DOT增强(4) + 引爆增强(2) + 子弹增强(3) + P0强化(3) + P1深度(1) + P2协同(7) + 子弹扩展(2) + 生存(2) + P3终极(3)
-- **联动**：StatusEffectSystem / DetonateSystem / CurseSpreadSystem / DotComboSystem / DotFusionSystem
-- **DotFusionSystem**：5种融合（熔岩/毒冰/等离子/电磁/腐蚀），被 MagePassive 和 EvolutionSystem 引用
+- **联动**：StatusEffectSystem / DetonateSystem / CurseSpreadSystem / DotComboSystem
 
 ## 5. 引爆系统
 - `DetonateSystem.cs` — 蓄力/连锁/余烬/碎裂
@@ -132,12 +132,13 @@ SceneManager.LoadScene(current scene)
 | `Combat/StatusEffects/DotComboSystem.cs` | DOT 组合系统 |
 | `Combat/CombatManager.cs` | 战斗管理（伤害/特效/DespawnAllDotBullets） |
 | `Combat/FrostLightningField.cs` | 霜电冰场（元素反应，**已接 Config 信号刷新**） |
+| `Combat/MeltEffect.cs` | 融化反应 Debuff（霜冻×燃烧，1s DOT伤害翻倍） |
 
 ### DOT 子弹
 | 文件 | 说明 |
 |------|------|
 | `Combat/PoisonBullet.cs` | 毒子弹 + PoisonPuddle + PoisonStackEffect + PoisonBurstTextTicker |
-| `Combat/BurnBullet.cs` | 燃烧子弹 + BurnStackEffect |
+| `Combat/BurnBullet.cs` | 燃烧子弹 + BurnStackEffect + 融化反应触发 |
 | `Combat/FrostBullet.cs` | 霜冻子弹 + FrostEffect |
 | `Combat/LightningBullet.cs` | 雷电子弹 + StaticStackEffect |
 | `Combat/DarkBullet.cs` | 暗影子弹 + DarkMarkEffect |
