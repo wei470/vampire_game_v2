@@ -63,6 +63,7 @@ public class LightBulletController : MonoBehaviour
         _phase = Phase.Charging;
         _phaseTimer = 0f;
         CreateChargeBarVisual();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void Update()
@@ -245,8 +246,22 @@ public class LightBulletController : MonoBehaviour
 
     private void OnDestroy()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         if (_activeInstance == this) _activeInstance = null;
         CleanupVisuals();
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _chargeDuration = cfg.LightChargeDuration;
+        _laserDamage = cfg.LightLaserDamage;
+        _sweepAngle = cfg.LightSweepAngle;
+        _sweepDuration = cfg.LightSweepDuration;
+        _laserLength = cfg.LightLaserLength;
+        _laserWidth = cfg.LightLaserWidth;
+        _markDuration = cfg.LightMarkDuration;
+        _markMaxStacks = cfg.LightMarkMaxStacks <= 0 ? 9999 : cfg.LightMarkMaxStacks;
     }
 
     public static LightBulletController Create(Vector2 pos)
@@ -270,6 +285,7 @@ public class LightMarkEffect : MonoBehaviour
     private float _lastStackTime;
     private Damageable _damageable;
     private GameObject _stackTextObj;
+    private float _damagePerStack = 0.005f;
 
     public int StackCount => _stackCount;
 
@@ -297,7 +313,7 @@ public class LightMarkEffect : MonoBehaviour
     public float GetDamageMultiplier()
     {
         if (_stackCount <= 0) return 1f;
-        return 1f + _stackCount * 0.005f;
+        return 1f + _stackCount * _damagePerStack;
     }
 
     private TextMesh _cachedTextMesh; // 缓存 TextMesh 组件
@@ -338,6 +354,8 @@ public class LightMarkEffect : MonoBehaviour
     {
         _damageable = GetComponent<Damageable>();
         _lastStackTime = Time.time;
+        RefreshFromConfig();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void LateUpdate()
@@ -367,6 +385,7 @@ public class LightMarkEffect : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
         _stackCount = 0;
         var sr = GetComponent<SpriteRenderer>();
@@ -378,6 +397,12 @@ public class LightMarkEffect : MonoBehaviour
         if (_stackTextObj != null) Destroy(_stackTextObj);
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = Color.white;
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _damagePerStack = cfg.LightMarkDamagePerStack;
     }
 }
 

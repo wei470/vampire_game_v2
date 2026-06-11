@@ -93,7 +93,8 @@ public class PlayerLevelSystem : MonoBehaviour
         EventManager.TriggerXPGained(amount);
 
         // 检查是否可以升级（可能一次获得大量经验连升多级）
-        while (_currentExp >= ExpToLevelUp)
+        int safetyLimit = 100; // 防止无限循环
+        while (_currentExp >= ExpToLevelUp && safetyLimit-- > 0)
         {
             _currentExp -= ExpToLevelUp;
             _level++;

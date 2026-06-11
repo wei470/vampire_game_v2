@@ -9,9 +9,9 @@ public class PauseMenuUI : MonoBehaviour
     private Texture2D _settingsTex;
     private Texture2D _quitTex;
     private Texture2D _hoverTex;
-    private Texture2D _statsBgTex;   // #27 统计面板背景
-    private Texture2D _dividerTex;   // #27 分隔线
-    private Texture2D _borderTex;    // #27 边框
+    private Texture2D _statsBgTex;
+    private Texture2D _dividerTex;
+    private Texture2D _borderTex;
 
     public bool IsPaused => _isPaused;
 
@@ -27,8 +27,6 @@ public class PauseMenuUI : MonoBehaviour
         _isPaused = true;
         if (GameManager.Instance != null) GameManager.Instance.ChangeState(GameManager.GameState.Paused);
         Time.timeScale = 0f;
-
-        // 播放暂停音效
         if (SFXManager.Instance != null)
             SFXManager.Instance.PlayPause();
     }
@@ -40,21 +38,24 @@ public class PauseMenuUI : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    private bool _isReturning = false; // 防止重复点击
+    private bool _isReturning = false;
 
     public void ReturnToMenu()
     {
         if (_isReturning) return;
         _isReturning = true;
-
         _isPaused = false;
 
-        // #37 使用统一的 GameStateResetter 重置所有游戏状态
-        if (GameManager.Instance != null) Destroy(GameManager.Instance.gameObject);
-        GameStateResetter.FullReset();
-
-        // FullReset 已设置 Time.timeScale = 0，LoadScene 前恢复
         Time.timeScale = 1f;
+
+        // 最小化清理：只清事件和静态引用，不做任何 Destroy/DestroyImmediate。
+        // LoadScene 会自动销毁当前场景所有对象。
+        // DontDestroyOnLoad 单例由 MenuScene 重新初始化时自然覆盖。
+        EventManager.ClearAll();
+        GameReferences.Reset();
+        GameSceneBootstrap.ResetCharacter();
+        DotEffectRegistry.ClearAll();
+
         SceneManager.LoadScene("MenuScene");
     }
 
@@ -76,7 +77,6 @@ public class PauseMenuUI : MonoBehaviour
         GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _overlayTex);
         GUI.color = Color.white;
 
-        // #27 左侧：按钮面板（居中偏左）
         float btnPanelW = 360;
         float btnPanelH = 380;
         float btnPanelX = Screen.width * 0.28f - btnPanelW / 2f;
@@ -131,13 +131,9 @@ public class PauseMenuUI : MonoBehaviour
         GUILayout.Label("Press ESC to resume", hintStyle);
         GUILayout.EndArea();
 
-        // #27 右侧：实时统计面板
         DrawStatsPanel();
     }
 
-    /// <summary>
-    /// #27 右侧实时统计面板 — 显示 Build 概览 + 属性 + 波次统计
-    /// </summary>
     private void DrawStatsPanel()
     {
         float statsW = 420;
@@ -145,11 +141,9 @@ public class PauseMenuUI : MonoBehaviour
         float statsX = Screen.width * 0.68f - statsW / 2f;
         float statsY = (Screen.height - statsH) / 2f;
 
-        // 统计面板背景
         if (_statsBgTex == null) _statsBgTex = UIColorTheme.MakeTexture(new Color(0.05f, 0.08f, 0.15f, 0.9f));
         GUI.DrawTexture(new Rect(statsX, statsY, statsW, statsH), _statsBgTex);
 
-        // 边框
         DrawBorderRect(new Rect(statsX, statsY, statsW, statsH), UIColorTheme.AccentCyan, 1);
 
         float x = statsX + 15;
@@ -181,13 +175,11 @@ public class PauseMenuUI : MonoBehaviour
             normal = { textColor = UIColorTheme.AccentCyan }
         };
 
-        // ── 标题 ──
         GUI.Label(new Rect(x, y, w, 28), "📊 GAME STATS", headerStyle);
         y += 32;
         DrawDivider(x, y, w);
         y += 8;
 
-        // ── 波次信息 ──
         GUI.Label(new Rect(x, y, w, 22), "── WAVE INFO ──", sectionStyle);
         y += 24;
 
@@ -206,7 +198,6 @@ public class PauseMenuUI : MonoBehaviour
         DrawDivider(x, y, w);
         y += 8;
 
-        // ── 玩家属性 ──
         GUI.Label(new Rect(x, y, w, 22), "── PLAYER ──", sectionStyle);
         y += 24;
 
@@ -224,7 +215,6 @@ public class PauseMenuUI : MonoBehaviour
             DrawStatRow(x, y, w, labelStyle, valueStyle, "Move Speed", $"{player.MoveSpeed:F1}");
             y += 22;
 
-            // 武器属性
             var wc = player.GetComponent<WeaponController>();
             if (wc != null && wc.enabled && wc.CurrentWeapon != null)
             {
@@ -238,7 +228,6 @@ public class PauseMenuUI : MonoBehaviour
         DrawDivider(x, y, w);
         y += 8;
 
-        // ── Mage 专属：DOT Build 概览 ──
         var magePassive = player?.GetComponent<MagePassive>();
         if (magePassive != null)
         {
@@ -250,7 +239,6 @@ public class PauseMenuUI : MonoBehaviour
             {
                 foreach (var gun in dotGuns)
                 {
-                    string colorHex = ColorUtility.ToHtmlStringRGB(gun.color);
                     string name = gun.effectType.ToString();
                     DrawStatRow(x, y, w, labelStyle, valueStyle, name, $"DPS:{gun.dotDps:F1} Lv:{gun.upgradeLevel}");
                     y += 22;

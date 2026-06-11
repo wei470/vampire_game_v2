@@ -206,10 +206,12 @@ public class DarkMarkEffect : MonoBehaviour
         _damageable = GetComponent<Damageable>();
         // 重新订阅死亡事件（如果之前Init过）
         if (_entity != null) SubscribeDeath();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         UnsubscribeDeath();
         RestoreVisual();
     }
@@ -370,5 +372,12 @@ public class DarkMarkEffect : MonoBehaviour
             if (sr != null) sr.color = _originalColor;
             _visualApplied = false;
         }
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _spreadRadius = cfg.DarkBaseRadius;
+        _spreadEfficiency = cfg.DarkBaseEfficiency;
     }
 }

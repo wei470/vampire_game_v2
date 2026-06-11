@@ -157,7 +157,8 @@ public class WindErosionEffect : MonoBehaviour
 
     private const int HITS_PER_STACK = 1;    // 每发子弹叠1层风化
     private const int DAMAGE_PER_STACK = 5;       // 每层风化造成5点伤害
-    private const float KNOCKBACK_DISTANCE = 1f;  // 固定击退距离（原3f的20%）
+    private float _knockbackDistance = 1f;  // 固定击退距离（从配置读取）
+    private int _maxStacks = 999; // 最大层数（从配置读取）
     private static readonly Color WIND_COLOR = new Color(0.7f, 0.85f, 1f);
     private static readonly Color WIND_POPUP_COLOR = new Color(0.7f, 0.85f, 1f);
 
@@ -192,6 +193,7 @@ public class WindErosionEffect : MonoBehaviour
 
     private void AddWindStack()
     {
+        if (_windStacks >= _maxStacks) return;
         _windStacks++;
 
         // 每施加一层风化造成5点伤害
@@ -219,7 +221,7 @@ public class WindErosionEffect : MonoBehaviour
     /// </summary>
     public float GetKnockbackForce()
     {
-        return KNOCKBACK_DISTANCE;
+        return _knockbackDistance;
     }
 
     private void OnEnable()
@@ -235,6 +237,8 @@ public class WindErosionEffect : MonoBehaviour
         _blender = GetComponent<DotColorBlender>();
         // 清理可能残留的文字（对象池复用时）
         if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; _cachedTextMesh = null; }
+        RefreshFromConfig();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private int _lastRegisteredStacks = -1; // 只在层数变化时更新视觉
@@ -339,6 +343,7 @@ public class WindErosionEffect : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         UnregisterColor();
         if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
         _windStacks = 0;
@@ -352,5 +357,12 @@ public class WindErosionEffect : MonoBehaviour
         if (_stackTextObj != null) Destroy(_stackTextObj);
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = _originalColor;
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _knockbackDistance = cfg.WindErosionKnockbackDistance;
+        _maxStacks = cfg.WindMaxStacks;
     }
 }

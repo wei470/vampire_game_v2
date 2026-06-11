@@ -285,6 +285,7 @@ public class BurnSpreadTextTicker : MonoBehaviour
 
     private void OnDisable()
     {
-        if (gameObject != null) Destroy(gameObject);
+        // 不在 OnDisable 中 Destroy(gameObject) —— FullReset 会先 disable 所有 MB
+        // 再由 CleanupLingeringCombatObjects 统一销毁，避免级联销毁导致异常
     }
 }

@@ -407,7 +407,7 @@ public class DetonateSystem : MonoBehaviour
 
     private IEnumerator ChainDetonateWave(List<Vector3> sources, float critChance, float critMult, int chainLevel)
     {
-        yield return new WaitForSeconds(0.1f * chainLevel);
+        yield return new WaitForSecondsRealtime(0.1f * chainLevel);
 
         int chainDamage = 0, chainHits = 0;
         _cachedChainTargets.Clear();

@@ -32,6 +32,7 @@ public static class DotBulletFactory
         Register(StatusEffectType.Dark, SpawnDark);
         Register(StatusEffectType.Light, SpawnLight);
         Register(StatusEffectType.WindErosion, SpawnWind);
+        DotBulletConfig.OnConfigChanged += OnConfigChanged;
     }
 
     public static void Register(StatusEffectType type, BulletSpawner spawner)
@@ -51,6 +52,11 @@ public static class DotBulletFactory
     }
 
     // ── 默认创建方法 ──
+
+    private static void OnConfigChanged()
+    {
+        _config = null;
+    }
 
     private static GameObject SpawnPoison(Vector2 pos, Vector2 dir, MagePassive.DotGunState gun,
         float bulletSpeedMult, float durMult, float dmgMult,

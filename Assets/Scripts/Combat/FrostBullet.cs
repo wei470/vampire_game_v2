@@ -123,9 +123,9 @@ public class FrostEffect : MonoBehaviour
     private DotColorBlender _blender;
     private int _frostStacks = 0;
 
-    private const float BASE_SLOW = 0.30f;
-    private const float PER_STACK_SLOW = 0.05f;
-    private const float MAX_SLOW = 0.90f;
+    private float _baseSlow = 0.30f;
+    private float _perStackSlow = 0.05f;
+    private float _maxSlow = 0.90f;
 
     /// <summary>
     /// 施加霜冻减速 — 通过 EnemyBase.FrostSlowMultiplier 集中管理
@@ -136,7 +136,7 @@ public class FrostEffect : MonoBehaviour
         _frostDps = Mathf.Max(_frostDps, frostDps);
         _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
         _frostStacks++;
-        _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
+        _slowPercent = Mathf.Min(_maxSlow, _baseSlow + (_frostStacks - 1) * _perStackSlow);
 
         // 确保已捕获原始颜色（ApplyFreeze可能在Start之前被调用）
         EnsureColorCaptured();
@@ -158,7 +158,7 @@ public class FrostEffect : MonoBehaviour
     {
         if (_frostStacks <= 0) return false;
         _frostStacks--;
-        _slowPercent = Mathf.Min(MAX_SLOW, BASE_SLOW + (_frostStacks - 1) * PER_STACK_SLOW);
+        _slowPercent = Mathf.Min(_maxSlow, _baseSlow + (_frostStacks - 1) * _perStackSlow);
         if (_frostStacks <= 0) _slowPercent = 0f;
         DebugHelper.Log($"[FrostEffect] Stack consumed! Remaining={_frostStacks}");
         return true;
@@ -177,6 +177,8 @@ public class FrostEffect : MonoBehaviour
         _blender = GetComponent<DotColorBlender>();
         EnsureColorCaptured();
         DotEffectRegistry.Register(this); // #24 注册到统一注册表
+        RefreshFromConfig();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     /// <summary>确保已捕获原始颜色（ApplyFreeze可能在Start之前被调用）</summary>
@@ -236,6 +238,7 @@ public class FrostEffect : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         // 恢复霜冻减速乘数
         if (_enemyBase != null && _frostStacks > 0) _enemyBase.FrostSlowMultiplier = 1f;
         // 恢复原始颜色
@@ -243,4 +246,12 @@ public class FrostEffect : MonoBehaviour
         UnregisterColor();
     }
     private void OnDestroy() { DotEffectRegistry.Unregister(this); UnregisterColor(); }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _maxSlow = cfg.FrostMaxSlow;
+        _baseSlow = cfg.FrostBaseSlowPct;
+        _perStackSlow = cfg.FrostSlowPerStack;
+    }
 }

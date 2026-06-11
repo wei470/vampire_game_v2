@@ -209,13 +209,13 @@ public class LightningBullet : MonoBehaviour
 public class StaticStackEffect : MonoBehaviour
 {
     private int _stackCount = 0;
-    private const float BASE_INTERVAL = 5.0f;
-    private const float STACK_REDUCTION = 0.2f;
-    private const float MIN_INTERVAL = 2.0f;
-    private const float STUN_DURATION_HIT = 0.1f;
-    private const float STUN_DURATION_DISCHARGE = 0.5f;
-    private const float STUN_DURATION_FIRST = 1.0f;
-    private const int MAX_STACKS = 15;
+    private float _baseInterval = 5.0f;
+    private float _stackReduction = 0.2f;
+    private float _minInterval = 2.0f;
+    private float _stunDurationHit = 0.1f;
+    private float _stunDurationDischarge = 0.5f;
+    private float _stunDurationFirst = 1.0f;
+    private int _maxStacks = 15;
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;
@@ -258,17 +258,17 @@ public class StaticStackEffect : MonoBehaviour
     public void AddStack()
     {
         bool isFirstStack = (_stackCount == 0);
-        _stackCount = Mathf.Min(_stackCount + 1, MAX_STACKS);
+        _stackCount = Mathf.Min(_stackCount + 1, _maxStacks);
 
         if (isFirstStack)
         {
             // 首次命中：立刻触发1秒静电
-            ApplyStun(STUN_DURATION_FIRST);
+            ApplyStun(_stunDurationFirst);
         }
         else
         {
             // 已有层数：触发0.1秒静电（短暂打断）
-            ApplyStun(STUN_DURATION_HIT);
+            ApplyStun(_stunDurationHit);
         }
 
         // 视觉特效：每次命中都播放静电闪烁
@@ -285,7 +285,7 @@ public class StaticStackEffect : MonoBehaviour
     /// </summary>
     public float GetInterval()
     {
-        return Mathf.Max(MIN_INTERVAL, BASE_INTERVAL - _stackCount * STACK_REDUCTION);
+        return Mathf.Max(_minInterval, _baseInterval - _stackCount * _stackReduction);
     }
 
     private void ApplyStun(float duration)
@@ -317,6 +317,8 @@ public class StaticStackEffect : MonoBehaviour
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
         if (_enemyBase != null) _enemyBase.IsStaticStunned = false;
         DotEffectRegistry.Register(this); // #24 注册到统一注册表
+        RefreshFromConfig();
+        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void Start()
@@ -374,7 +376,7 @@ public class StaticStackEffect : MonoBehaviour
         if (_damageable == null || _damageable.CurrentHp <= 0) return;
 
         // 暂停行动0.5秒
-        ApplyStun(STUN_DURATION_DISCHARGE);
+        ApplyStun(_stunDurationDischarge);
 
         // 视觉特效
         CombatManager.CreateExplosionEffect(transform.position, 1f, new Color(0.4f, 0.8f, 1f), 0.3f);
@@ -395,6 +397,7 @@ public class StaticStackEffect : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
         if (_enemyBase != null && _stackCount > 0)
         {
             RestoreSpeedAfterStun();
@@ -407,5 +410,17 @@ public class StaticStackEffect : MonoBehaviour
         if (_enemyBase != null && _stackCount > 0)
             RestoreSpeedAfterStun();
         UnregisterColor();
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotBulletConfig.GetDefault();
+        _baseInterval = cfg.StaticBaseInterval;
+        _stackReduction = cfg.StaticStackReduction;
+        _minInterval = cfg.StaticMinInterval;
+        _stunDurationHit = cfg.StaticStunOnHit;
+        _stunDurationDischarge = cfg.StaticStunOnDischarge;
+        _stunDurationFirst = cfg.StaticStunOnFirstStack;
+        _maxStacks = cfg.StaticMaxStacks;
     }
 }

@@ -91,7 +91,18 @@ public class WaveChallengeSystem : MonoBehaviour
 
     public IEnumerator WaitForChallengeResolution()
     {
-        while (!_challengeResolved) yield return null;
+        float startTime = Time.unscaledTime;
+        float timeout = 120f; // 2分钟超时，防止永久卡死
+        while (!_challengeResolved)
+        {
+            if (Time.unscaledTime - startTime > timeout)
+            {
+                DebugHelper.LogWarning("[WaveChallenge] Challenge timed out after 120s, auto-declining");
+                DeclineChallenge();
+                yield break;
+            }
+            yield return null;
+        }
     }
 
     private ChallengeData GenerateChallenge(int wave)

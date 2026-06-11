@@ -214,9 +214,9 @@ public class SpawnManager : MonoBehaviour
     {
         if (!_waveInProgress || _isSpawning) return;
 
-        if (Time.time - _lastCleanupTime >= _cleanupInterval)
+        if (Time.unscaledTime - _lastCleanupTime >= _cleanupInterval)
         {
-            _lastCleanupTime = Time.time;
+            _lastCleanupTime = Time.unscaledTime;
             CleanDeadEnemies();
         }
 
@@ -237,7 +237,7 @@ public class SpawnManager : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             SpawnRandomEnemy();
-            yield return new WaitForSeconds(_spawnInterval);
+            yield return new WaitForSecondsRealtime(_spawnInterval);
         }
         _isSpawning = false;
     }
@@ -250,7 +250,7 @@ public class SpawnManager : MonoBehaviour
             GameObject prefab = _prefabFactory.ChooseSpecialWaveEnemy(type);
             if (prefab != null) SpawnSpecificEnemy(prefab);
             else SpawnRandomEnemy();
-            yield return new WaitForSeconds(_spawnInterval);
+            yield return new WaitForSecondsRealtime(_spawnInterval);
         }
         _isSpawning = false;
     }
@@ -272,7 +272,7 @@ public class SpawnManager : MonoBehaviour
         if (_challengeSystem != null && _challengeSystem.OfferChallenge(_currentWave + 1))
             yield return _challengeSystem.WaitForChallengeResolution();
 
-        yield return new WaitForSeconds(_restBetweenWaves);
+        yield return new WaitForSecondsRealtime(_restBetweenWaves);
         StartNextWave();
     }
 

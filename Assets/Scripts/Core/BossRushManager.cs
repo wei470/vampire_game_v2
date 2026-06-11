@@ -176,7 +176,7 @@ public class BossRushManager : MonoBehaviour
     /// </summary>
     private IEnumerator SpawnBossDelayed(BossEnemy.BossType bossType, int hp)
     {
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSecondsRealtime(2f);
 
         var player = GameReferences.Player;
         if (player == null || !player.gameObject.activeInHierarchy) yield break;
@@ -265,7 +265,7 @@ public class BossRushManager : MonoBehaviour
     /// </summary>
     private IEnumerator NextRoundDelayed()
     {
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSecondsRealtime(3f);
         StartNextRound();
     }
 

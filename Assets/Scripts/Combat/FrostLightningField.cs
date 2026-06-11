@@ -16,7 +16,7 @@ public class FrostLightningField : MonoBehaviour
     private float _spawnTime;
     private float _lastFrostTick;
     private float _frostTickInterval = 1.25f; // 每1.25秒施加一层霜冻（从配置读取）
-    private const float SLOW_PERCENT = 0.30f; // 霜冻基础减速30%
+    private float _slowPercent = 0.30f; // 霜冻基础减速30%（从配置读取）
 
     /// <summary>
     /// 创建霜电冰场
@@ -112,7 +112,7 @@ public class FrostLightningField : MonoBehaviour
             DotBulletHelper.EnsureStatusEffectManager(e);
             var frost = e.GetComponent<FrostEffect>();
             if (frost == null) frost = e.AddComponent<FrostEffect>();
-            frost.ApplyFreeze(0f, SLOW_PERCENT, 0f, false, 0f, 0f);
+            frost.ApplyFreeze(0f, _slowPercent, 0f, false, 0f, 0f);
             applied++;
         }
         if (applied > 0)
@@ -140,6 +140,7 @@ public class FrostLightningField : MonoBehaviour
         _duration = cfg.FrostLightningFieldDuration;
         _radius = cfg.FrostLightningFieldRadius;
         _frostTickInterval = cfg.FrostLightningTickInterval;
+        _slowPercent = cfg.FrostBaseSlowPct;
     }
 
     /// <summary>
@@ -207,6 +208,7 @@ public class ReactionTextTicker : MonoBehaviour
 
     private void OnDisable()
     {
-        if (gameObject != null) Destroy(gameObject);
+        // 不在 OnDisable 中 Destroy(gameObject) —— FullReset 会先 disable 所有 MB
+        // 再由 CleanupLingeringCombatObjects 统一销毁，避免级联销毁导致异常
     }
 }
