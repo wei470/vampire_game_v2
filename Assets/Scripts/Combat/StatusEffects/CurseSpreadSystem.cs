@@ -10,17 +10,11 @@ public static class CurseSpreadSystem
     // ── Mage 专属强化静态字段 ──
     /// <summary>蔓延：DOT传播效率加成（默认0，每层+0.15）</summary>
     public static float PandemicEfficiencyBonus = 0f;
-    /// <summary>暗影链接：黑暗标记传播范围加成</summary>
-    public static float ShadowLinkRangeBonus = 0f;
-    /// <summary>暗影链接：黑暗标记传播效率加成</summary>
-    public static float ShadowLinkEffBonus = 0f;
-
-    /// <summary>重置所有静态数据（场景切换时调用）</summary>
-    public static void ResetAll()
+    public static int SpreadTargetBonus = 0;
+    public static void ResetStaticState()
     {
+        SpreadTargetBonus = 0;
         PandemicEfficiencyBonus = 0f;
-        ShadowLinkRangeBonus = 0f;
-        ShadowLinkEffBonus = 0f;
     }
 
     private static Material _lineMaterial;
@@ -96,8 +90,8 @@ public static class CurseSpreadSystem
             {
                 if (!hit.TryGetComponent<BleedEffect>(out var otherBleed))
                     otherBleed = hit.gameObject.AddComponent<BleedEffect>();
-                otherBleed.Refresh(srcBleed._dps * spreadRatio, srcBleed._duration * spreadRatio,
-                    srcBleed._canCrit, srcBleed._critChance, srcBleed._critMult);
+                otherBleed.Refresh(srcBleed.dps * spreadRatio, srcBleed.duration * spreadRatio,
+                    srcBleed.canCrit, srcBleed.critChance, srcBleed.critMult);
             }
             if (srcBurn != null)
             {
@@ -105,8 +99,8 @@ public static class CurseSpreadSystem
                     otherBurn = hit.gameObject.AddComponent<BurnStackEffect>();
                 int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * spreadRatio));
                 for (int s = 0; s < stacks; s++)
-                    otherBurn.AddStack(srcBurn._baseDps * spreadRatio, srcBurn._duration * spreadRatio,
-                        srcBurn._canCrit, srcBurn._critChance, srcBurn._critMult);
+                    otherBurn.AddStack(srcBurn.baseDps * spreadRatio, srcBurn.duration * spreadRatio,
+                        srcBurn.canCrit, srcBurn.critChance, srcBurn.critMult);
             }
             if (srcPoison != null)
             {
@@ -114,14 +108,14 @@ public static class CurseSpreadSystem
                     otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
                 int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * spreadRatio));
                 for (int s = 0; s < pStacks; s++)
-                    otherPoison.AddStack(2f, 0f, srcPoison._canCrit, srcPoison._critChance, srcPoison._critMult);
+                    otherPoison.AddStack(2f, 0f, srcPoison.canCrit, srcPoison.critChance, srcPoison.critMult);
             }
             if (srcFrost != null)
             {
                 if (!hit.TryGetComponent<FrostEffect>(out var otherFrost))
                     otherFrost = hit.gameObject.AddComponent<FrostEffect>();
-                otherFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * spreadRatio,
-                    srcFrost._frostDps * spreadRatio, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
+                otherFrost.ApplyFreeze(0.3f, srcFrost.slowPercent * spreadRatio,
+                    srcFrost.frostDps * spreadRatio, srcFrost.canCrit, srcFrost.critChance, srcFrost.critMult);
             }
         }
 

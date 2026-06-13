@@ -11,7 +11,7 @@ public static class EnemyScalingHelper
     /// </summary>
     public static void ApplyScaling(GameObject enemy, Transform playerTransform,
         float hpMultiplier, float weakenMultiplier, float challengeHpMult,
-        float challengeSpeedMult, int eliteArmor)
+        float challengeSpeedMult, int eliteArmor, int currentWave = 0)
     {
         var enemyBase = enemy.GetComponent<EnemyBase>();
         if (enemyBase == null) return;
@@ -21,7 +21,9 @@ public static class EnemyScalingHelper
         {
             int scaledMaxHp = Mathf.RoundToInt(dmg.MaxHp * hpMultiplier * weakenMultiplier * challengeHpMult);
             dmg.SetMaxHp(scaledMaxHp);
-            if (eliteArmor > 0) dmg.SetArmor(dmg.Armor + eliteArmor);
+            // 每波+1护甲
+            int waveArmor = currentWave;
+            dmg.SetArmor(dmg.Armor + waveArmor + eliteArmor);
         }
 
         enemyBase.MoveSpeed *= weakenMultiplier * 0.5f * challengeSpeedMult;

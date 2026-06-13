@@ -26,18 +26,22 @@ public class MeltEffect : MonoBehaviour
         ApplyVisual();
     }
 
+    private void Awake()
+    {
+        _sr = GetComponent<SpriteRenderer>();
+    }
+
     private void OnEnable()
     {
         _endTime = 0f;
         _visualApplied = false;
-        _sr = GetComponent<SpriteRenderer>();
+        if (_sr == null) _sr = GetComponent<SpriteRenderer>();
         if (_sr != null) _originalColor = _sr.color;
     }
 
     private void ApplyVisual()
     {
         if (_visualApplied) return;
-        if (_sr == null) _sr = GetComponent<SpriteRenderer>();
         if (_sr != null)
         {
             _originalColor = _sr.color;

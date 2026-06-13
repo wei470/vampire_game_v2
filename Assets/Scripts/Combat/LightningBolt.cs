@@ -27,6 +27,7 @@ public class LightningBolt : MonoBehaviour
     private int _currentChainCount;
     private float _currentDamage;
     private float _damageMultiplier = 1f;
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
     private HashSet<int> _hitEnemies = new HashSet<int>();
     private bool _isChaining = false;
     private SpriteRenderer _sr;
@@ -136,12 +137,13 @@ public class LightningBolt : MonoBehaviour
         yield return new WaitForSeconds(_chainDelay);
 
         // 寻找最近的未命中敌人
-        Collider2D[] nearby = Physics2D.OverlapCircleAll(fromPosition, _chainRadius);
+        int count = PhysicsHelper.OverlapCircle(fromPosition, _chainRadius, _overlapBuffer);
         Transform nearest = null;
         float nearestDist = float.MaxValue;
 
-        foreach (var col in nearby)
+        for (int i = 0; i < count; i++)
         {
+            var col = _overlapBuffer[i];
             if (!col.CompareTag("Enemy")) continue;
             int id = col.gameObject.GetInstanceID();
             if (_hitEnemies.Contains(id)) continue;

@@ -42,6 +42,7 @@ public class WindBullet : MonoBehaviour
         _spawnTime = Time.time;
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
+        _cachedPenetrate = GetComponent<PenetrateHandler>();
     }
     private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
     private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }
@@ -60,7 +61,8 @@ public class WindBullet : MonoBehaviour
             windEffect = other.gameObject.AddComponent<WindErosionEffect>();
         windEffect.RegisterHit();
 
-        // 穿透检查
+        // 穿透检查（懒加载回退）
+        if (_cachedPenetrate == null) _cachedPenetrate = GetComponent<PenetrateHandler>();
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
@@ -92,277 +94,28 @@ public class WindBullet : MonoBehaviour
     public static WindBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
         float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var pool = ObjectPool.Instance;
-        GameObject go = null;
-        if (pool != null && pool.HasPool(PoolHelper.DOT_WIND_BULLET))
-        {
-            go = pool.Spawn(PoolHelper.DOT_WIND_BULLET, pos, Quaternion.identity);
-        }
-        else
-        {
-            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_WIND_BULLET, BuildTemplate, 20);
-            go = pool != null ? pool.Spawn(PoolHelper.DOT_WIND_BULLET, pos, Quaternion.identity) : null;
-        }
+        var go = PoolHelper.SpawnOrFallback(PoolHelper.DOT_WIND_BULLET, BuildTemplate,
+            () => {
+                var g = new GameObject("WindBullet");
+                g.tag = "Untagged";
+                PhysicsLayerSetup.SetAsBullet(g);
+                var sr = g.AddComponent<SpriteRenderer>();
+                sr.sprite = DotSpriteCache.Get();
+                sr.color = new Color(0.7f, 0.85f, 1f);
+                sr.sortingOrder = 15;
+                g.transform.localScale = Vector3.one * 0.35f;
+                g.AddComponent<Rigidbody2D>().gravityScale = 0f;
+                var col = g.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
+                DotBulletVisualEffects.AttachWindTrail(g);
+                g.AddComponent<WindBullet>();
+                return g;
+            }, pos, 20);
 
-        if (go == null)
-        {
-            go = new GameObject("WindBullet");
-            go.tag = "Untagged";
-            PhysicsLayerSetup.SetAsBullet(go);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = DotSpriteCache.Get();
-            sr.color = new Color(0.7f, 0.85f, 1f);
-            sr.sortingOrder = 15;
-            go.transform.localScale = Vector3.one * 0.35f;
-            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-            var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.4f, 0.2f);
-            DotBulletVisualEffects.AttachWindTrail(go);
-            go.AddComponent<WindBullet>();
-        }
-
-        go.transform.position = pos;
-        go.SetActive(true);
         var b = go.GetComponent<WindBullet>();
+        if (b == null) b = go.AddComponent<WindBullet>();
         b.Setup(speed, impactDmg, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
         b._cachedPenetrate = go.GetComponent<PenetrateHandler>();
         return b;
-    }
-}
-
-/// <summary>
-/// 风化效果 — 挂载到敌人身上。
-///
-/// 命中追踪：
-/// - 每被风子弹命中5次，叠加1层风化
-/// - 每层风化：击退距离+5%（基础2f，每层额外+5%距离）
-/// - 每施加1层风化造成5点伤害（可叠加）
-/// - 敌人头上显示风化层数（xN文字）
-///
-/// 视觉：敌人颜色逐渐变为淡蓝白色，层数越高越明显
-/// </summary>
-public class WindErosionEffect : MonoBehaviour
-{
-    private int _hitCount = 0;
-    private int _windStacks = 0;
-    private Damageable _damageable;
-    private SpriteRenderer _sr;
-    private Color _originalColor;
-    private DotColorBlender _blender;
-
-    // ── 层数文字显示 ──
-    private GameObject _stackTextObj;
-    private TextMesh _cachedTextMesh;
-    private int _lastDisplayStacks = -1;
-
-    private const int HITS_PER_STACK = 1;    // 每发子弹叠1层风化
-    private const int DAMAGE_PER_STACK = 5;       // 每层风化造成5点伤害
-    private float _knockbackDistance = 1f;  // 固定击退距离（从配置读取）
-    private int _maxStacks = 999; // 最大层数（从配置读取）
-    private static readonly Color WIND_COLOR = new Color(0.7f, 0.85f, 1f);
-    private static readonly Color WIND_POPUP_COLOR = new Color(0.7f, 0.85f, 1f);
-
-    public int WindStacks => _windStacks;
-    public int HitCount => _hitCount;
-
-    /// <summary>
-    /// 注册一次风子弹命中。每发子弹叠加1层风化。
-    /// </summary>
-    public void RegisterHit()
-    {
-        _hitCount++;
-        AddWindStack();
-    }
-
-    /// <summary>
-    /// 消耗一层风化（用于元素反应：燃烧扩散）。返回是否成功消耗。
-    /// </summary>
-    public bool ConsumeStack()
-    {
-        if (_windStacks <= 0) return false;
-        _windStacks--;
-        UpdateStackText();
-        DebugHelper.Log($"[WindErosion] Stack consumed! Remaining={_windStacks}");
-        // 风化层数归零时清理效果
-        if (_windStacks <= 0)
-        {
-            Cleanup();
-        }
-        return true;
-    }
-
-    private void AddWindStack()
-    {
-        if (_windStacks >= _maxStacks) return;
-        _windStacks++;
-
-        // 每施加一层风化造成5点伤害
-        if (_damageable == null) _damageable = GetComponent<Damageable>();
-        if (_damageable != null && _damageable.CurrentHp > 0)
-        {
-            _damageable.TakeDamage(DAMAGE_PER_STACK, WIND_POPUP_COLOR);
-        }
-
-        // 立即施加击退
-        ApplyKnockback();
-
-        // 更新层数文字
-        UpdateStackText();
-
-        // 视觉反馈：风化爆炸特效
-        CombatManager.CreateExplosionEffect(transform.position, 0.6f + _windStacks * 0.15f,
-            new Color(0.7f, 0.85f, 1f, 0.6f), 0.3f);
-
-        DebugHelper.Log($"[WindErosion] Stack added! Total={_windStacks}, Hits={_hitCount}, Knockback={GetKnockbackForce():F1}");
-    }
-
-    /// <summary>
-    /// 获取固定击退距离
-    /// </summary>
-    public float GetKnockbackForce()
-    {
-        return _knockbackDistance;
-    }
-
-    private void OnEnable()
-    {
-        _hitCount = 0;
-        _windStacks = 0;
-        _lastDisplayStacks = -1;
-        _lastRegisteredStacks = -1;
-        // 缓存组件引用（支持对象池复用）
-        _damageable = GetComponent<Damageable>();
-        _sr = GetComponent<SpriteRenderer>();
-        if (_sr != null) _originalColor = _sr.color;
-        _blender = GetComponent<DotColorBlender>();
-        // 清理可能残留的文字（对象池复用时）
-        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; _cachedTextMesh = null; }
-        RefreshFromConfig();
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
-    }
-
-    private int _lastRegisteredStacks = -1; // 只在层数变化时更新视觉
-
-    private void Update()
-    {
-        if (_windStacks <= 0) return;
-        if (_damageable == null || _damageable.CurrentHp <= 0) { Cleanup(); return; }
-
-        // 只在层数变化时更新视觉颜色（避免每帧 RegisterDot）
-        if (_blender != null && _windStacks != _lastRegisteredStacks)
-        {
-            _lastRegisteredStacks = _windStacks;
-            float intensity = Mathf.Clamp01(_windStacks / 10f);
-            _blender.RegisterDot("wind", WIND_COLOR, intensity, 8f);
-        }
-    }
-
-    /// <summary>
-    /// 更新层数文字（与 LightMarkEffect 相同的 xN 格式）
-    /// </summary>
-    private void UpdateStackText()
-    {
-        if (_stackTextObj == null)
-        {
-            _stackTextObj = new GameObject("WindErosionText");
-            _stackTextObj.transform.localScale = Vector3.one * 0.3f;
-
-            _cachedTextMesh = _stackTextObj.AddComponent<TextMesh>();
-            _cachedTextMesh.characterSize = 0.2f;
-            _cachedTextMesh.anchor = TextAnchor.MiddleCenter;
-            _cachedTextMesh.alignment = TextAlignment.Center;
-            _cachedTextMesh.fontSize = 40;
-            _cachedTextMesh.color = new Color(0.7f, 0.85f, 1f);
-            _cachedTextMesh.fontStyle = FontStyle.Bold;
-            _lastDisplayStacks = -1;
-        }
-
-        if (_windStacks != _lastDisplayStacks)
-        {
-            _lastDisplayStacks = _windStacks;
-            if (_cachedTextMesh == null) _cachedTextMesh = _stackTextObj.GetComponent<TextMesh>();
-            if (_cachedTextMesh != null)
-            {
-                _cachedTextMesh.text = $"x{_windStacks}";
-                // 颜色越叠越亮
-                float t = Mathf.Clamp01(_windStacks / 10f);
-                _cachedTextMesh.color = Color.Lerp(new Color(0.7f, 0.85f, 1f), new Color(0.9f, 1f, 1f), t);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 施加击退 — 从玩家方向推开敌人，距离随风化层数增加
-    /// </summary>
-    private void ApplyKnockback()
-    {
-        if (_damageable == null || _damageable.CurrentHp <= 0) return;
-
-        var player = GameReferences.Player;
-        if (player == null) return;
-
-        // 使用 Rigidbody2D.MovePosition 避免 transform 直接位移导致穿墙
-        Vector2 knockDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
-        float dist = GetKnockbackForce();
-        var rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.MovePosition(rb.position + knockDir * dist);
-        }
-        else
-        {
-            transform.position += (Vector3)(knockDir * dist);
-        }
-
-        // 击退特效
-        CombatManager.CreateExplosionEffect(transform.position, 0.3f + _windStacks * 0.1f,
-            new Color(0.7f, 0.85f, 1f, 0.4f), 0.2f);
-    }
-
-    private void LateUpdate()
-    {
-        // 持续更新文字位置跟随敌人
-        if (_stackTextObj != null)
-        {
-            _stackTextObj.transform.position = transform.position + new Vector3(0, 0.5f, 0);
-            _stackTextObj.transform.rotation = Quaternion.identity;
-        }
-    }
-
-    private void Cleanup()
-    {
-        UnregisterColor();
-        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
-        Destroy(this);
-    }
-
-    private void UnregisterColor()
-    {
-        if (_blender != null) _blender.UnregisterDot("wind");
-    }
-
-    private void OnDisable()
-    {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
-        UnregisterColor();
-        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
-        _windStacks = 0;
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = _originalColor;
-    }
-
-    private void OnDestroy()
-    {
-        UnregisterColor();
-        if (_stackTextObj != null) Destroy(_stackTextObj);
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = _originalColor;
-    }
-
-    private void RefreshFromConfig()
-    {
-        var cfg = DotBulletConfig.GetDefault();
-        _knockbackDistance = cfg.WindErosionKnockbackDistance;
-        _maxStacks = cfg.WindMaxStacks;
     }
 }

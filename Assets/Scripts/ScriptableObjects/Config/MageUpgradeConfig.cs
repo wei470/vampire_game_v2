@@ -10,12 +10,19 @@ using System.Collections.Generic;
 /// 使用方式：在 ScriptableObjects/Config/ 目录下创建 .asset 文件
 /// </summary>
 [CreateAssetMenu(fileName = "MageUpgradeConfig", menuName = "VampireGame/Mage Upgrade Config")]
-public class MageUpgradeConfig : ScriptableObject
+public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
 {
     [Header("角色信息覆盖")]
+    public string characterId = "mage";
+    public string displayName = "DOT 法师";
     public string description = "DOT 大师 — 所有持续伤害时间延长 20%，DOT 可暴击，拥有专属引爆技能。升级时获得独特的 DOT 强化选项。";
     public string passiveDescription = "DOT 持续时间 +20%，DOT 可暴击，按 Q 引爆所有 DOT 造成巨额伤害（冷却 12s）";
     public Color characterColor = new Color(0.6f, 0.2f, 0.9f); // 紫色
+
+    // ── ICharacterConfig 实现 ──
+    string ICharacterConfig.CharacterId => characterId;
+    CharacterUpgradeOption[] ICharacterConfig.GetUpgradeOptions() => BuildCustomUpgrades();
+    DotGunEntry[] ICharacterConfig.GetGunEntries() => dotGunEntries;
 
     [Header("DOT 子弹枪配置")]
     public DotGunEntry[] dotGunEntries = new DotGunEntry[]
@@ -97,9 +104,9 @@ public class MageUpgradeConfig : ScriptableObject
             upgradeId = "wind",
             effectType = StatusEffectType.WindErosion,
             displayName = "风 (Wind)",
-            description = "获得风子弹",
+            description = "获得风子弹（固定3发，0.5s冷却）",
             color = new Color(0.7f, 0.85f, 1f),
-            cooldown = 1.5f,
+            cooldown = 0.5f,
             impactDmg = 0,
             dotDps = 0f,
             dotDuration = 0f
@@ -109,7 +116,7 @@ public class MageUpgradeConfig : ScriptableObject
     [Header("升级选项配置")]
     public UpgradeEntry[] upgradeEntries = new UpgradeEntry[]
     {
-        // ═══ DOT 增强（4 种）═══
+        // ═══ DOT 增强（3 种）═══
         new UpgradeEntry
         {
             upgradeId = "corrosion",
@@ -117,14 +124,6 @@ public class MageUpgradeConfig : ScriptableObject
             description = "护甲-10%",
             category = CharacterUpgradeOption.UpgradeCategory.ArmorReduction,
             value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "curse",
-            upgradeName = "诅咒 (Curse)",
-            description = "DOT传播+1目标",
-            category = CharacterUpgradeOption.UpgradeCategory.DotSpread,
-            value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
@@ -161,32 +160,6 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
 
-        // ═══ P0 新增强化（3 种）═══
-        new UpgradeEntry
-        {
-            upgradeId = "saturation",
-            upgradeName = "饱和 (Saturation)",
-            description = "每种DOT伤害+5%",
-            category = CharacterUpgradeOption.UpgradeCategory.DotSaturation,
-            value1 = 0.05f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "elemental_burst",
-            upgradeName = "元素引爆 (Elemental Burst)",
-            description = "每种DOT+8伤害",
-            category = CharacterUpgradeOption.UpgradeCategory.DetonateExtra,
-            value1 = 8f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "vampiric_spell",
-            upgradeName = "吸血法术 (Vampiric Spell)",
-            description = "每次DOT回0.3血",
-            category = CharacterUpgradeOption.UpgradeCategory.DotLifesteal,
-            value1 = 0.3f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-
         // ═══ 子弹增强（3 种）═══
         new UpgradeEntry
         {
@@ -213,48 +186,7 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 3
         },
 
-        // ═══ P1 深度玩法（2 种）═══（蔓延已删除）
-        new UpgradeEntry
-        {
-            upgradeId = "chain_reaction",
-            upgradeName = "连锁反应 (Chain Reaction)",
-            description = "二次引爆50%伤害",
-            category = CharacterUpgradeOption.UpgradeCategory.ChainReaction,
-            value1 = 1f, value2 = 0.5f, value3 = 0f, maxStacks = 3
-        },
-        // ═══ P2 协同/趣味（7 种）═══（剧毒天赋已删除）
-        new UpgradeEntry
-        {
-            upgradeId = "resonance",
-            upgradeName = "共鸣 (Resonance)",
-            description = "DOT触发10%不消耗持续",
-            category = CharacterUpgradeOption.UpgradeCategory.DotResonance,
-            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 5
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "corrupt_touch",
-            upgradeName = "腐化之触 (Corrupt Touch)",
-            description = "敌人攻击力-10%",
-            category = CharacterUpgradeOption.UpgradeCategory.CorruptTouch,
-            value1 = 0.10f, value2 = 2f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "elemental_storm",
-            upgradeName = "元素风暴 (Elemental Storm)",
-            description = "3种DOT时每2秒5点伤害",
-            category = CharacterUpgradeOption.UpgradeCategory.ElementalStorm,
-            value1 = 5f, value2 = 2f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "shadow_link",
-            upgradeName = "暗影链接 (Shadow Link)",
-            description = "传播范围+1 效率+10%",
-            category = CharacterUpgradeOption.UpgradeCategory.ShadowLink,
-            value1 = 1f, value2 = 0.10f, value3 = 0f, maxStacks = 0
-        },
+        // ═══ 协同强化（3 种）═══
         new UpgradeEntry
         {
             upgradeId = "light_judgment",
@@ -280,59 +212,91 @@ public class MageUpgradeConfig : ScriptableObject
             value1 = 0.03f, value2 = 0.80f, value3 = 0f, maxStacks = 0
         },
 
-        // ═══ 子弹增强扩展（3 种）═══
+        // ═══ 一般强化（10种，全角色通用）═══
         new UpgradeEntry
         {
-            upgradeId = "ammo_mastery",
-            upgradeName = "弹药精通 (Ammo Mastery)",
-            description = "子弹速度+20% 范围+15%",
-            category = CharacterUpgradeOption.UpgradeCategory.AmmoMastery,
-            value1 = 0.20f, value2 = 0.15f, value3 = 0f, maxStacks = 5
+            upgradeId = "move_speed",
+            upgradeName = "移速 (Move Speed)",
+            description = "移动速度+10%",
+            category = CharacterUpgradeOption.UpgradeCategory.MoveSpeed,
+            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
-            upgradeId = "elemental_affinity",
-            upgradeName = "元素亲和 (Elemental Affinity)",
-            description = "每种DOT枪+3%伤害",
-            category = CharacterUpgradeOption.UpgradeCategory.ElementalAffinity,
-            value1 = 0.03f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        // ═══ 生存向（2 种）═══
-        new UpgradeEntry
-        {
-            upgradeId = "phase_shift",
-            upgradeName = "相位移动 (Phase Shift)",
-            description = "引爆后无敌2秒",
-            category = CharacterUpgradeOption.UpgradeCategory.PhaseShift,
-            value1 = 2f, value2 = 0f, value3 = 0f, maxStacks = 3
+            upgradeId = "armor_bonus",
+            upgradeName = "护甲 (Armor)",
+            description = "护甲+5",
+            category = CharacterUpgradeOption.UpgradeCategory.ArmorBonus,
+            value1 = 5f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
-            upgradeId = "soul_siphon",
-            upgradeName = "灵魂虹吸 (Soul Siphon)",
-            description = "击杀回1血+30%移速",
-            category = CharacterUpgradeOption.UpgradeCategory.SoulSiphon,
-            value1 = 1f, value2 = 0.5f, value3 = 0.30f, maxStacks = 0
-        },
-
-        // ═══ P3 终极/高级（5 种）═══（碎裂强化已删除）
-        new UpgradeEntry
-        {
-            upgradeId = "ember_boost",
-            upgradeName = "余烬强化 (Ember Boost)",
-            description = "余烬伤害+25% 持续+1秒",
-            category = CharacterUpgradeOption.UpgradeCategory.EmberBoost,
-            value1 = 0.25f, value2 = 1f, value3 = 0f, maxStacks = 0
+            upgradeId = "max_hp",
+            upgradeName = "生命 (Max HP)",
+            description = "最大HP+20",
+            category = CharacterUpgradeOption.UpgradeCategory.MaxHpBonus,
+            value1 = 20f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
-            upgradeId = "annihilation_zone",
-            upgradeName = "湮灭领域 (Annihilation Zone)",
-            description = "引爆后5点/秒+30%减速",
-            category = CharacterUpgradeOption.UpgradeCategory.AnnihilationZone,
-            value1 = 5f, value2 = 3f, value3 = 0.30f, maxStacks = 3
-        }
+            upgradeId = "crit_chance",
+            upgradeName = "暴击率 (Crit Chance)",
+            description = "暴击率+5%",
+            category = CharacterUpgradeOption.UpgradeCategory.CritChanceBonus,
+            value1 = 0.05f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "crit_damage",
+            upgradeName = "暴击伤害 (Crit Damage)",
+            description = "暴击倍率+20%",
+            category = CharacterUpgradeOption.UpgradeCategory.CritDamageBonus,
+            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "magnet_range",
+            upgradeName = "磁力 (Magnet Range)",
+            description = "拾取范围+30%",
+            category = CharacterUpgradeOption.UpgradeCategory.MagnetRange,
+            value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "hp_regen",
+            upgradeName = "回复 (HP Regen)",
+            description = "每秒回复1%HP",
+            category = CharacterUpgradeOption.UpgradeCategory.HpRegen,
+            value1 = 0.01f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "bullet_speed",
+            upgradeName = "弹速 (Bullet Speed)",
+            description = "子弹飞行速度+20%",
+            category = CharacterUpgradeOption.UpgradeCategory.BulletSpeed,
+            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "knockback",
+            upgradeName = "击退 (Knockback)",
+            description = "击退距离+20%",
+            category = CharacterUpgradeOption.UpgradeCategory.Knockback,
+            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
+        new UpgradeEntry
+        {
+            upgradeId = "bullet_size",
+            upgradeName = "弹体 (Bullet Size)",
+            description = "子弹碰撞体积+15%",
+            category = CharacterUpgradeOption.UpgradeCategory.BulletSize,
+            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 0
+        },
     };
+
+    private static readonly HashSet<StatusEffectType> _tempDotGunTypes = new HashSet<StatusEffectType>();
+    private static readonly List<CharacterUpgradeOption> _tempUpgradeList = new List<CharacterUpgradeOption>(32);
 
     // ═══ 运行时查询 API ═══
 
@@ -377,13 +341,13 @@ public class MageUpgradeConfig : ScriptableObject
     /// </summary>
     public HashSet<StatusEffectType> GetAllDotGunTypes()
     {
-        var set = new HashSet<StatusEffectType>();
+        _tempDotGunTypes.Clear();
         if (dotGunEntries != null)
         {
             for (int i = 0; i < dotGunEntries.Length; i++)
-                set.Add(dotGunEntries[i].effectType);
+                _tempDotGunTypes.Add(dotGunEntries[i].effectType);
         }
-        return set;
+        return _tempDotGunTypes;
     }
 
     /// <summary>
@@ -392,7 +356,7 @@ public class MageUpgradeConfig : ScriptableObject
     /// </summary>
     public CharacterUpgradeOption[] BuildCustomUpgrades()
     {
-        var list = new List<CharacterUpgradeOption>();
+        _tempUpgradeList.Clear();
 
         // 先添加 DOT 子弹枪（7种）
         if (dotGunEntries != null)
@@ -400,7 +364,7 @@ public class MageUpgradeConfig : ScriptableObject
             for (int i = 0; i < dotGunEntries.Length; i++)
             {
                 var dg = dotGunEntries[i];
-                list.Add(new CharacterUpgradeOption
+                _tempUpgradeList.Add(new CharacterUpgradeOption
                 {
                     upgradeId = dg.upgradeId,
                     upgradeName = dg.displayName,
@@ -418,7 +382,7 @@ public class MageUpgradeConfig : ScriptableObject
             for (int i = 0; i < upgradeEntries.Length; i++)
             {
                 var ue = upgradeEntries[i];
-                list.Add(new CharacterUpgradeOption
+                _tempUpgradeList.Add(new CharacterUpgradeOption
                 {
                     upgradeId = ue.upgradeId,
                     upgradeName = ue.upgradeName,
@@ -432,7 +396,7 @@ public class MageUpgradeConfig : ScriptableObject
             }
         }
 
-        return list.ToArray();
+        return _tempUpgradeList.ToArray();
     }
 }
 

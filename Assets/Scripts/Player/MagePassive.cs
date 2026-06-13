@@ -9,8 +9,13 @@ using System.Collections.Generic;
 /// - MageUpgradeApplier: 升级效果应用 + 协同 + 进化 + 里程碑
 /// - MagePassive: DOT枪管理 + 属性访问 + 子弹发射
 /// </summary>
-public partial class MagePassive : MonoBehaviour
+/// sk-s5z5mqdqlkxevsh71gupiig11v61rca4rg92lovb1ifg5g1i
+public partial class MagePassive : MonoBehaviour, ICharacterPassive
 {
+    // ── ICharacterPassive 实现 ──
+    public string CharacterId => "mage";
+    public string DisplayName => "DOT 法师";
+    public DetonateSystem GetDetonateSystem() => _detonateSystem;
     [Header("Mage 被动参数")]
     [SerializeField] private float _dotDurationBonus = 0.2f;
     [SerializeField] private float _dotCritMultiplier = 2f;
@@ -30,26 +35,14 @@ public partial class MagePassive : MonoBehaviour
     [SerializeField] private float _bulletSizeBonus = 0f;
     [SerializeField] private float _knockbackBonus = 0f;
 
-    [Header("P0 新增强化属性")]
-    [SerializeField] private float _dotSaturationBonus = 0f;   // 饱和：每种DOT加成
-    [SerializeField] private float _detonateExtraPerDot = 0f;  // 元素引爆：每种DOT额外伤害
-    [SerializeField] private float _dotLifestealPerTick = 0f;  // 吸血法术：每次DOT回复
-
     [Header("P1 深度玩法属性")]
     [SerializeField] private float _pandemicBonus = 0f;        // [已弃用]蔓延：传播效率加成
-    [SerializeField] private int _chainReactionCount = 0;      // 连锁反应：二次引爆次数
     [SerializeField] private float _dualWieldBonus = 0f;       // [已弃用]双持：射速加成
     [SerializeField] private float _chargeSpeedBonus = 0f;     // 引爆蓄力速度加成
     [SerializeField] private float _chargeDamageBonus = 0f;    // 引爆蓄力伤害加成
 
     [Header("P2 协同/趣味属性")]
-    [SerializeField] private float _resonanceChance = 0f;      // 共鸣：不消耗持续时间几率
-    [SerializeField] private float _toxicologyCritBonus = 0f;  // [已弃用]剧毒天赋：DOT暴击率加成
-    [SerializeField] private float _corruptTouchDebuff = 0f;   // 腐化之触：攻击力降低
-    [SerializeField] private float _elementalStormDmg = 0f;    // 元素风暴：全局被动伤害
-    [SerializeField] private float _elementalStormInterval = 0f; // 元素风暴：触发间隔
-    [SerializeField] private float _shadowLinkRangeBonus = 0f; // 暗影链接：范围加成
-    [SerializeField] private float _shadowLinkEffBonus = 0f;   // 暗影链接：效率加成
+    [SerializeField] private float _toxicologyCritBonus = 0f;  // [已弃用]剧毒天赋
     [SerializeField] private float _lightJudgmentBonus = 0f;   // 光明审判：每层加成提升
     [SerializeField] private int _staticFieldStacks = 0;       // 静电领域：层数
     [SerializeField] private float _frostExplosionPct = 0f;    // 霜爆：最大生命百分比
@@ -57,22 +50,14 @@ public partial class MagePassive : MonoBehaviour
     [Header("子弹增强扩展属性")]
     [SerializeField] private float _ammoSpeedBonus = 0f;       // 弹药精通：子弹速度加成
     [SerializeField] private float _ammoRangeBonus = 0f;       // 弹药精通：范围加成
-    [SerializeField] private float _elementalAffinityBonus = 0f; // 元素亲和：每枪加成
     [SerializeField] private int _penetrateCount = 0;          // 贯穿弹：穿透数
 
     [Header("生存向属性")]
     [SerializeField] private float _elementalShieldHp = 0f;    // 元素护盾：额外最大生命
-    [SerializeField] private float _phaseShiftDuration = 0f;   // 相位移动：无敌持续时间
-    [SerializeField] private float _soulSiphonHeal = 0f;       // 灵魂虹吸：回血量
-    [SerializeField] private float _soulSiphonSpeedDuration = 0f; // 灵魂虹吸：移速持续
 
     [Header("P3 终极/高级属性")]
     [SerializeField] private bool _eternalAgonyActive = false;  // 永恒痛苦：是否激活
     [SerializeField] private float _doomsdayThreshold = 0f;    // 末日审判：HP阈值
-    [SerializeField] private float _annihilationZoneDmg = 0f;  // 湮灭领域：每秒伤害
-    [SerializeField] private float _annihilationZoneDuration = 0f; // 湮灭领域：持续时间
-    [SerializeField] private float _emberBoostBonus = 0f;      // 余烬强化：伤害加成
-    [SerializeField] private float _emberBoostDuration = 0f;   // 余烬强化：持续加成
     [SerializeField] private int _shatterBoostFragments = 0;   // [已弃用]碎裂强化：碎片数量
     [SerializeField] private float _shatterBoostDmg = 0f;      // [已弃用]碎裂强化：碎片伤害
 
@@ -85,16 +70,6 @@ public partial class MagePassive : MonoBehaviour
 
     // ── 协同系统 ──
     private HashSet<string> _activeSynergies = new HashSet<string>();
-
-    // ── 元素融合系统 ──
-    private HashSet<string> _completedFusions = new HashSet<string>();
-    private float _fusionDpsMultiplier = 1f;
-
-    /// <summary>已完成的融合列表（供 LevelUpUI 查询）</summary>
-    public HashSet<string> CompletedFusions => _completedFusions;
-
-    /// <summary>融合 DPS 倍率</summary>
-    public float FusionDpsMultiplier => _fusionDpsMultiplier;
 
     // ── DOT 进化系统 ──
     private HashSet<StatusEffectType> _evolvedTypes = new HashSet<StatusEffectType>();
@@ -132,25 +107,15 @@ public partial class MagePassive : MonoBehaviour
     public int PiercingBonus { get; set; } = 0;
     public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
     public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
-    public float DotSaturationBonus { get => _dotSaturationBonus; set => _dotSaturationBonus = value; }
-    public float DetonateExtraPerDot { get => _detonateExtraPerDot; set => _detonateExtraPerDot = value; }
-    public float DotLifestealPerTick { get => _dotLifestealPerTick; set => _dotLifestealPerTick = value; }
 
     // ── P1 深度玩法属性访问器 ──
     public float PandemicBonus { get => _pandemicBonus; set => _pandemicBonus = value; }
-    public int ChainReactionCount { get => _chainReactionCount; set => _chainReactionCount = value; }
     public float DualWieldBonus { get => _dualWieldBonus; set => _dualWieldBonus = value; }
     public float ChargeSpeedBonus { get => _chargeSpeedBonus; set => _chargeSpeedBonus = value; }
     public float ChargeDamageBonus { get => _chargeDamageBonus; set => _chargeDamageBonus = value; }
 
     // ── P2 协同/趣味属性访问器 ──
-    public float ResonanceChance { get => _resonanceChance; set => _resonanceChance = Mathf.Clamp01(value); }
     public float ToxicologyCritBonus { get => _toxicologyCritBonus; set => _toxicologyCritBonus = value; }
-    public float CorruptTouchDebuff { get => _corruptTouchDebuff; set => _corruptTouchDebuff = Mathf.Min(0.5f, value); }
-    public float ElementalStormDmg { get => _elementalStormDmg; set => _elementalStormDmg = value; }
-    public float ElementalStormInterval { get => _elementalStormInterval; set => _elementalStormInterval = Mathf.Max(1f, value); }
-    public float ShadowLinkRangeBonus { get => _shadowLinkRangeBonus; set => _shadowLinkRangeBonus = value; }
-    public float ShadowLinkEffBonus { get => _shadowLinkEffBonus; set => _shadowLinkEffBonus = Mathf.Min(0.5f, value); }
     public float LightJudgmentBonus { get => _lightJudgmentBonus; set => _lightJudgmentBonus = value; }
     public int StaticFieldStacks { get => _staticFieldStacks; set => _staticFieldStacks = value; }
     public float FrostExplosionPct { get => _frostExplosionPct; set => _frostExplosionPct = Mathf.Min(0.10f, value); }
@@ -158,38 +123,26 @@ public partial class MagePassive : MonoBehaviour
     // ── 子弹增强扩展访问器 ──
     public float AmmoSpeedBonus { get => _ammoSpeedBonus; set => _ammoSpeedBonus = value; }
     public float AmmoRangeBonus { get => _ammoRangeBonus; set => _ammoRangeBonus = value; }
-    public float ElementalAffinityBonus { get => _elementalAffinityBonus; set => _elementalAffinityBonus = value; }
     public int PenetrateCount { get => _penetrateCount; set => _penetrateCount = value; }
 
     // ── 生存向属性访问器 ──
     public float ElementalShieldHp { get => _elementalShieldHp; set => _elementalShieldHp = value; }
-    public float PhaseShiftDuration { get => _phaseShiftDuration; set => _phaseShiftDuration = value; }
-    public float SoulSiphonHeal { get => _soulSiphonHeal; set => _soulSiphonHeal = value; }
-    public float SoulSiphonSpeedDuration { get => _soulSiphonSpeedDuration; set => _soulSiphonSpeedDuration = value; }
 
     // ── P3 终极/高级属性访问器 ──
     public bool EternalAgonyActive { get => _eternalAgonyActive; set => _eternalAgonyActive = value; }
     public float DoomsdayThreshold { get => _doomsdayThreshold; set => _doomsdayThreshold = Mathf.Min(0.30f, value); }
-    public float AnnihilationZoneDmg { get => _annihilationZoneDmg; set => _annihilationZoneDmg = value; }
-    public float AnnihilationZoneDuration { get => _annihilationZoneDuration; set => _annihilationZoneDuration = value; }
-    public float EmberBoostBonus { get => _emberBoostBonus; set => _emberBoostBonus = value; }
-    public float EmberBoostDuration { get => _emberBoostDuration; set => _emberBoostDuration = value; }
     public int ShatterBoostFragments { get => _shatterBoostFragments; set => _shatterBoostFragments = value; }
     public float ShatterBoostDmg { get => _shatterBoostDmg; set => _shatterBoostDmg = value; }
 
     // ── 综合查询方法 ──
     /// <summary>获取DOT暴击总几率（含凋零+剧毒天赋）</summary>
     public float GetTotalDotCritChance() => GetDotCritChance() + _toxicologyCritBonus;
-    /// <summary>获取元素亲和提供的额外伤害倍率</summary>
-    public float GetElementalAffinityMultiplier() => 1f + _dotGuns.Count * _elementalAffinityBonus;
     /// <summary>获取贯穿数</summary>
     public int GetTotalPenetrate() => _penetrateCount;
     /// <summary>获取双持后攻速倍率（叠加原有急速）</summary>
     public float GetDualWieldMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus - _dualWieldBonus);
 
     // ── 进化系统新增属性 ──
-    /// <summary>元素融合是否由进化系统解锁</summary>
-    public bool FusionUnlockedByEvolution { get; set; }
     /// <summary>进化系统提供的DOT伤害额外加成</summary>
     public float DotDamageMultiplier { get; set; } = 0f;
     /// <summary>进化系统提供的暴击率额外加成</summary>
@@ -309,52 +262,10 @@ public partial class MagePassive : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 应用元素融合：移除两种原始 DOT，添加融合子弹
-    /// </summary>
-    public bool ApplyFusion(DotFusionSystem.FusionDef fusion)
-    {
-        if (_completedFusions.Contains(fusion.fusionId)) return false;
-
-        // 移除两种原始 DOT
-        _dotGuns.RemoveAll(g => g.effectType == fusion.required1 || g.effectType == fusion.required2);
-
-        // 添加融合子弹（使用第一种原材料的 effectType 作为载体，避免污染其他 DOT 类型的识别）
-        _dotGuns.Add(new DotGunState
-        {
-            effectType = fusion.required1,
-            color = fusion.fusionColor,
-            cooldown = fusion.cooldown,
-            impactDamage = fusion.impactDmg,
-            dotDps = fusion.dotDps,
-            dotDuration = fusion.dotDuration,
-            lastFireTime = Time.time,
-            upgradeLevel = 3 // 融合子弹直接为 Lv3
-        });
-
-        _completedFusions.Add(fusion.fusionId);
-
-        // DPS 倍率提升
-        _fusionDpsMultiplier *= 1.15f;
-
-        DebugHelper.Log($"[MagePassive] Fusion applied: {fusion.displayName} ({fusion.fusionId})");
-        return true;
-    }
-
-    /// <summary>
-    /// 获取当前可用的融合选项（供 LevelUpUI 查询）
-    /// </summary>
-    public List<DotFusionSystem.FusionDef> GetAvailableFusions()
-    {
-        return DotFusionSystem.GetAvailableFusions(_dotGuns, _completedFusions);
-    }
-
     public void ClearAllDotGuns()
     {
         _dotGuns.Clear();
         _elementMasterTriggered = false;
-        _completedFusions.Clear();
-        _fusionDpsMultiplier = 1f;
     }
 
     // ═══ 升级应用（委托给 MageUpgradeApplier）═══
@@ -365,15 +276,5 @@ public partial class MagePassive : MonoBehaviour
         return MageUpgradeApplier.ApplyUpgrade(this, upgradeId);
     }
 
-    public struct DotGunState
-    {
-        public StatusEffectType effectType;
-        public Color color;
-        public float cooldown;
-        public int impactDamage;
-        public float dotDps;
-        public float dotDuration;
-        public float lastFireTime;
-        public int upgradeLevel;
-    }
 }
+// DotGunState 已提取为独立结构体，见 Combat/IGunState.cs

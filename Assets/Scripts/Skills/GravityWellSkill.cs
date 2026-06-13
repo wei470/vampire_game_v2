@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 引力井技能 - 在玩家周围创建引力场，吸引并伤害敌人。
@@ -11,6 +12,8 @@ using UnityEngine;
 /// </summary>
 public class GravityWellSkill : BaseSkill
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     private float _tickTimer = 0f;
     private float _tickInterval = 0.5f;
     private GameObject _wellVisual;
@@ -53,11 +56,11 @@ public class GravityWellSkill : BaseSkill
         float pullStrength = GetEffectStrength() * 3f;
         int damage = GetDamage();
 
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
+        int count = PhysicsHelper.OverlapCircle(center, radius, _overlapBuffer);
         int hitCount = 0;
 
-        foreach (var hit in hits)
-        {
+        for (int i = 0; i < count; i++)
+        { var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
             var rb = hit.GetComponent<Rigidbody2D>();

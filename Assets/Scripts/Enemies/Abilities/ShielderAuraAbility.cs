@@ -35,9 +35,9 @@ public class ShielderAuraAbility : AuraAbility
         }
 
         // 持续为范围内友军施加护盾
-        Collider2D[] hits = FindNearbyAllies(_auraRadius);
-        foreach (var hit in hits)
-        {
+        int count = FindNearbyAllies(_auraRadius);
+        for (int i = 0; i < count; i++)
+        { var hit = OverlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
             if (hit.gameObject == gameObject) continue;
 

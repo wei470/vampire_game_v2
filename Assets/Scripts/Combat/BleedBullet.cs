@@ -78,10 +78,10 @@ public class BleedBullet : MonoBehaviour
 /// </summary>
 public class BleedEffect : MonoBehaviour
 {
-    public float _dps;
-    public float _duration;
+    public float dps;
+    public float duration;
     private float _startTime;
-    public bool _canCrit; public float _critChance, _critMult;
+    public bool canCrit; public float critChance, critMult;
     private Vector3 _lastPosition;
     private float _damageAccumulator;
     private const float MOVE_THRESHOLD = 0.1f;
@@ -90,14 +90,14 @@ public class BleedEffect : MonoBehaviour
     /// <summary>
     /// #19 脓毒组合加成
     /// </summary>
-    [System.NonSerialized] public float _comboSepsisBonus = 0f;
+    [System.NonSerialized] public float comboSepsisBonus = 0f;
 
     public void Refresh(float dps, float duration, bool canCrit, float critChance, float critMult)
     {
-        _dps = Mathf.Max(_dps, dps);
-        _duration = duration; // 保留参数兼容，但不用于超时判断
+        this.dps = Mathf.Max(this.dps, dps);
+        this.duration = duration; // 保留参数兼容，但不用于超时判断
         _startTime = Time.time;
-        _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
+        this.canCrit = canCrit; this.critChance = critChance; this.critMult = critMult;
     }
 
     private void Start()
@@ -117,9 +117,9 @@ public class BleedEffect : MonoBehaviour
 
         if (moved > MOVE_THRESHOLD && _damageable != null && _damageable.CurrentHp > 0)
         {
-            float effectiveDps = _dps * (1f + _comboSepsisBonus);
+            float effectiveDps = dps * (1f + comboSepsisBonus);
             float dmg = effectiveDps * Time.deltaTime * 3f;
-            if (_canCrit && Random.value < _critChance) dmg *= _critMult;
+            if (canCrit && Random.value < critChance) dmg *= critMult;
             _damageAccumulator += dmg;
 
             if (_damageAccumulator >= 1f)

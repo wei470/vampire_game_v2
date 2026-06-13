@@ -18,6 +18,8 @@ public class CombatManager : Singleton<CombatManager>
     [Header("调试设置")]
     [SerializeField] private bool _debugLog = false;
 
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     // 全局伤害倍率（用于全局增益）
     private float _globalDamageMultiplier = 1f;
     public float GlobalDamageMultiplier { get => _globalDamageMultiplier; set => _globalDamageMultiplier = value; }
@@ -75,11 +77,12 @@ public class CombatManager : Singleton<CombatManager>
     /// </summary>
     public static int DealAoEDamage(Vector2 center, float radius, int baseDamage, float multiplier = 1f, float knockbackForce = 0f)
     {
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
+        int count = PhysicsHelper.OverlapCircle(center, radius, _overlapBuffer);
         int hitCount = 0;
 
-        foreach (var hit in hits)
+        for (int i = 0; i < count; i++)
         {
+            var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
             var dmg = hit.GetComponent<Damageable>();
@@ -181,20 +184,38 @@ public class CombatManager : Singleton<CombatManager>
     /// </summary>
     public static void CreateExplosionEffect(Vector2 position, float radius, Color color, float duration = 0.3f)
     {
-        // 统一将特效透明度降低至30%（防止太亮刺眼）
         Color vfxColor = color;
         vfxColor.a *= 0.3f;
 
-        var go = new GameObject("ExplosionVFX");
+        var go = GetPooledExplosion();
         go.transform.position = position;
+        go.SetActive(true);
 
-        var sr = go.AddComponent<SpriteRenderer>();
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr == null) sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = CreateCircleSprite();
         sr.color = vfxColor;
         sr.sortingOrder = 25;
 
-        var effect = go.AddComponent<ExplosionVFX>();
+        var effect = go.GetComponent<ExplosionVFX>();
+        if (effect == null) effect = go.AddComponent<ExplosionVFX>();
         effect.Setup(radius, duration);
+    }
+
+    // ── 爆炸特效对象池 ──
+    private static readonly List<GameObject> _explosionPool = new List<GameObject>(32);
+
+    private static GameObject GetPooledExplosion()
+    {
+        for (int i = _explosionPool.Count - 1; i >= 0; i--)
+        {
+            if (_explosionPool[i] != null && !_explosionPool[i].activeInHierarchy)
+                return _explosionPool[i];
+            if (_explosionPool[i] == null) _explosionPool.RemoveAt(i);
+        }
+        var go = new GameObject("ExplosionVFX");
+        _explosionPool.Add(go);
+        return go;
     }
 
     /// <summary>
@@ -278,7 +299,7 @@ public class ExplosionVFX : MonoBehaviour
         float elapsed = Time.time - _spawnTime;
         if (elapsed > _duration)
         {
-            Destroy(gameObject);
+            gameObject.SetActive(false);
             return;
         }
 

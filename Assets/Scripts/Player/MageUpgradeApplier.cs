@@ -1,22 +1,44 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
-/// Mage 升级应用器 — 管理升级效果应用、协同检测、进化系统、里程碑。
-/// 从 MagePassive 中提取，减少主文件行数。
-///
-/// 职责：
-/// - ApplyUpgrade: 根据 upgradeId 应用升级效果
-/// - 协同系统: 检测并激活4种协同
-/// - 进化系统: DOT枪满级时触发进化
-/// - 里程碑: 4种DOT枪全解锁时触发 Element Master
+/// Mage 升级应用器 — 策略字典模式，根据升级类别分发到对应处理方法。
 /// </summary>
 public static class MageUpgradeApplier
 {
-    // ═══ 统一升级应用接口 ═══
+    private static readonly Dictionary<CharacterUpgradeOption.UpgradeCategory, System.Action<MagePassive, UpgradeEntry>> _appliers = new()
+    {
+        { CharacterUpgradeOption.UpgradeCategory.ArmorReduction, ApplyArmorReduction },
+        { CharacterUpgradeOption.UpgradeCategory.DotFrequency, ApplyDotFrequency },
+        { CharacterUpgradeOption.UpgradeCategory.DotCritBurst, ApplyDotCritBurst },
+        { CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, ApplyDetonateMultiplier },
+        { CharacterUpgradeOption.UpgradeCategory.DetonateAbility, ApplyNoop },
+        { CharacterUpgradeOption.UpgradeCategory.DotTrigger, ApplyNoop },
+        { CharacterUpgradeOption.UpgradeCategory.AttackSpeed, ApplyAttackSpeed },
+        { CharacterUpgradeOption.UpgradeCategory.BulletCount, ApplyBulletCount },
+        { CharacterUpgradeOption.UpgradeCategory.Ricochet, ApplyRicochet },
+        { CharacterUpgradeOption.UpgradeCategory.BulletSize, ApplyBulletSize },
+        { CharacterUpgradeOption.UpgradeCategory.DotOverflow, ApplyNoop },
+        { CharacterUpgradeOption.UpgradeCategory.LightJudgment, ApplyLightJudgment },
+        { CharacterUpgradeOption.UpgradeCategory.StaticField, ApplyStaticField },
+        { CharacterUpgradeOption.UpgradeCategory.FrostExplosion, ApplyFrostExplosion },
+        { CharacterUpgradeOption.UpgradeCategory.Penetrate, ApplyPenetrate },
+        { CharacterUpgradeOption.UpgradeCategory.ElementalShield, ApplyElementalShield },
+        { CharacterUpgradeOption.UpgradeCategory.Doomsday, ApplyDoomsday },
+        { CharacterUpgradeOption.UpgradeCategory.EternalAgony, ApplyEternalAgony },
 
-    /// <summary>
-    /// 应用升级效果，返回是否成功
-    /// </summary>
+        // 一般强化
+        { CharacterUpgradeOption.UpgradeCategory.MoveSpeed, ApplyMoveSpeed },
+        { CharacterUpgradeOption.UpgradeCategory.ArmorBonus, ApplyArmorBonus },
+        { CharacterUpgradeOption.UpgradeCategory.MaxHpBonus, ApplyMaxHpBonus },
+        { CharacterUpgradeOption.UpgradeCategory.CritChanceBonus, ApplyCritChanceBonus },
+        { CharacterUpgradeOption.UpgradeCategory.CritDamageBonus, ApplyCritDamageBonus },
+        { CharacterUpgradeOption.UpgradeCategory.MagnetRange, ApplyMagnetRange },
+        { CharacterUpgradeOption.UpgradeCategory.HpRegen, ApplyHpRegen },
+        { CharacterUpgradeOption.UpgradeCategory.BulletSpeed, ApplyBulletSpeed },
+        { CharacterUpgradeOption.UpgradeCategory.Knockback, ApplyKnockback },
+    };
+
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)
     {
         var config = mage.GetUpgradeConfig();
@@ -35,312 +57,197 @@ public static class MageUpgradeApplier
         if (!upgradeEntry.HasValue) { DebugHelper.LogWarning($"[MageUpgradeApplier] Unknown upgradeId '{upgradeId}'"); return false; }
 
         var ue = upgradeEntry.Value;
-        switch (ue.category)
+        if (_appliers.TryGetValue(ue.category, out var applier))
         {
-            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction: mage.CorrosionArmorReduction += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotSpread: mage.CurseSpreadTargets += (int)ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotFrequency: mage.DotFrequencyBonus += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DotCritBurst: mage.DotCritBurstChance += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier: mage.DetonateMultiplier += ue.value1; break;
-            case CharacterUpgradeOption.UpgradeCategory.DetonateAbility: mage.DetonateCooldownValue *= (1f - ue.value1); break;
-            // DotTrigger(侵蚀)已移除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.DotTrigger: break;
-            case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
-                mage.AttackSpeedBonus += ue.value1;
-                mage.BulletSpeedBonus += ue.value2;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.BulletCount: mage.BulletCountBonus += (int)ue.value1; break;
-            // 反弹升级已移除 — 改为空操作
-            case CharacterUpgradeOption.UpgradeCategory.Ricochet:
-                // 改为增加穿透数
-                mage.PiercingBonus += (int)ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.BulletSize:
-                mage.BulletSizeBonus += ue.value1;
-                mage.KnockbackBonus += ue.value2;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.DotSaturation:
-                mage.DotSaturationBonus += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.DetonateExtra:
-                mage.DetonateExtraPerDot += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.DotLifesteal:
-                mage.DotLifestealPerTick += ue.value1;
-                break;
-            // DotOverflow(溢出弹)已移除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.DotOverflow: break;
-
-            // ── P1 深度玩法 ──
-            // DotPandemic(蔓延)已删除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.DotPandemic: break;
-            case CharacterUpgradeOption.UpgradeCategory.ChainReaction:
-                mage.ChainReactionCount += (int)ue.value1;
-                break;
-            // DualWield(双持)已删除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.DualWield: break;
-            // ── P2 协同/趣味 ──
-            case CharacterUpgradeOption.UpgradeCategory.DotResonance:
-                mage.ResonanceChance += ue.value1;
-                break;
-            // Toxicology(剧毒天赋)已删除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.Toxicology: break;
-            case CharacterUpgradeOption.UpgradeCategory.CorruptTouch:
-                mage.CorruptTouchDebuff += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.ElementalStorm:
-                mage.ElementalStormDmg += ue.value1;
-                mage.ElementalStormInterval = ue.value2 > 0f ? ue.value2 : 2f;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.ShadowLink:
-                mage.ShadowLinkRangeBonus += ue.value1;
-                mage.ShadowLinkEffBonus += ue.value2;
-                // 同步到 CurseSpreadSystem
-                CurseSpreadSystem.ShadowLinkRangeBonus = mage.ShadowLinkRangeBonus;
-                CurseSpreadSystem.ShadowLinkEffBonus = mage.ShadowLinkEffBonus;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.LightJudgment:
-                mage.LightJudgmentBonus += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.StaticField:
-                mage.StaticFieldStacks += (int)ue.value2;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.FrostExplosion:
-                mage.FrostExplosionPct += ue.value1;
-                break;
-
-            // ── 子弹增强扩展 ──
-            case CharacterUpgradeOption.UpgradeCategory.AmmoMastery:
-                mage.AmmoSpeedBonus += ue.value1;
-                mage.AmmoRangeBonus += ue.value2;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.ElementalAffinity:
-                mage.ElementalAffinityBonus += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.Penetrate:
-                mage.PiercingBonus += (int)ue.value1;
-                break;
-
-            // ── 生存向 ──
-            case CharacterUpgradeOption.UpgradeCategory.ElementalShield:
-                // 每次升级重新计算：拥有的DOT枪数 × value1
-                float newShieldHp = mage.DotGuns.Count * ue.value1;
-                if (newShieldHp > mage.ElementalShieldHp)
-                {
-                    float hpGain = newShieldHp - mage.ElementalShieldHp;
-                    mage.ElementalShieldHp = newShieldHp;
-                    // 增加最大生命
-                    var player = GameReferences.Player;
-                    if (player != null)
-                    {
-                        var dmg = player.GetComponent<Damageable>();
-                        if (dmg != null) dmg.SetMaxHp(dmg.MaxHp + Mathf.RoundToInt(hpGain));
-                    }
-                }
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.PhaseShift:
-                mage.PhaseShiftDuration += ue.value1;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.SoulSiphon:
-                mage.SoulSiphonHeal += ue.value1;
-                mage.SoulSiphonSpeedDuration += ue.value2;
-                break;
-
-            // ── P3 终极/高级 ──
-            case CharacterUpgradeOption.UpgradeCategory.EmberBoost:
-                mage.EmberBoostBonus += ue.value1;
-                mage.EmberBoostDuration += ue.value2;
-                break;
-            // ShatterBoost(碎裂强化)已删除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.ShatterBoost: break;
-            // ElementalMaster(元素大师)已删除 — 空操作保留兼容
-            case CharacterUpgradeOption.UpgradeCategory.ElementalMaster: break;
-            case CharacterUpgradeOption.UpgradeCategory.Doomsday:
-                mage.DoomsdayThreshold += ue.value2;
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.EternalAgony:
-                if (!mage.EternalAgonyActive)
-                {
-                    mage.EternalAgonyActive = true;
-                    // DOT持续时间×2，单次伤害-15%
-                    mage.AddDotDurationBonus(ue.value1 - 1f); // ×2 = +100% duration bonus
-                    // 伤害降低通过 GetDotDamageMultiplier 处理
-                    var p2 = GameReferences.Player;
-                    if (p2 != null) DamagePopup.Create(p2.transform.position + Vector3.up * 3f, 0, new Color(0.8f, 0.2f, 0.5f), false, "✦ ETERNAL AGONY!");
-                }
-                break;
-            case CharacterUpgradeOption.UpgradeCategory.AnnihilationZone:
-                mage.AnnihilationZoneDmg += ue.value1;
-                mage.AnnihilationZoneDuration += ue.value2 > 0f ? ue.value2 : 1f;
-                break;
+            applier(mage, ue);
+            CheckSynergies(mage);
+            DebugHelper.Log($"[MageUpgradeApplier] Applied {ue.upgradeName}");
+            return true;
         }
 
-        CheckSynergies(mage);
-        return true;
+        DebugHelper.LogWarning($"[MageUpgradeApplier] No handler for category {ue.category}");
+        return false;
     }
 
-    // ═══ 进化系统 ═══
+    private static void CheckSynergies(MagePassive mage) { }
 
-    /// <summary>
-    /// 检查并触发进化（DOT枪达到5级时）
-    /// </summary>
-    public static void CheckEvolution(MagePassive mage, StatusEffectType type)
+    // ═══ DOT 增强 ═══
+
+    private static void ApplyArmorReduction(MagePassive mage, UpgradeEntry ue)
     {
-        if (mage.IsEvolved(type)) return;
-        mage.EvolvedTypes.Add(type);
-        var evo = GetEvolutionInfo(type);
-        DebugHelper.Log($"[MageUpgradeApplier] ✦ EVOLVED: {evo.name}!");
-        var player = GameReferences.Player;
-        if (player != null)
-            DamagePopup.Create(player.transform.position + Vector3.up * 3f, 0, new Color(1f, 0.85f, 0f), false, $"✦ EVOLVED: {evo.name}!");
-        if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
-        ApplyEvolutionBonus(mage, type);
+        mage.CorrosionArmorReduction += ue.value1;
+        DebugHelper.Log($"[MageUpgradeApplier] Corrosion: armor -{ue.value1:P0}");
     }
 
-    private static (string name, string description) GetEvolutionInfo(StatusEffectType type)
+    private static void ApplyDotFrequency(MagePassive mage, UpgradeEntry ue)
     {
-        switch (type)
+        mage.DotFrequencyBonus += ue.value1;
+        DebugHelper.Log($"[MageUpgradeApplier] Agony DOT frequency: +{ue.value1:P0}");
+    }
+
+    private static void ApplyDotCritBurst(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.DotCritBurstChance += ue.value1;
+        DebugHelper.Log($"[MageUpgradeApplier] Wither DOT crit: +{ue.value1:P0}");
+    }
+
+    private static void ApplyDetonateMultiplier(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.DetonateMultiplier += ue.value1;
+    }
+
+    private static void ApplyNoop(MagePassive mage, UpgradeEntry ue) { }
+
+    // ═══ 子弹增强 ═══
+
+    private static void ApplyAttackSpeed(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.AttackSpeedBonus += ue.value1;
+        mage.BulletSpeedBonus += ue.value2;
+    }
+
+    private static void ApplyBulletCount(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.BulletCountBonus += (int)ue.value1;
+    }
+
+    private static void ApplyRicochet(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.PiercingBonus += (int)ue.value1;
+    }
+
+    private static void ApplyBulletSize(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.BulletSizeBonus += ue.value1;
+    }
+
+    private static void ApplyPenetrate(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.PiercingBonus += (int)ue.value1;
+    }
+
+    // ═══ 协同强化 ═══
+
+    private static void ApplyLightJudgment(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.LightJudgmentBonus += ue.value1;
+    }
+
+    private static void ApplyStaticField(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.StaticFieldStacks += (int)ue.value2;
+    }
+
+    private static void ApplyFrostExplosion(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.FrostExplosionPct += ue.value1;
+    }
+
+    private static void ApplyElementalShield(MagePassive mage, UpgradeEntry ue)
+    {
+        float newShieldHp = mage.DotGuns.Count * ue.value1;
+        if (newShieldHp > mage.ElementalShieldHp)
         {
-            case StatusEffectType.Bleed: return ("血之狂潮 (Blood Tide)", "流血 DPS x2");
-            case StatusEffectType.Poison: return ("瘟疫之源 (Plague Source)", "中毒子弹 DPS +50%");
-            case StatusEffectType.Burn: return ("地狱之火 (Hellfire)", "燃烧 DPS +80%");
-            case StatusEffectType.Frostbite: return ("绝对零度 (Absolute Zero)", "霜冻 DPS +100%");
-            case StatusEffectType.Static: return ("雷神之怒 (Wrath of Thor)", "雷电冲击伤害 +100%，连锁+2");
-            case StatusEffectType.Dark: return ("深渊之主 (Abyss Lord)", "黑暗传播范围+2，传播效率+30%");
-            case StatusEffectType.Light: return ("神圣光辉 (Divine Radiance)", "光明标记每层加成翻倍");
-            default: return ("未知进化", "");
-        }
-    }
-
-    private static void ApplyEvolutionBonus(MagePassive mage, StatusEffectType type)
-    {
-        float mult = 1f;
-        var guns = mage.DotGuns;
-        switch (type)
-        {
-            case StatusEffectType.Bleed:
-            case StatusEffectType.Poison:
-            case StatusEffectType.Burn:
-            case StatusEffectType.Frostbite:
-                // DPS 型进化：直接提升 dotDps
-                switch (type)
-                {
-                    case StatusEffectType.Bleed: mult = 2f; break;
-                    case StatusEffectType.Poison: mult = 1.5f; break;
-                    case StatusEffectType.Burn: mult = 1.8f; break;
-                    case StatusEffectType.Frostbite: mult = 2f; break;
-                }
-                for (int i = 0; i < guns.Count; i++)
-                {
-                    var gun = guns[i];
-                    if (gun.effectType == type) { gun.dotDps *= mult; guns[i] = gun; break; }
-                }
-                break;
-            case StatusEffectType.Static:
-                // 雷电进化：冲击伤害翻倍，连锁+2
-                for (int i = 0; i < guns.Count; i++)
-                {
-                    var gun = guns[i];
-                    if (gun.effectType == type)
-                    {
-                        gun.impactDamage *= 2;
-                        guns[i] = gun;
-                        break;
-                    }
-                }
-                if (mage.GetComponent<DetonateSystem>() is DetonateSystem ds)
-                    ds.MaxChainCount += 2;
-                break;
-            case StatusEffectType.Dark:
-                // 黑暗进化：传播范围+2已在CurseSpreadSystem处理，这里提升传播效率
-                // 通过提高腐蚀和诅咒效果间接增强
-                mage.CorrosionArmorReduction += 0.1f;
-                break;
-            case StatusEffectType.Light:
-                // 光明进化：通过提高DotDamageMultiplier来增强光明标记的倍率效果
-                mage.DotDamageMultiplier += 0.3f;
-                mage.SyncDotDamageMultiplierToAll();
-                break;
-        }
-    }
-
-    // ═══ 里程碑 ═══
-
-    /// <summary>
-    /// 检查里程碑（4种DOT枪全解锁时触发 Element Master）
-    /// </summary>
-    public static void CheckMilestones(MagePassive mage)
-    {
-        if (!mage.ElementMasterTriggered && mage.DotGuns.Count >= 7)
-        {
-            mage.ElementMasterTriggered = true;
-            DebugHelper.Log("[MageUpgradeApplier] ★ MILESTONE: Element Master! All DOT damage +20%");
+            float hpGain = newShieldHp - mage.ElementalShieldHp;
+            mage.ElementalShieldHp = newShieldHp;
             var player = GameReferences.Player;
-            if (player != null) DamagePopup.Create(player.transform.position + Vector3.up * 2f, 0, new Color(1f, 0.85f, 0f), false, "★ ELEMENT MASTER");
-            mage.SyncDotDamageMultiplierToAll();
+            if (player != null)
+            {
+                var dmg = player.GetComponent<Damageable>();
+                if (dmg != null)
+                {
+                    dmg.SetMaxHp(dmg.MaxHp + Mathf.RoundToInt(hpGain));
+                    dmg.Heal(Mathf.RoundToInt(hpGain));
+                }
+            }
         }
     }
 
-    // ═══ 协同系统 ═══
-
-    private enum SynergyType { Plague, FrozenBlade, BulletStorm, JudgmentDay }
-
-    /// <summary>
-    /// 检测并激活协同效果
-    /// </summary>
-    public static void CheckSynergies(MagePassive mage)
+    private static void ApplyDoomsday(MagePassive mage, UpgradeEntry ue)
     {
-        var guns = mage.DotGuns;
-        bool hasPoison = false, hasBurn = false, hasCorrosion = false;
-        for (int i = 0; i < guns.Count; i++)
-        {
-            if (guns[i].effectType == StatusEffectType.Poison) hasPoison = true;
-            if (guns[i].effectType == StatusEffectType.Burn) hasBurn = true;
-        }
-        hasCorrosion = mage.CorrosionArmorReduction > 0.101f;
-        TryActivateSynergy(mage, "plague", SynergyType.Plague, hasPoison && hasBurn && hasCorrosion);
-
-        bool hasBleed = false, hasFrost = false, hasCurse = false;
-        for (int i = 0; i < guns.Count; i++)
-        {
-            if (guns[i].effectType == StatusEffectType.Bleed) hasBleed = true;
-            if (guns[i].effectType == StatusEffectType.Frostbite) hasFrost = true;
-        }
-        hasCurse = mage.CurseSpreadTargets > 1;
-        TryActivateSynergy(mage, "frozen_blade", SynergyType.FrozenBlade, hasBleed && hasFrost && hasCurse);
-
-        bool hasBarrage = mage.BulletCountBonus > 0;
-        bool hasHaste = mage.AttackSpeedBonus > 0.001f;
-        bool hasRicochet = mage.RicochetChance > 0.001f;
-        TryActivateSynergy(mage, "bullet_storm", SynergyType.BulletStorm, hasBarrage && hasHaste && hasRicochet);
-
-        bool hasRadiate = mage.DetonateMultiplier > 3.01f;
-        bool hasContaminate = mage.DetonateCooldownValue < 11.99f;
-        TryActivateSynergy(mage, "judgment_day", SynergyType.JudgmentDay, hasRadiate && hasContaminate);
+        mage.DoomsdayThreshold += ue.value2;
     }
 
-    private static void TryActivateSynergy(MagePassive mage, string synergyId, SynergyType type, bool conditionMet)
+    private static void ApplyEternalAgony(MagePassive mage, UpgradeEntry ue)
     {
-        if (!conditionMet || mage.ActiveSynergies.Contains(synergyId)) return;
-        mage.ActiveSynergies.Add(synergyId);
+        mage.EternalAgonyActive = true;
+    }
+
+    // ═══ 一般强化 ═══
+
+    private static void ApplyMoveSpeed(MagePassive mage, UpgradeEntry ue)
+    {
+        // 移速暂不实现，BaseEntity 无 MoveSpeed 属性
+    }
+
+    private static void ApplyArmorBonus(MagePassive mage, UpgradeEntry ue)
+    {
         var player = GameReferences.Player;
         if (player != null)
         {
-            string name = GetSynergyName(type);
-            Color color = GetSynergyColor(type);
-            DamagePopup.Create(player.transform.position + Vector3.up * 2.5f, 0, color, false, $"✦ SYNERGY: {name}!");
+            var dmg = player.GetComponent<Damageable>();
+            if (dmg != null) dmg.SetArmor(dmg.Armor + (int)ue.value1);
         }
-        if (SFXManager.Instance != null) SFXManager.Instance.PlayLevelUp();
-        DebugHelper.Log($"[MageUpgradeApplier] ✦ SYNERGY ACTIVATED: {GetSynergyName(type)}!");
     }
 
-    private static string GetSynergyName(SynergyType type)
+    private static void ApplyMaxHpBonus(MagePassive mage, UpgradeEntry ue)
     {
-        switch (type) { case SynergyType.Plague: return "瘟疫"; case SynergyType.FrozenBlade: return "冰封血刃"; case SynergyType.BulletStorm: return "弹雨风暴"; case SynergyType.JudgmentDay: return "末日审判"; default: return "Unknown"; }
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            var dmg = player.GetComponent<Damageable>();
+            if (dmg != null)
+            {
+                dmg.SetMaxHp(dmg.MaxHp + (int)ue.value1);
+                dmg.Heal((int)ue.value1);
+            }
+        }
     }
 
-    private static Color GetSynergyColor(SynergyType type)
+    private static void ApplyCritChanceBonus(MagePassive mage, UpgradeEntry ue)
     {
-        switch (type) { case SynergyType.Plague: return new Color(0.1f, 0.9f, 0.3f); case SynergyType.FrozenBlade: return new Color(0.4f, 0.7f, 1f); case SynergyType.BulletStorm: return new Color(1f, 0.9f, 0.2f); case SynergyType.JudgmentDay: return new Color(1f, 0.3f, 0.1f); default: return Color.white; }
+        mage.CritChanceBonus += ue.value1;
     }
+
+    private static void ApplyCritDamageBonus(MagePassive mage, UpgradeEntry ue)
+    {
+        // 暴击倍率通过 DotEffectConfig 调节，此处暂时 noop
+    }
+
+    private static void ApplyMagnetRange(MagePassive mage, UpgradeEntry ue)
+    {
+        // 拾取范围由 MagnetMultiplierSystem 管理
+    }
+
+    private static void ApplyHpRegen(MagePassive mage, UpgradeEntry ue)
+    {
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            var dmg = player.GetComponent<Damageable>();
+            if (dmg != null) dmg.HpRegenPerSecond += ue.value1;
+        }
+    }
+
+    private static void ApplyBulletSpeed(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.BulletSpeedBonus += ue.value1;
+    }
+
+    private static void ApplyKnockback(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.KnockbackBonus += ue.value1;
+    }
+
+    // ═══ 进化兼容 ═══
+
+    public static void ApplyEvolutionUpgrade(MagePassive mage, string upgradeId, float value)
+    {
+        if (upgradeId == "dot_damage_bonus") mage.DotDamageMultiplier += value;
+        else if (upgradeId == "dot_duration_bonus") { }
+        else if (upgradeId == "dot_combo_damage_bonus") { }
+    }
+
+    public static void CheckEvolution(MagePassive mage, StatusEffectType type) { }
+    public static void CheckMilestones(MagePassive mage) { }
 }

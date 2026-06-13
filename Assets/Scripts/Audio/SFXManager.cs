@@ -38,6 +38,9 @@ public class SFXManager : MonoBehaviour
     [Tooltip("对象池大小")]
     [SerializeField] private int _poolSize = 16;
 
+    [Tooltip("空间音频池大小（3D 音效）")]
+    [SerializeField] private int _spatialPoolSize = 16;
+
     // ════════════════════════════════════════════════════════════════
     // 音效池
     // ════════════════════════════════════════════════════════════════
@@ -74,7 +77,7 @@ public class SFXManager : MonoBehaviour
 
         float master = _soundTrack.masterVolume;
         float sfx = _soundTrack.sfxVolume;
-        _poolHelper = new SFXPoolHelper(_poolSize, transform, master, sfx);
+        _poolHelper = new SFXPoolHelper(_poolSize, _spatialPoolSize, transform, master, sfx);
         RegisterEvents();
     }
 
@@ -125,7 +128,7 @@ public class SFXManager : MonoBehaviour
         PlayEntry(_soundTrack?.enemyDeath);
     }
 
-    private void OnDamage(GameObject target, int damage, Vector3 sourcePos)
+    private void OnDamage(GameObject target, float damage, Vector3 sourcePos)
     {
         // 判断是否是暴击（伤害超过阈值）
         bool isCrit = damage > 30;
@@ -326,6 +329,14 @@ public class SFXManager : MonoBehaviour
     public void PlayAtPosition(AudioClip clip, Vector3 position, float volumeScale = 1f)
     {
         _poolHelper.PlayAtPosition(clip, position, volumeScale);
+    }
+
+    /// <summary>
+    /// 在指定位置播放 3D 空间音效（线性距离衰减，最大距离 20 单位）
+    /// </summary>
+    public void PlaySFXAtPosition(AudioClip clip, Vector3 position, float volume)
+    {
+        _poolHelper.PlayAtPosition(clip, position, volume);
     }
 
     // ════════════════════════════════════════════════════════════════

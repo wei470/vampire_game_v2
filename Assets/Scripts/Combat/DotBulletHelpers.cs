@@ -33,12 +33,8 @@ public static class DotBulletHelper
             sem.DotFrequencyBonus = magePassive.DotFrequencyBonus;
             sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
             sem.WindErosionKnockback = magePassive.KnockbackBonus;
-            sem.DotSaturationBonus = magePassive.DotSaturationBonus;
-            sem.DotLifestealPerTick = magePassive.DotLifestealPerTick;
-            // P2 新增强化同步
-            sem.ResonanceChance = magePassive.ResonanceChance;
-            sem.CorruptTouchDebuff = magePassive.CorruptTouchDebuff;
             sem.EternalAgonyDamageMult = magePassive.EternalAgonyActive ? 0.85f : 1f;
+            sem.DotCritBurstChance = magePassive.DotCritBurstChance;
         }
     }
 }
@@ -186,97 +182,5 @@ public static class DotBulletVisualEffects
         glowSr.sortingOrder = 14;
         var pulse = glow.AddComponent<FlamePulseEffect>();
         pulse.Init(glowSr);
-    }
-}
-
-/// <summary>
-/// 火焰脉冲效果 — 燃烧子弹的光晕闪烁
-/// </summary>
-public class FlamePulseEffect : MonoBehaviour
-{
-    private SpriteRenderer _sr;
-    private float _baseAlpha = 0.3f;
-    private float _pulseSpeed = 12f;
-
-    public void Init(SpriteRenderer sr) { _sr = sr; }
-
-    private void Update()
-    {
-        if (_sr == null) return;
-        float pulse = Mathf.Sin(Time.time * _pulseSpeed) * 0.15f;
-        var c = _sr.color;
-        c.a = _baseAlpha + pulse;
-        _sr.color = c;
-        transform.localScale = Vector3.one * (1.8f + Mathf.Sin(Time.time * _pulseSpeed * 0.7f) * 0.3f);
-    }
-}
-
-/// <summary>
-/// 霜冻残影生成器
-/// </summary>
-public class FrostGhostSpawner : MonoBehaviour
-{
-    private float _spawnInterval = 0.08f;
-    private float _ghostLifetime = 0.25f;
-    private float _lastSpawn;
-    private static Sprite _ghostSprite;
-
-    private void Update()
-    {
-        if (Time.time - _lastSpawn < _spawnInterval) return;
-        _lastSpawn = Time.time;
-        var ghost = new GameObject("FrostGhost");
-        ghost.transform.position = transform.position;
-        ghost.transform.localScale = Vector3.one * 0.3f;
-        var sr = ghost.AddComponent<SpriteRenderer>();
-        if (_ghostSprite == null) _ghostSprite = DotSpriteCache.Get();
-        sr.sprite = _ghostSprite;
-        sr.color = new Color(0.5f, 0.8f, 1f, 0.5f);
-        sr.sortingOrder = 13;
-        ghost.AddComponent<GhostFadeOut>().Init(_ghostLifetime);
-    }
-}
-
-/// <summary>
-/// 残影淡出组件
-/// </summary>
-public class GhostFadeOut : MonoBehaviour
-{
-    private float _lifetime;
-    private float _spawnTime;
-    private SpriteRenderer _sr;
-
-    public void Init(float lifetime) { _lifetime = lifetime; _spawnTime = Time.time; _sr = GetComponent<SpriteRenderer>(); }
-
-    private void Update()
-    {
-        float elapsed = Time.time - _spawnTime;
-        if (elapsed >= _lifetime) { Destroy(gameObject); return; }
-        float t = 1f - (elapsed / _lifetime);
-        if (_sr != null) { var c = _sr.color; c.a = 0.5f * t; _sr.color = c; }
-        transform.localScale = Vector3.one * (0.3f * t);
-    }
-}
-
-/// <summary>
-/// 旋转效果 — 中毒药瓶飞行时旋转
-/// </summary>
-public class SpinEffect : MonoBehaviour
-{
-    private float _spinSpeed = 360f;
-    public void Init(float speed) { _spinSpeed = speed; }
-    private void Update() { transform.Rotate(0, 0, _spinSpeed * Time.deltaTime); }
-}
-
-/// <summary>
-/// Glow 回收助手 — 挂在 Glow 对象上，当 Glow 的父对象（子弹）被销毁/禁用时自动回到池中
-/// 解决 #15 Glow 对象池子弹销毁时未回收问题
-/// </summary>
-public class GlowReturnHelper : MonoBehaviour
-{
-    private void OnDisable()
-    {
-        // 当 Glow 被禁用（父对象销毁或禁用时自动触发），回到池中
-        MagePassive.ReturnGlowToPool(gameObject);
     }
 }

@@ -32,7 +32,7 @@ public partial class MagePassive
                 // 避免激光扫射结束后还要等待固定冷却才能重新蓄力
                 if (gun.effectType == StatusEffectType.Light)
                 {
-                    var config = DotBulletConfig.GetDefault();
+                    var config = DotEffectConfig.GetDefault();
                     float chargeDur = Mathf.Max(config.LightMinChargeDuration,
                         config.LightChargeDuration - (gun.upgradeLevel - 1) * config.LightChargeReductionPerLevel);
                     float actualCycle = chargeDur + config.LightSweepDuration + config.LightPostFireDelay;
@@ -88,47 +88,21 @@ public partial class MagePassive
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
         float bulletSpeedMult = GetBulletSpeedMultiplier();
-        int bulletCount = 1 + _bulletCountBonus;
+        int bulletCount = gun.effectType == StatusEffectType.WindErosion ? 3 : 1 + _bulletCountBonus;
         float spreadAngle = 15f;
-        const int MAX_NORMAL = 5;
-        int normalCount = Mathf.Min(bulletCount, MAX_NORMAL);
-        int homingCount = bulletCount - normalCount;
 
-        for (int b = 0; b < normalCount; b++)
+        for (int b = 0; b < bulletCount; b++)
         {
             Vector2 fireDir = direction;
-            if (normalCount > 1)
+            if (bulletCount > 1)
             {
-                float angle = (b - (normalCount - 1) / 2f) * spreadAngle;
+                float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
                 float rad = angle * Mathf.Deg2Rad;
                 fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
             }
             GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, bulletSpeedMult, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
             ApplyBulletSizeBonus(bullet);
             ApplyUpgradeVisual(bullet, gun);
-        }
-
-        if (homingCount > 0)
-        {
-            float homingSpeed = 10f * bulletSpeedMult;
-            int homingDmg = Mathf.Max(1, gun.impactDamage);
-            float homingSpread = 30f;
-            for (int h = 0; h < homingCount; h++)
-            {
-                Vector2 hDir = direction;
-                if (homingCount > 1)
-                {
-                    float angle = (h - (homingCount - 1) / 2f) * homingSpread;
-                    float rad = angle * Mathf.Deg2Rad;
-                    hDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
-                }
-                var homing = HomingProjectile.CreateDefault(transform.position, hDir, homingDmg, homingSpeed, 5f, 6f);
-                homing.SetDamageMultiplier(dmgMultiplier);
-                homing.SetKnockback(_knockbackBonus > 0f ? 3f : 0f);
-                var dotHoming = homing.gameObject.AddComponent<DotHomingBullet>();
-                dotHoming.Init(gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
-                ApplyBulletSizeBonus(homing.gameObject);
-            }
         }
     }
 

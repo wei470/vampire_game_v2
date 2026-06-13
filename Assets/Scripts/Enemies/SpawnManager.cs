@@ -110,7 +110,7 @@ public class SpawnManager : MonoBehaviour
         _playerTransform = null;
         var player = GameReferences.Player;
         if (player != null) _playerTransform = player.transform;
-        else _playerTransform = FindAnyObjectByType<PlayerController>()?.transform;
+        else _playerTransform = FindAnyObjectByType<PlayerController>()?.transform; // 兜底：GameReferences.Player 可能未注入
 
         DebugHelper.Log("[SpawnManager] StartFirstWave: All enemies destroyed, state fully reset, starting wave 1");
         StartNextWave();
@@ -129,6 +129,9 @@ public class SpawnManager : MonoBehaviour
 
         EventManager.TriggerWaveStart(_currentWave);
         _waveInProgress = true;
+
+        // 波次词缀（难度6+生效）
+        WaveAffixSystem.OnWaveStart(_currentWave);
 
         _currentSpecialWave = _configHelper.GetSpecialWaveType(_currentWave);
         bool isBossWave = _configHelper.IsBossWave(_currentWave);
@@ -225,6 +228,12 @@ public class SpawnManager : MonoBehaviour
             _waveInProgress = false;
             DebugHelper.Log($"[SpawnManager] Wave {_currentWave} complete! All enemies defeated.");
             EventManager.TriggerWaveComplete(_currentWave);
+            WaveAffixSystem.OnWaveEnd();
+
+            // 难度解锁检查 + 存档
+            int unlocked = DifficultyManager.CheckDifficultyUnlock(DifficultyManager.CurrentDifficulty, _currentWave);
+            DifficultyManager.RecordWaveResult(DifficultyManager.CurrentDifficulty, _currentWave, 0);
+
             StartCoroutine(RestBeforeNextWave());
         }
     }
@@ -293,10 +302,19 @@ public class SpawnManager : MonoBehaviour
         float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
         float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
         int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
-        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor);
 
-        // ── 精英词缀系统：第5波起概率生成精英 ──
-        if (EliteModifierSystem.ShouldSpawnElite(_currentWave))
+        // 难度倍率
+        float diffHp = DifficultyManager.GetEnemyHpMult(_currentWave);
+        float diffDmg = DifficultyManager.GetEnemyDmgMult(_currentWave);
+        float diffSpd = DifficultyManager.GetEnemySpeedMult();
+        float diffElite = DifficultyManager.GetEliteFrequencyMult();
+
+        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform,
+            HpMultiplier * diffHp, WeakenMultiplier * diffDmg,
+            challengeHp, challengeSpd * diffSpd, eliteArmor, _currentWave);
+
+        // 精英词缀系统：精英率受难度倍率影响
+        if (EliteModifierSystem.ShouldSpawnElite(_currentWave, diffElite))
         {
             var eliteMod = enemy.GetComponent<EliteModifierSystem>();
             if (eliteMod == null) eliteMod = enemy.AddComponent<EliteModifierSystem>();
@@ -323,7 +341,7 @@ public class SpawnManager : MonoBehaviour
         float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
         float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
         int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
-        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor);
+        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor, _currentWave);
 
         _activeEnemies.Add(enemy);
         _enemiesAlive = _activeEnemies.Count;
@@ -367,7 +385,7 @@ public class SpawnManager : MonoBehaviour
         {
             var player = GameReferences.Player;
             if (player != null) _playerTransform = player.transform;
-            else _playerTransform = FindAnyObjectByType<PlayerController>()?.transform;
+            else _playerTransform = FindAnyObjectByType<PlayerController>()?.transform; // 兜底：GameReferences.Player 可能未注入
         }
         if (_playerTransform == null)
         {
@@ -404,6 +422,7 @@ public class SpawnManager : MonoBehaviour
         _activeEnemies.Clear();
         _enemiesAlive = 0;
         int destroyed = 0;
+        // 通过 Tag 查找所有敌人用于强制清理（无更好的替代方案）
         foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
         {
             if (enemy != null) { Object.DestroyImmediate(enemy); destroyed++; }

@@ -115,6 +115,15 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyEvolutionEffect(EvolutionMilestone milestone)
     {
+        // 优先分发到角色专属处理器
+        var character = FindCharacterPassive();
+        if (character is IEvolutionHandler handler)
+        {
+            handler.ApplyEvolution(milestone, character);
+            return;
+        }
+
+        // 回退：通用进化效果
         switch (milestone.effectType)
         {
             case EvolutionEffectType.DotDurationBonus:
@@ -123,10 +132,6 @@ public class EvolutionSystem : MonoBehaviour
 
             case EvolutionEffectType.DotComboDamageBonus:
                 ApplyDotComboDamageBonus(milestone.value);
-                break;
-
-            case EvolutionEffectType.FusionUnlock:
-                ApplyFusionUnlock();
                 break;
 
             case EvolutionEffectType.DetonateTriggerAllCombos:
@@ -170,11 +175,11 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyDotDurationBonus(float bonus)
     {
-        var mage = FindMagePassive();
-        if (mage != null)
+        var character = FindCharacterPassive();
+        if (character is MagePassive mage)
         {
             mage.AddDotDurationBonus(bonus);
-            DebugHelper.Log($"[EvolutionSystem] DOT Duration +{bonus * 100:F0}% (total mult: {mage.GetDotDurationMultiplier()})");
+            DebugHelper.Log($"[EvolutionSystem] DOT Duration +{bonus * 100:F0}% (total mult: {character.GetDotDurationMultiplier()})");
         }
     }
 
@@ -186,19 +191,6 @@ public class EvolutionSystem : MonoBehaviour
         // 通过 DotComboSystem 设置全局组合伤害倍率
         DotComboSystem.SetEvolutionComboMultiplier(bonus);
         DebugHelper.Log($"[EvolutionSystem] DOT Combo Damage +{bonus * 100:F0}%");
-    }
-
-    /// <summary>
-    /// 解锁元素融合
-    /// </summary>
-    private void ApplyFusionUnlock()
-    {
-        var mage = FindMagePassive();
-        if (mage != null)
-        {
-            mage.FusionUnlockedByEvolution = true;
-            DebugHelper.Log("[EvolutionSystem] ✦ Element Fusion UNLOCKED by evolution!");
-        }
     }
 
     /// <summary>
@@ -219,11 +211,11 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyDotDamageBonus(float bonus)
     {
-        var mage = FindMagePassive();
-        if (mage != null)
+        var character = FindCharacterPassive();
+        if (character is MagePassive mage)
         {
             mage.DotDamageMultiplier += bonus;
-            DebugHelper.Log($"[EvolutionSystem] DOT Damage +{bonus * 100:F0}% (total mult: {mage.DotDamageMultiplier})");
+            DebugHelper.Log($"[EvolutionSystem] DOT Damage +{bonus * 100:F0}% (total mult: {character.GetDotDamageMultiplier()})");
         }
     }
 
@@ -266,8 +258,8 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyCritChanceBonus(float bonus)
     {
-        var mage = FindMagePassive();
-        if (mage != null)
+        var character = FindCharacterPassive();
+        if (character is MagePassive mage)
         {
             mage.CritChanceBonus += bonus;
             DebugHelper.Log($"[EvolutionSystem] Crit Chance +{bonus * 100:F1}%");
@@ -296,8 +288,8 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyAttackSpeedBonus(float bonus)
     {
-        var mage = FindMagePassive();
-        if (mage != null)
+        var character = FindCharacterPassive();
+        if (character is MagePassive mage)
         {
             mage.AttackSpeedBonus += bonus;
             DebugHelper.Log($"[EvolutionSystem] Attack Speed +{bonus * 100:F0}%");
@@ -330,13 +322,13 @@ public class EvolutionSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// 查找 MagePassive 组件
+    /// 查找 ICharacterPassive 组件
     /// </summary>
-    private MagePassive FindMagePassive()
+    private ICharacterPassive FindCharacterPassive()
     {
         var player = GameReferences.Player;
         if (player == null) return null;
-        return player.GetComponent<MagePassive>();
+        return player.GetComponent<ICharacterPassive>();
     }
 
     /// <summary>

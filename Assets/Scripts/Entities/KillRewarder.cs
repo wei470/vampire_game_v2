@@ -25,6 +25,11 @@ public class KillRewarder : MonoBehaviour, IRewardable
     private BaseEntity _baseEntity;
     private bool _subscribed = false;
 
+    private void Awake()
+    {
+        _baseEntity = GetComponent<BaseEntity>();
+    }
+
     private void OnEnable()
     {
         TrySubscribe();

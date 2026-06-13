@@ -103,11 +103,7 @@ public class DotColorBlender : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_sr == null)
-        {
-            _sr = GetComponent<SpriteRenderer>();
-            if (_sr == null) return;
-        }
+        if (_sr == null) return;
 
         // 降频更新颜色
         if (Time.time - _lastColorUpdate < COLOR_UPDATE_INTERVAL) return;

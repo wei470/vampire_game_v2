@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 腐蚀敌人 — 反 DOT 型敌人。接触玩家后施加 DOT 免疫护盾，死亡时释放毒雾清除范围内敌人的 DOT。
@@ -9,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class CorrosiveEnemy : EnemyBase
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     [Header("腐蚀属性")]
     #pragma warning disable CS0414
     [SerializeField] [HideInInspector] private float _dotImmuneDuration = 3f;
@@ -77,11 +80,11 @@ public class CorrosiveEnemy : EnemyBase
         EnemyEffectHelper.CreatePulseEffect(deathPosition, _corrosiveColor, _deathFogRadius, _deathFogDuration);
 
         // 清除范围内所有敌人的 DOT
-        Collider2D[] hits = Physics2D.OverlapCircleAll(deathPosition, _deathFogRadius);
+        int count = PhysicsHelper.OverlapCircle(deathPosition, _deathFogRadius, _overlapBuffer);
         int clearedCount = 0;
 
-        foreach (var hit in hits)
-        {
+        for (int i = 0; i < count; i++)
+        { var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
             var sem = hit.GetComponent<StatusEffectManager>();

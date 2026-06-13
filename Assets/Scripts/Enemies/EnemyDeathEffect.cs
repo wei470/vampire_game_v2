@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// 敌人死亡特效工具类 — 提供轻量级死亡视觉反馈。
@@ -13,6 +14,8 @@ using System.Collections;
 /// </summary>
 public static class EnemyDeathEffect
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     // ── 动画参数 ──
     private const float SHRINK_DURATION = 0.2f;
     private const float BOSS_SLOWMO_DURATION = 0.5f;
@@ -131,9 +134,9 @@ public static class EnemyDeathEffect
     private static SpriteRenderer GetNearestSpriteRenderer(Vector3 pos)
     {
         // 使用 OverlapCircle 查找附近的敌人（半径 2 格内）
-        var cols = Physics2D.OverlapCircleAll(pos, 2f);
-        foreach (var col in cols)
-        {
+        int count = PhysicsHelper.OverlapCircle(pos, 2f, _overlapBuffer);
+        for (int i = 0; i < count; i++)
+        { var col = _overlapBuffer[i];
             var sr = col.GetComponent<SpriteRenderer>();
             if (sr != null && sr.gameObject.activeInHierarchy)
                 return sr;

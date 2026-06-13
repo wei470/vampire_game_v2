@@ -25,6 +25,7 @@ public class MineTrap : MonoBehaviour
     private bool _isArmed = false;
     private bool _hasExploded = false;
     private float _damageMultiplier = 1f;
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
     private SpriteRenderer _sr;
     private CircleCollider2D _triggerCol;
 
@@ -94,11 +95,12 @@ public class MineTrap : MonoBehaviour
     {
         _hasExploded = true;
 
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _explosionRadius);
+        int count = PhysicsHelper.OverlapCircle(transform.position, _explosionRadius, _overlapBuffer);
         int hitCount = 0;
 
-        foreach (var hit in hits)
+        for (int i = 0; i < count; i++)
         {
+            var hit = _overlapBuffer[i];
             if (hit.CompareTag("Enemy"))
             {
                 var dmg = hit.GetComponent<Damageable>();

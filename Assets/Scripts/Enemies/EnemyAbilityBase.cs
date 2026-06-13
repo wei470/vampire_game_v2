@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 敌人能力基类 — 封装通用能力模式，减少敌人子类重复代码。
@@ -41,6 +42,8 @@ public abstract class EnemyAbilityBase : MonoBehaviour
 
     /// <summary>是否存活</summary>
     protected bool IsAlive => Owner != null && Owner.Alive;
+
+    protected static readonly List<Collider2D> OverlapBuffer = new List<Collider2D>(16);
 
     protected virtual void Awake()
     {
@@ -124,9 +127,9 @@ public abstract class EnemyAbilityBase : MonoBehaviour
     /// <summary>
     /// 在范围内搜索友军。
     /// </summary>
-    protected Collider2D[] FindNearbyAllies(float radius)
+    protected int FindNearbyAllies(float radius)
     {
-        return Physics2D.OverlapCircleAll(transform.position, radius);
+        return PhysicsHelper.OverlapCircle(transform.position, radius, OverlapBuffer);
     }
 
     /// <summary>

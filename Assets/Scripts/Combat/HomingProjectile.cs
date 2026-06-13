@@ -28,7 +28,8 @@ using System.Collections.Generic;
         private Vector2 _initialDirection;
         private float _initialAngle;
         private SpriteRenderer _sr;
-        private HashSet<int> _hitEnemies = new HashSet<int>(); // 防止重复命中
+        private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+    private HashSet<int> _hitEnemies = new HashSet<int>(); // 防止重复命中
 
         private void Awake()
     {
@@ -173,12 +174,13 @@ using System.Collections.Generic;
     /// </summary>
     private void FindNearestTarget()
     {
-        Collider2D[] enemies = Physics2D.OverlapCircleAll(transform.position, _searchRadius);
+        int count = PhysicsHelper.OverlapCircle(transform.position, _searchRadius, _overlapBuffer);
         float nearestDist = float.MaxValue;
         Transform nearest = null;
 
-        foreach (var col in enemies)
+        for (int i = 0; i < count; i++)
         {
+            var col = _overlapBuffer[i];
             if (!col.CompareTag("Enemy")) continue;
 
             float dist = Vector2.Distance(transform.position, col.transform.position);

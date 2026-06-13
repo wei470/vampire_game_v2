@@ -19,8 +19,12 @@ public static class DotEffectRegistry
     private static readonly HashSet<FrostEffect> _frostEffects = new HashSet<FrostEffect>();
     private static readonly HashSet<StaticStackEffect> _staticEffects = new HashSet<StaticStackEffect>();
 
+    // ── 统一基类注册（供 DotStatusBar 查询）──
+    private static readonly HashSet<StackEffectBase> _stackEffects = new HashSet<StackEffectBase>();
+
     // ── 临时缓存（避免批量操作时分配）──
     private static readonly List<Component> _tempBuffer = new List<Component>(32);
+    private static readonly List<IStackEffect> _tempStackBuffer = new List<IStackEffect>(8);
 
     // ═══ 注册/注销 ═══
 
@@ -64,6 +68,18 @@ public static class DotEffectRegistry
         _staticEffects.Remove(effect);
     }
 
+    // ── StackEffectBase 统一注册/注销 ──
+
+    public static void RegisterEffect(StackEffectBase effect)
+    {
+        if (effect != null) _stackEffects.Add(effect);
+    }
+
+    public static void UnregisterEffect(StackEffectBase effect)
+    {
+        _stackEffects.Remove(effect);
+    }
+
     // ═══ 查询方法 ═══
 
     /// <summary>
@@ -99,7 +115,28 @@ public static class DotEffectRegistry
         return enemy.GetComponent<BurnStackEffect>() != null
             || enemy.GetComponent<PoisonStackEffect>() != null
             || enemy.GetComponent<FrostEffect>() != null
-            || enemy.GetComponent<StaticStackEffect>() != null;
+            || enemy.GetComponent<StaticStackEffect>() != null
+            || enemy.GetComponent<LightMarkEffect>() != null
+            || enemy.GetComponent<DarkMarkEffect>() != null
+            || enemy.GetComponent<WindErosionEffect>() != null;
+    }
+
+    /// <summary>
+    /// 获取指定敌人身上所有活跃的 IStackEffect（查找所有 MonoBehaviour 组件中的 IStackEffect）
+    /// </summary>
+    public static List<IStackEffect> GetStackEffectsOnEnemy(GameObject enemy, List<IStackEffect> buffer = null)
+    {
+        var result = buffer ?? _tempStackBuffer;
+        result.Clear();
+        if (enemy == null) return result;
+
+        var components = enemy.GetComponents<MonoBehaviour>();
+        for (int i = 0; i < components.Length; i++)
+        {
+            if (components[i] is IStackEffect effect && effect.IsActive)
+                result.Add(effect);
+        }
+        return result;
     }
 
     /// <summary>
@@ -152,6 +189,7 @@ public static class DotEffectRegistry
         _poisonEffects.Clear();
         _frostEffects.Clear();
         _staticEffects.Clear();
+        _stackEffects.Clear();
     }
 
     /// <summary>
@@ -183,5 +221,6 @@ public static class DotEffectRegistry
         _poisonEffects.RemoveWhere(e => e == null);
         _frostEffects.RemoveWhere(e => e == null);
         _staticEffects.RemoveWhere(e => e == null);
+        _stackEffects.RemoveWhere(e => e == null);
     }
 }

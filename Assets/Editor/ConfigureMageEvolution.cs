@@ -243,13 +243,12 @@ public class EvolutionTreeEditorWindow : EditorWindow
         EditorUtility.SetDirty(mageData);
         AssetDatabase.SaveAssets();
 
-        Debug.Log("[EvolutionTreeEditor] ✅ Mage 进化树已配置！4个里程碑：Lv5元素亲和 / Lv10元素精通 / Lv15元素融合 / Lv20元素主宰");
+        Debug.Log("[EvolutionTreeEditor] ✅ Mage 进化树已配置！3个里程碑：Lv5元素亲和 / Lv10元素精通 / Lv15元素主宰");
         EditorUtility.DisplayDialog("成功",
             "Mage 进化树已配置完成！\n\n" +
             "• Lv5  元素亲和：DOT持续时间+20%\n" +
             "• Lv10 元素精通：DOT组合伤害+30%\n" +
-            "• Lv15 元素融合：解锁融合子弹\n" +
-            "• Lv20 元素主宰：引爆触发所有DOT组合",
+            "• Lv15 元素主宰：引爆触发所有DOT组合",
             "确定");
     }
 
@@ -284,21 +283,10 @@ public class EvolutionTreeEditorWindow : EditorWindow
             },
             new EvolutionMilestone
             {
-                milestoneId = $"{characterId}_evo_fusion_unlock",
-                displayName = "元素融合 (Element Fusion)",
-                description = "解锁元素融合子弹系统",
-                requiredLevel = 15,
-                effectType = EvolutionEffectType.FusionUnlock,
-                value = 1f,
-                value2 = 0f,
-                glowColor = new Color(1f, 0.6f, 0.9f)
-            },
-            new EvolutionMilestone
-            {
                 milestoneId = $"{characterId}_evo_detonate_combos",
                 displayName = "元素主宰 (Element Sovereign)",
                 description = "引爆时自动触发所有DOT组合效果",
-                requiredLevel = 20,
+                requiredLevel = 15,
                 effectType = EvolutionEffectType.DetonateTriggerAllCombos,
                 value = 1f,
                 value2 = 0f,

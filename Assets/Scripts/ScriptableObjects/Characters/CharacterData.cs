@@ -139,7 +139,6 @@ public enum EvolutionEffectType
 {
     DotDurationBonus,       // DOT持续时间加成
     DotComboDamageBonus,    // DOT组合伤害加成
-    FusionUnlock,           // 解锁元素融合
     DetonateTriggerAllCombos, // 引爆时触发所有DOT组合
     DotDamageBonus,         // DOT伤害加成
     MoveSpeedBonus,         // 移速加成

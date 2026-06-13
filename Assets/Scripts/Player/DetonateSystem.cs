@@ -9,19 +9,46 @@ using System.Collections.Generic;
 /// </summary>
 public class DetonateSystem : MonoBehaviour
 {
+    #region Fields & Config
     [Header("引爆参数")]
-    [SerializeField] private float _detonateCooldown = 12f;
-    [SerializeField] private float _detonateMultiplier = 3f;
-    [SerializeField] private float _detonateRadius = 50f;
+    private float _detonateCooldown = 12f;
+    private float _detonateMultiplier = 3f;
+    private float _detonateRadius = 50f;
+    private float _detonateWaveDuration = 0.3f;
+    private bool _detonateTimeStop = true;
+    private float _detonateShakeIntensity = 2.5f;
+    private float _detonateShakeDuration = 0.5f;
+
+    [Header("引爆伤害比例")]
+    private float _detonateBleedHpPct = 0.2f;
+    private float _detonateBurnHpPct = 0.15f;
+    private float _detonatePoisonHpPct = 0.15f;
 
     [Header("连锁引爆")]
-    [SerializeField] private int _maxChainCount = 3;
-    [SerializeField] private float _chainRadius = 10f;
-    [SerializeField] private float _chainDamageRatio = 0.5f;
+    private int _maxChainCount = 3;
+    private float _chainRadius = 10f;
+    private float _chainDamageRatio = 0.5f;
 
     [Header("蓄力引爆")]
-    [SerializeField] private float _chargeMoveSpeedPenalty = 0.5f;
-    [SerializeField] private float _chargeMaxTime = 3f;
+    private float _chargeMoveSpeedPenalty = 0.5f;
+    private float _chargeMaxTime = 3f;
+
+    [Header("余烬")]
+    private int _emberThreshold = 10;
+    private int _emberMaxZones = 5;
+    private float _emberDuration = 3f;
+    private float _emberRadius = 1.5f;
+
+    [Header("霜爆")]
+    private float _frostShatterThreshold = 0.8f;
+    private float _frostShatterRadius = 4f;
+    private int _frostShatterDmgPerStack = 5;
+
+    [Header("连锁反应")]
+    private int _highHitThreshold = 10;
+    private float _highHitWindow = 3f;
+    private float _chainReactionInterval = 0.3f;
+    private float _chainReactionDecay = 0.5f;
 
     [Header("运行时状态")]
     [SerializeField] private float _lastDetonateTime = -999f;
@@ -37,6 +64,9 @@ public class DetonateSystem : MonoBehaviour
     private readonly List<Vector3> _cachedChainSources = new List<Vector3>(32);
     private readonly HashSet<GameObject> _cachedAlreadyHit = new HashSet<GameObject>();
 
+    #endregion
+
+    #region Properties
     // ── 公共属性 ──
     public float DetonateCooldown => _detonateCooldown;
     public float DetonateCooldownRemaining => Mathf.Max(0f, _detonateCooldown - (Time.time - _lastDetonateTime));
@@ -56,14 +86,57 @@ public class DetonateSystem : MonoBehaviour
     public float ChainRadius { get => _chainRadius; set => _chainRadius = value; }
     public float ChainDamageRatio { get => _chainDamageRatio; set => _chainDamageRatio = value; }
 
+    #endregion
+
+    #region Init & Config
     // ── 引用 ──
-    private MagePassive _magePassive;
+    private ICharacterPassive _character;
+    private MagePassive _mage; // Mage-specific cast for properties not on ICharacterPassive
     private ScreenShake _cachedScreenShake;
 
-    public void Init(MagePassive magePassive)
+    public void Init(ICharacterPassive character)
     {
-        _magePassive = magePassive;
+        _character = character;
+        _mage = character as MagePassive;
         CacheScreenShake();
+        RefreshFromConfig();
+        DotEffectConfig.OnConfigChanged += RefreshFromConfig;
+    }
+
+    private void OnDisable()
+    {
+        DotEffectConfig.OnConfigChanged -= RefreshFromConfig;
+    }
+
+    private void RefreshFromConfig()
+    {
+        var cfg = DotEffectConfig.GetDefault();
+        _detonateCooldown = cfg.DetonateCooldown;
+        _detonateMultiplier = cfg.DetonateMultiplier;
+        _detonateRadius = cfg.DetonateRadius;
+        _detonateWaveDuration = cfg.DetonateWaveDuration;
+        _detonateTimeStop = cfg.DetonateTimeStop;
+        _detonateShakeIntensity = cfg.DetonateShakeIntensity;
+        _detonateShakeDuration = cfg.DetonateShakeDuration;
+        _detonateBleedHpPct = cfg.DetonateBleedHpPct;
+        _detonateBurnHpPct = cfg.DetonateBurnHpPct;
+        _detonatePoisonHpPct = cfg.DetonatePoisonHpPct;
+        _maxChainCount = cfg.DetonateMaxChainCount;
+        _chainRadius = cfg.DetonateChainRadius;
+        _chainDamageRatio = cfg.DetonateChainDamageRatio;
+        _chargeMoveSpeedPenalty = cfg.DetonateChargeMoveSpeedPenalty;
+        _chargeMaxTime = cfg.DetonateChargeMaxTime;
+        _emberThreshold = cfg.DetonateEmberThreshold;
+        _emberMaxZones = cfg.DetonateEmberMaxZones;
+        _emberDuration = cfg.DetonateEmberDuration;
+        _emberRadius = cfg.DetonateEmberRadius;
+        _frostShatterThreshold = cfg.DetonateFrostShatterThreshold;
+        _frostShatterRadius = cfg.DetonateFrostShatterRadius;
+        _frostShatterDmgPerStack = cfg.DetonateFrostShatterDmgPerStack;
+        _highHitThreshold = cfg.DetonateHighHitThreshold;
+        _highHitWindow = cfg.DetonateHighHitWindow;
+        _chainReactionInterval = cfg.DetonateChainReactionInterval;
+        _chainReactionDecay = cfg.DetonateChainReactionDecay;
     }
 
     private void CacheScreenShake()
@@ -78,6 +151,9 @@ public class DetonateSystem : MonoBehaviour
         return _cachedScreenShake;
     }
 
+    #endregion
+
+    #region Charging
     /// <summary>
     /// 获取移动速度倍率（蓄力时减速50%）
     /// </summary>
@@ -114,9 +190,9 @@ public class DetonateSystem : MonoBehaviour
 
     private float GetChargeMultiplier(float chargeTime)
     {
-        float speedBonus = _magePassive != null ? _magePassive.ChargeSpeedBonus : 0f;
+        float speedBonus = _mage != null ? _mage.ChargeSpeedBonus : 0f;
         float effectiveTime = chargeTime * (1f + speedBonus);
-        float extraDmg = _magePassive != null ? _magePassive.ChargeDamageBonus : 0f;
+        float extraDmg = _mage != null ? _mage.ChargeDamageBonus : 0f;
         if (effectiveTime >= 3f) return 3f + extraDmg;
         if (effectiveTime >= 2f) return 2f + extraDmg * 0.5f;
         if (effectiveTime >= 1f) return 1.5f;
@@ -161,8 +237,11 @@ public class DetonateSystem : MonoBehaviour
         return result;
     }
 
+    #endregion
+
+    #region Core Detonation
     /// <summary>
-    /// 引爆所有敌人 DOT（使用 SpatialGrid 空间分区加速）
+    /// 引爆 — 从玩家炸出红色冲击波，接触到的敌人触发一次引爆伤害
     /// </summary>
     public bool Detonate()
     {
@@ -173,192 +252,119 @@ public class DetonateSystem : MonoBehaviour
         }
 
         _lastDetonateTime = Time.time;
-        float critChance = _magePassive.GetDotCritChance();
-        float critMult = _magePassive.GetDotCritMultiplier();
-        int totalDamage = 0;
-        int enemiesHit = 0;
 
-        bool anyBurn = false, anyFrost = false;
-        int maxBurnStacks = 0, maxFrostStacks = 0;
+        float critChance = _character.GetDotCritChance();
+        float critMult = _character.GetDotCritMultiplier();
 
-        var spawnMgr = GameReferences.SpawnManager;
-        IReadOnlyList<GameObject> allEnemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
-        if (allEnemies == null || allEnemies.Count == 0) return false;
-
-        // ── 重建空间分区网格 ──
-        SpatialGrid.Rebuild(allEnemies);
-
-        // ── 使用空间分区查询范围内敌人 ──
-        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
-
-        for (int i = 0; i < nearbyEnemies.Count; i++)
-        {
-            var enemy = nearbyEnemies[i];
-            if (enemy == null || !enemy.activeInHierarchy) continue;
-
-            if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-
-            bool hadEffect = false;
-            int enemyDmg = 0;
-
-            DetonateResult detResult = default;
-            if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
-            {
-                int dmg = sem.Detonate(_detonateMultiplier, critChance, critMult, out detResult);
-                if (dmg > 0) { totalDamage += dmg; enemyDmg += dmg; hadEffect = true; }
-                if (detResult.hadBurn) { anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, detResult.burnStacks); }
-                if (detResult.hadFrost) { anyFrost = true; maxFrostStacks = Mathf.Max(maxFrostStacks, detResult.frostStacks); }
-            }
-
-            if (enemy.TryGetComponent<BleedEffect>(out var bleed))
-            { int extra = Mathf.RoundToInt(d.MaxHp * 0.2f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
-
-            if (enemy.TryGetComponent<BurnStackEffect>(out var burn))
-            { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; anyBurn = true; maxBurnStacks = Mathf.Max(maxBurnStacks, burn.StackCount); }
-
-            if (enemy.TryGetComponent<PoisonStackEffect>(out var poison))
-            { int extra = Mathf.RoundToInt(d.MaxHp * 0.15f * _detonateMultiplier); d.TakeDamage(extra); totalDamage += extra; enemyDmg += extra; hadEffect = true; }
-
-            if (hadEffect && _magePassive.DetonateExtraPerDot > 0 && sem != null)
-            {
-                int dotCount = 0;
-                if (detResult.hadPoison) dotCount++;
-                if (detResult.hadBurn) dotCount++;
-                if (detResult.hadFrost) dotCount++;
-                if (bleed != null) dotCount++;
-                if (dotCount > 0)
-                {
-                    int burstDmg = Mathf.RoundToInt(dotCount * _magePassive.DetonateExtraPerDot);
-                    d.TakeDamage(burstDmg, new Color(0.9f, 0.6f, 1f));
-                    totalDamage += burstDmg;
-                    enemyDmg += burstDmg;
-                }
-            }
-
-            // ── 霜爆（合并到主循环，避免重复遍历） ──
-            if (_magePassive.FrostExplosionPct > 0 && enemy.TryGetComponent<FrostEffect>(out var frost) && frost._slowPercent >= 0.80f)
-            {
-                int frostDmg = Mathf.Max(1, Mathf.RoundToInt(d.MaxHp * _magePassive.FrostExplosionPct));
-                d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
-                totalDamage += frostDmg;
-                enemyDmg += frostDmg;
-                CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
-                DamagePopup.Create(enemy.transform.position, frostDmg, new Color(0.4f, 0.8f, 1f), false);
-            }
-
-            // ── 末日审判（合并到主循环，避免重复遍历） ──
-            if (_magePassive.DoomsdayThreshold > 0 && sem != null)
-            {
-                int dotTypes = 0;
-                foreach (var eff in sem.ActiveEffects) if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
-                if (dotTypes >= 3 && d.HpPercent <= _magePassive.DoomsdayThreshold)
-                {
-                    int killDmg = d.CurrentHp;
-                    d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
-                    totalDamage += killDmg;
-                    enemyDmg += killDmg;
-                    DamagePopup.Create(enemy.transform.position, killDmg, new Color(1f, 0.2f, 0f), false, "DOOMSDAY!");
-                    CombatManager.CreateExplosionEffect(enemy.transform.position, 4f, new Color(1f, 0.1f, 0f), 0.8f);
-                }
-            }
-
-            if (hadEffect)
-            {
-                enemiesHit++;
-                CombatManager.CreateExplosionEffect(enemy.transform.position, 3f, new Color(1f, 0.3f, 0.8f), 0.6f);
-                DamagePopup.Create(enemy.transform.position, enemyDmg, new Color(1f, 0.3f, 0.8f), false);
-            }
-        }
-
-        if (anyBurn && maxBurnStacks > 10)
-            SpawnEmberFireZones(maxBurnStacks);
-
-        if (anyFrost && maxFrostStacks > 0)
-            TriggerFrostShatter(maxFrostStacks, critChance, critMult);
-
-        if (enemiesHit > 0 && totalDamage > 0)
-        {
-            DetonateFlashEffect.Show(0.15f);
-            DamagePopup.CreateDetonateTotal(transform.position, totalDamage, enemiesHit);
-        }
-
+        // 屏幕晃动
         var shake = GetScreenShake();
-        if (shake != null)
-        {
-            float intensity = Mathf.Clamp(1.5f + enemiesHit * 0.2f, 1.5f, 4f);
-            float duration = Mathf.Clamp(0.5f + enemiesHit * 0.05f, 0.5f, 1.2f);
-            shake.Shake(intensity, duration);
-        }
+        if (shake != null) shake.Shake(_detonateShakeIntensity, _detonateShakeDuration);
 
+        // 音效
         if (SFXManager.Instance != null) SFXManager.Instance.PlayDetonate();
-        if (DamageMeter.Instance != null) DamageMeter.Instance.RecordDetonate(totalDamage, enemiesHit);
 
-        if (enemiesHit > 10)
-        {
-            _chainDetonateEndTime = Time.time + 3f;
-            _lastDetonateEnemyCount = enemiesHit;
-            _magePassive.SyncDotDamageMultiplierToAll();
-        }
+        // 时停（冲击波期间游戏暂停）
+        if (_detonateTimeStop) Time.timeScale = 0f;
 
-        // ── 连锁反应（使用空间分区） ──
-        if (_magePassive.ChainReactionCount > 0)
+        // 生成红色冲击波
+        float waveSpeed = _detonateRadius / Mathf.Max(0.05f, _detonateWaveDuration);
+        var waveObj = new GameObject("DetonateWave");
+        waveObj.transform.position = transform.position;
+        var wave = waveObj.AddComponent<DetonateWaveEffect>();
+        wave.Init(_detonateRadius, waveSpeed, _detonateMultiplier,
+            critChance, critMult, _character,
+            _detonateBleedHpPct, _detonateBurnHpPct, _detonatePoisonHpPct,
+            OnWaveComplete);
+
+        return true;
+    }
+
+    /// <summary>
+    /// 冲击波结束后的后处理（连锁/余烬/霜爆/末日审判等）
+    /// </summary>
+    private void OnWaveComplete(float totalDamage, int enemiesHit)
+    {
+        // 恢复时间
+        if (_detonateTimeStop) Time.timeScale = 1f;
+
+        _lastDetonateEnemyCount = enemiesHit;
+
+        if (DamageMeter.Instance != null)
+            DamageMeter.Instance.RecordDetonate(totalDamage, enemiesHit);
+
+        // ── 余烬/霜爆/末日审判（遍历范围内敌人） ──
+        var spawnMgr = GameReferences.SpawnManager;
+        var allEnemies = spawnMgr?.ActiveEnemies;
+        if (allEnemies != null)
         {
-            int secondaryCount = _magePassive.ChainReactionCount;
-            float secondaryRatio = 0.5f;
-            for (int r = 0; r < secondaryCount; r++)
+            SpatialGrid.Rebuild(allEnemies);
+            var nearby = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
+
+            for (int i = 0; i < nearby.Count; i++)
             {
-                int secDmg = 0, secHits = 0;
-                var chainEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
-                for (int i = 0; i < chainEnemies.Count; i++)
+                var enemy = nearby[i];
+                if (enemy == null || !enemy.activeInHierarchy) continue;
+                if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
+
+                // 霜爆
+                if (_mage != null && _mage.FrostExplosionPct > 0
+                    && enemy.TryGetComponent<FrostEffect>(out var frost) && frost.slowPercent >= _frostShatterThreshold)
                 {
-                    var enemy = chainEnemies[i];
-                    if (enemy == null || !enemy.activeInHierarchy) continue;
-                    if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-                    if (!enemy.TryGetComponent<StatusEffectManager>(out var sem3) || !sem3.HasAnyDot) continue;
-                    DetonateResult secResult;
-                    int dmg = sem3.Detonate(_detonateMultiplier * secondaryRatio, critChance, critMult, out secResult);
-                    if (dmg > 0) { secDmg += dmg; secHits++; }
+                    float frostDmg = Mathf.Max(0.01f, d.MaxHp * _mage.FrostExplosionPct);
+                    d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
+                    totalDamage += frostDmg;
+                    CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
+                    DamagePopup.Create(enemy.transform.position, frostDmg, new Color(0.4f, 0.8f, 1f), false);
                 }
-                if (secHits > 0)
+
+                // 末日审判
+                if (_mage != null && _mage.DoomsdayThreshold > 0
+                    && enemy.TryGetComponent<StatusEffectManager>(out var sem))
                 {
-                    totalDamage += secDmg;
-                    secondaryRatio *= 0.5f;
-                    DebugHelper.Log($"[DetonateSystem] ⚡ CHAIN REACTION #{r + 1}! Hit {secHits} for {secDmg}");
+                    int dotTypes = 0;
+                    foreach (var eff in sem.ActiveEffects)
+                        if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
+                    if (dotTypes >= 3 && d.HpPercent <= _mage.DoomsdayThreshold)
+                    {
+                        int killDmg = d.CurrentHp;
+                        d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
+                        totalDamage += killDmg;
+                        DamagePopup.Create(enemy.transform.position, killDmg, new Color(1f, 0.2f, 0f), false, "DOOMSDAY!");
+                        CombatManager.CreateExplosionEffect(enemy.transform.position, 4f, new Color(1f, 0.1f, 0f), 0.8f);
+                    }
                 }
-                else break;
             }
-        }
 
-        // ── 湮灭领域 ──
-        if (_magePassive.AnnihilationZoneDmg > 0 && _magePassive.AnnihilationZoneDuration > 0)
-        {
-            FireZone.CreateDefault(transform.position, Mathf.RoundToInt(_magePassive.AnnihilationZoneDmg),
-                _magePassive.AnnihilationZoneDuration, 5f, 0.5f);
-        }
-
-        // ── 相位移动 ──
-        if (_magePassive.PhaseShiftDuration > 0)
-        {
-            var player = GameReferences.Player;
-            if (player != null)
+            // 余烬（燃烧叠层 > 10 时生成火焰区域）
+            int maxBurnStacks = 0;
+            for (int i = 0; i < nearby.Count; i++)
             {
-                var playerDmg = player.GetComponent<Damageable>();
-                if (playerDmg != null && playerDmg.CurrentHp < playerDmg.MaxHp)
-                    playerDmg.Heal(Mathf.RoundToInt(playerDmg.MaxHp * 0.05f * _magePassive.PhaseShiftDuration));
+                if (nearby[i] != null && nearby[i].TryGetComponent<BurnStackEffect>(out var b))
+                    maxBurnStacks = Mathf.Max(maxBurnStacks, b.StackCount);
             }
+            if (maxBurnStacks > _emberThreshold) SpawnEmberFireZones(maxBurnStacks);
+        }
+
+        // ── 高命中连锁引爆 ──
+        if (enemiesHit > _highHitThreshold)
+        {
+            _chainDetonateEndTime = Time.time + _highHitWindow;
+            _mage.SyncDotDamageMultiplierToAll();
         }
 
         if (enemiesHit > 0)
-            TryChainDetonate(critChance, critMult, 0);
+            TryChainDetonate(_character.GetDotCritChance(), _character.GetDotCritMultiplier(), 0);
 
-        DebugHelper.Log($"[DetonateSystem] DETONATE! Hit {enemiesHit} enemies for {totalDamage} total damage!");
-        return enemiesHit > 0;
+        DebugHelper.Log($"[DetonateSystem] DETONATE WAVE! Hit {enemiesHit} enemies for {totalDamage} total damage!");
     }
 
+    #endregion
+
+    #region Chain Detonate
     private void TryChainDetonate(float critChance, float critMult, int currentChain)
     {
         if (currentChain >= _maxChainCount) return;
-        int chainDamage = 0, chainHits = 0;
+        float chainDamage = 0; int chainHits = 0;
         _cachedChainTargets.Clear();
 
         // ── 使用空间分区查询范围内敌人 ──
@@ -373,7 +379,7 @@ public class DetonateSystem : MonoBehaviour
             if (enemy.TryGetComponent<StatusEffectManager>(out var sem) && sem.HasAnyDot)
             {
                 DetonateResult detResult;
-                int dmg = sem.Detonate(_detonateMultiplier * _chainDamageRatio, critChance, critMult, out detResult);
+                float dmg = sem.Detonate(_detonateMultiplier * _chainDamageRatio, critChance, critMult, out detResult);
                 if (dmg > 0) { chainDamage += dmg; chainHits++; _cachedChainTargets.Add(enemy);
                     CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.6f, 0.1f, 0.9f), 0.4f);
                     DamagePopup.Create(enemy.transform.position, dmg, new Color(0.6f, 0.1f, 0.9f), false); }
@@ -384,7 +390,7 @@ public class DetonateSystem : MonoBehaviour
                                  || enemy.TryGetComponent<PoisonStackEffect>(out _);
             if (hasAnyDotEffect && d.CurrentHp > 0)
             {
-                int extra = Mathf.RoundToInt(d.MaxHp * 0.1f * _detonateMultiplier * _chainDamageRatio);
+                float extra = d.MaxHp * 0.1f * _detonateMultiplier * _chainDamageRatio;
                 if (extra > 0) { d.TakeDamage(extra); chainDamage += extra; chainHits++; }
             }
         }
@@ -409,7 +415,7 @@ public class DetonateSystem : MonoBehaviour
     {
         yield return new WaitForSecondsRealtime(0.1f * chainLevel);
 
-        int chainDamage = 0, chainHits = 0;
+        float chainDamage = 0; int chainHits = 0;
         _cachedChainTargets.Clear();
         _cachedAlreadyHit.Clear();
 
@@ -428,7 +434,7 @@ public class DetonateSystem : MonoBehaviour
                 {
                     DetonateResult detResult;
                     float chainMult = _detonateMultiplier * _chainDamageRatio * Mathf.Pow(0.7f, chainLevel);
-                    int dmg = sem.Detonate(chainMult, critChance, critMult, out detResult);
+                    float dmg = sem.Detonate(chainMult, critChance, critMult, out detResult);
                     if (dmg > 0) { chainDamage += dmg; chainHits++; _cachedChainTargets.Add(enemy); }
                 }
 
@@ -451,6 +457,9 @@ public class DetonateSystem : MonoBehaviour
         }
     }
 
+    #endregion
+
+    #region Utility
     private void ApplyChargeSlowdown(float slowPercent, float duration)
     {
         // ── 使用空间分区查询范围内敌人 ──
@@ -472,48 +481,17 @@ public class DetonateSystem : MonoBehaviour
 
     private void SpawnEmberFireZones(int burnStacks)
     {
-        int emberDmg = Mathf.Max(1, burnStacks);
-        int zonesCreated = 0;
-        const int MAX_ZONES = 5;
-
-        // ── 使用空间分区查询范围内敌人 ──
-        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, _detonateRadius);
-        for (int i = 0; i < nearbyEnemies.Count && zonesCreated < MAX_ZONES; i++)
-        {
-            var enemy = nearbyEnemies[i];
-            if (enemy == null || !enemy.activeInHierarchy) continue;
-            FireZone.CreateDefault(enemy.transform.position, emberDmg, 3f, 1.5f, 0.5f);
-            zonesCreated++;
-        }
-        if (zonesCreated > 0)
-            DebugHelper.Log($"[DetonateSystem] EMBER! Created {zonesCreated} fire zones");
+        DetonateSubEffects.SpawnEmberFireZones(
+            (Vector2)transform.position, _detonateRadius,
+            _emberMaxZones, _emberDuration, _emberRadius, burnStacks);
     }
 
     private void TriggerFrostShatter(int frostStacks, float critChance, float critMult)
     {
-        float shatterRadius = 4f;
-        int shatterDmg = Mathf.Max(1, frostStacks * 5);
-        int targetsHit = 0;
-
-        // ── 使用空间分区查询碎裂范围内敌人 ──
-        var nearbyEnemies = SpatialGrid.QueryRadius((Vector2)transform.position, shatterRadius);
-        for (int i = 0; i < nearbyEnemies.Count; i++)
-        {
-            var enemy = nearbyEnemies[i];
-            if (enemy == null || !enemy.activeInHierarchy) continue;
-            if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
-            int finalDmg = shatterDmg;
-            if (Random.value < critChance) finalDmg = Mathf.RoundToInt(finalDmg * critMult);
-            d.TakeDamage(finalDmg);
-            targetsHit++;
-            if (!enemy.TryGetComponent<StatusEffectManager>(out var sem))
-                sem = enemy.gameObject.AddComponent<StatusEffectManager>();
-            sem.ApplyEffect(StatusEffectType.Frostbite, 1f, 2f);
-        }
-        if (targetsHit > 0)
-        {
-            CombatManager.CreateExplosionEffect(transform.position, shatterRadius, new Color(0.4f, 0.7f, 1f), 0.5f);
-            DebugHelper.Log($"[DetonateSystem] FROST SHATTER! {targetsHit} targets");
-        }
+        DetonateSubEffects.TriggerFrostShatter(
+            (Vector2)transform.position, _frostShatterRadius,
+            frostStacks, _frostShatterDmgPerStack, critChance, critMult);
     }
+
+    #endregion
 }

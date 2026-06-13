@@ -62,11 +62,11 @@ public abstract class AuraAbility : EnemyAbilityBase
     /// </summary>
     protected override void OnCooldownReady()
     {
-        Collider2D[] hits = FindNearbyAllies(_auraRadius);
+        int count = FindNearbyAllies(_auraRadius);
         int affectedCount = 0;
 
-        foreach (var hit in hits)
-        {
+        for (int i = 0; i < count; i++)
+        { var hit = OverlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
             if (hit.gameObject == gameObject) continue;
 

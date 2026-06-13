@@ -44,7 +44,7 @@ public class StatusEffect
 /// </summary>
 public struct DetonateResult
 {
-    public int totalDamage;
+    public float totalDamage;
     public int poisonStacks, burnStacks, bleedStacks, frostStacks;
     public bool hadBurn, hadFrost, hadPoison;
 }

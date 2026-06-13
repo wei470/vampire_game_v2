@@ -152,10 +152,7 @@ public class MageUpgradeValidator : EditorWindow
         // 快速检查：是否有已弃用的 category
         var deprecatedCats = new HashSet<CharacterUpgradeOption.UpgradeCategory>
         {
-            CharacterUpgradeOption.UpgradeCategory.DotPandemic,
-            CharacterUpgradeOption.UpgradeCategory.DualWield,
-            CharacterUpgradeOption.UpgradeCategory.Toxicology,
-            CharacterUpgradeOption.UpgradeCategory.ShatterBoost,
+
         };
 
         if (_config.upgradeEntries != null)
@@ -282,10 +279,7 @@ public class MageUpgradeValidator : EditorWindow
         var seenIds = new HashSet<string>();
         var deprecatedCats = new HashSet<CharacterUpgradeOption.UpgradeCategory>
         {
-            CharacterUpgradeOption.UpgradeCategory.DotPandemic,
-            CharacterUpgradeOption.UpgradeCategory.DualWield,
-            CharacterUpgradeOption.UpgradeCategory.Toxicology,
-            CharacterUpgradeOption.UpgradeCategory.ShatterBoost,
+
         };
 
         for (int i = 0; i < entries.Length; i++)
@@ -345,19 +339,9 @@ public class MageUpgradeValidator : EditorWindow
                     AddWarning("Upgrade", tag, $"DOT 暴击率 {e.value1:P0}，超过 50% 可能过于强力");
                 break;
 
-            case CharacterUpgradeOption.UpgradeCategory.DotResonance:
-                if (e.value1 > 0.5f)
-                    AddWarning("Upgrade", tag, $"共鸣概率 {e.value1:P0}，超过 50% 可能过于强力");
-                break;
-
             case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:
                 if (e.value1 > 1f)
                     AddWarning("Upgrade", tag, $"引爆伤害加成 {e.value1:P0}，超过 100% 可能过于强力");
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.DotLifesteal:
-                if (e.value1 > 1f)
-                    AddWarning("Upgrade", tag, $"每次 DOT 回血 {e.value1}，超过 1 点可能过于强力");
                 break;
 
             case CharacterUpgradeOption.UpgradeCategory.Ricochet:
@@ -368,16 +352,6 @@ public class MageUpgradeValidator : EditorWindow
             case CharacterUpgradeOption.UpgradeCategory.BulletCount:
                 if (e.value1 < 1f && e.value1 > 0)
                     AddInfo("Upgrade", tag, $"子弹数 {e.value1} 小于 1，可能无效（应为整数）");
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.ChainReaction:
-                if (e.value2 > 1f)
-                    AddWarning("Upgrade", tag, $"连锁引爆倍率 {e.value2:P0}，超过 100% 可能过于强力");
-                break;
-
-            case CharacterUpgradeOption.UpgradeCategory.PhaseShift:
-                if (e.value1 > 5f)
-                    AddWarning("Upgrade", tag, $"无敌时间 {e.value1}s 超过 5 秒，可能过于强力");
                 break;
 
             case CharacterUpgradeOption.UpgradeCategory.FrostExplosion:
@@ -405,10 +379,7 @@ public class MageUpgradeValidator : EditorWindow
         // 检查已弃用 category 的总数
         var deprecatedCats = new HashSet<CharacterUpgradeOption.UpgradeCategory>
         {
-            CharacterUpgradeOption.UpgradeCategory.DotPandemic,
-            CharacterUpgradeOption.UpgradeCategory.DualWield,
-            CharacterUpgradeOption.UpgradeCategory.Toxicology,
-            CharacterUpgradeOption.UpgradeCategory.ShatterBoost,
+
         };
         int deprecatedCount = upgrades.Count(u => deprecatedCats.Contains(u.category));
         if (deprecatedCount > 0)
@@ -427,17 +398,9 @@ public class MageUpgradeValidator : EditorWindow
             case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
             case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:
             case CharacterUpgradeOption.UpgradeCategory.DetonateAbility:
-            case CharacterUpgradeOption.UpgradeCategory.DotSaturation:
-            case CharacterUpgradeOption.UpgradeCategory.DotLifesteal:
             case CharacterUpgradeOption.UpgradeCategory.AttackSpeed:
-            case CharacterUpgradeOption.UpgradeCategory.DotResonance:
-            case CharacterUpgradeOption.UpgradeCategory.AmmoMastery:
-            case CharacterUpgradeOption.UpgradeCategory.ElementalAffinity:
-            case CharacterUpgradeOption.UpgradeCategory.CorruptTouch:
             case CharacterUpgradeOption.UpgradeCategory.LightJudgment:
             case CharacterUpgradeOption.UpgradeCategory.FrostExplosion:
-            case CharacterUpgradeOption.UpgradeCategory.PhaseShift:
-            case CharacterUpgradeOption.UpgradeCategory.SoulSiphon:
                 return true;
             default:
                 return false;

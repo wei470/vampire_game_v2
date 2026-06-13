@@ -57,7 +57,7 @@ public class BurnBullet : DotBulletBase
         if (centerEnemy == null || !centerEnemy.ConsumeStack()) return;
 
         // 从配置读取燃烧扩散范围
-        float spreadRadius = DotBulletConfig.GetDefault().BurnSpreadRadius;
+        float spreadRadius = DotEffectConfig.GetDefault().BurnSpreadRadius;
         float radiusSqr = spreadRadius * spreadRadius;
 
         // 视觉特效：燃烧扩散爆发
@@ -103,7 +103,7 @@ public class BurnBullet : DotBulletBase
     {
         if (!frostEff.ConsumeStack()) return;
 
-        var config = DotBulletConfig.GetDefault();
+        var config = DotEffectConfig.GetDefault();
         var melt = enemy.GetComponent<MeltEffect>();
         if (melt == null) melt = enemy.AddComponent<MeltEffect>();
         melt.Activate(config.MeltDuration, config.MeltDamageMultiplier);
@@ -178,152 +178,26 @@ public class BurnBullet : DotBulletBase
     public static BurnBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
         float burnDps, float burnDuration, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var pool = ObjectPool.Instance;
-        GameObject go = null;
-        if (pool != null && pool.HasPool(PoolHelper.DOT_BURN_BULLET))
-        {
-            go = pool.Spawn(PoolHelper.DOT_BURN_BULLET, pos, Quaternion.identity);
-        }
-        else
-        {
-            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_BURN_BULLET, BuildTemplate, 15);
-            go = pool != null ? pool.Spawn(PoolHelper.DOT_BURN_BULLET, pos, Quaternion.identity) : null;
-        }
+        var go = PoolHelper.SpawnOrFallback(PoolHelper.DOT_BURN_BULLET, BuildTemplate,
+            () => {
+                var g = new GameObject("BurnBullet");
+                g.tag = "Untagged";
+                PhysicsLayerSetup.SetAsBullet(g);
+                var sr = g.AddComponent<SpriteRenderer>();
+                sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(1f, 0.4f, 0f); sr.sortingOrder = 15;
+                g.transform.localScale = Vector3.one * 0.2f;
+                g.AddComponent<Rigidbody2D>().gravityScale = 0f;
+                var col = g.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
+                DotBulletVisualEffects.AttachFlameEffect(g);
+                g.AddComponent<BurnBullet>();
+                return g;
+            }, pos);
 
-        if (go == null)
-        {
-            go = new GameObject("BurnBullet");
-            go.tag = "Untagged";
-            PhysicsLayerSetup.SetAsBullet(go);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = DotSpriteCache.CircleSprite(); sr.color = new Color(1f, 0.4f, 0f); sr.sortingOrder = 15;
-            go.transform.localScale = Vector3.one * 0.2f;
-            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-            var col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.25f;
-            DotBulletVisualEffects.AttachFlameEffect(go);
-            go.AddComponent<BurnBullet>();
-        }
-
-        go.transform.position = pos;
-        go.SetActive(true);
         var b = go.GetComponent<BurnBullet>();
+        if (b == null) b = go.AddComponent<BurnBullet>();
         b.SetupBurn(speed, impactDmg, burnDps, burnDuration, dmgMult, canCrit, critChance, critMult);
         b.SetDirection(dir);
         return b;
     }
 }
 
-/// <summary>
-/// 燃烧叠加效果 — 层数越高，tick间隔越短（最低0.2秒）
-/// </summary>
-public class BurnStackEffect : StackEffectBase
-{
-    private int _stacks;
-    public float _baseDps;
-    public float _duration;
-    public override int StackCount => _stacks;
-    public override StatusEffectType EffectType => StatusEffectType.Burn;
-    public override bool IsActive => _stacks > 0;
-    public float _endTime;
-    public bool _canCrit; public float _critChance, _critMult;
-    private DotColorBlender _blender;
-    private float _tickAccumulator;
-    private int _lastRegisteredStacks = -1;
-
-    public void AddStack(float baseDps, float duration, bool canCrit, float critChance, float critMult)
-    {
-        _stacks++;
-        _baseDps = Mathf.Max(_baseDps, baseDps);
-        _duration = duration;
-        _endTime = Time.time + duration;
-        _canCrit = canCrit; _critChance = critChance; _critMult = critMult;
-    }
-
-    public override bool ConsumeStack() => false;
-
-    protected override void OnEnable()
-    {
-        base.OnEnable();
-        _blender = GetComponent<DotColorBlender>();
-        _tickAccumulator = 0f;
-        _lastRegisteredStacks = -1;
-    }
-
-    protected override void RefreshFromConfig()
-    {
-        _duration = DotBulletConfig.GetDefault().BurnDuration;
-    }
-
-    private void Update()
-    {
-        if (IsDead() || _stacks <= 0) { _stacks = 0; UnregisterColor(); Destroy(this); return; }
-
-        if (_blender != null && _stacks != _lastRegisteredStacks)
-        {
-            _lastRegisteredStacks = _stacks;
-            float intensity = Mathf.Clamp01(_stacks / 10f);
-            _blender.RegisterDot("burn", DotColorBlender.BURN_ORANGE, intensity, 10f);
-        }
-
-        float tickInterval = Mathf.Max(0.2f, 1.0f / _stacks);
-        _tickAccumulator += Time.deltaTime;
-
-        if (_tickAccumulator >= tickInterval)
-        {
-            _tickAccumulator -= tickInterval;
-            float dmg = _baseDps * tickInterval;
-            if (_canCrit && Random.value < _critChance) dmg *= _critMult;
-            _damageable.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(dmg)), new Color(1f, 0.5f, 0f));
-        }
-    }
-
-    protected override void OnDestroy() { base.OnDestroy(); UnregisterColor(); }
-    private void UnregisterColor() { if (_blender != null) _blender.UnregisterDot("burn"); }
-}
-
-/// <summary>
-/// 燃烧扩散文字 — 向上飘动并淡出，1秒后自动销毁
-/// </summary>
-public class BurnSpreadTextTicker : MonoBehaviour
-{
-    public float Lifetime = 1.0f;
-    private float _spawnTime;
-    private TextMesh _textMesh;
-
-    private void Awake()
-    {
-        _spawnTime = Time.time;
-        _textMesh = GetComponent<TextMesh>();
-        Destroy(gameObject, Lifetime + 1f);
-    }
-
-    private void OnEnable()
-    {
-        _spawnTime = Time.time;
-    }
-
-    private void Update()
-    {
-        float elapsed = Time.time - _spawnTime;
-        if (elapsed >= Lifetime)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        transform.position += Vector3.up * Time.deltaTime * 1.5f;
-
-        if (_textMesh != null)
-        {
-            Color c = _textMesh.color;
-            c.a = Mathf.Clamp01(1f - (elapsed / Lifetime));
-            _textMesh.color = c;
-        }
-    }
-
-    private void OnDisable()
-    {
-        // 不在 OnDisable 中 Destroy(gameObject) —— FullReset 会先 disable 所有 MB
-        // 再由 CleanupLingeringCombatObjects 统一销毁，避免级联销毁导致异常
-    }
-}

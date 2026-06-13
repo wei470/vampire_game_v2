@@ -24,7 +24,7 @@ public class FrostLightningField : MonoBehaviour
     public static FrostLightningField Create(Vector2 center, float radius, float duration)
     {
         // 从配置读取参数（如果未指定则使用配置默认值）
-        var config = DotBulletConfig.GetDefault();
+        var config = DotEffectConfig.GetDefault();
         if (radius <= 0f) radius = config.FrostLightningFieldRadius;
         if (duration <= 0f) duration = config.FrostLightningFieldDuration;
 
@@ -126,17 +126,17 @@ public class FrostLightningField : MonoBehaviour
 
     private void OnDisable()
     {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
+        DotEffectConfig.OnConfigChanged -= RefreshFromConfig;
     }
 
     private void Awake()
     {
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
+        DotEffectConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void RefreshFromConfig()
     {
-        var cfg = DotBulletConfig.GetDefault();
+        var cfg = DotEffectConfig.GetDefault();
         _duration = cfg.FrostLightningFieldDuration;
         _radius = cfg.FrostLightningFieldRadius;
         _frostTickInterval = cfg.FrostLightningTickInterval;

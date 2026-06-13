@@ -8,11 +8,22 @@ using System.Collections.Generic;
 public class SFXPoolHelper
 {
     private List<AudioSource> _pool;
+    private List<AudioSource> _spatialPool;
     private Transform _poolParent;
+    private Transform _spatialPoolParent;
     private float _masterVolume;
     private float _sfxVolume;
 
+    private const float SpatialMaxDistance = 20f;
+    private const float SpatialMinDistance = 1f;
+    private const int DefaultSpatialPoolSize = 16;
+
     public SFXPoolHelper(int poolSize, Transform parent, float masterVolume, float sfxVolume)
+        : this(poolSize, DefaultSpatialPoolSize, parent, masterVolume, sfxVolume)
+    {
+    }
+
+    public SFXPoolHelper(int poolSize, int spatialPoolSize, Transform parent, float masterVolume, float sfxVolume)
     {
         _masterVolume = masterVolume;
         _sfxVolume = sfxVolume;
@@ -23,6 +34,15 @@ public class SFXPoolHelper
         for (int i = 0; i < poolSize; i++)
         {
             _pool.Add(CreateAudioSource());
+        }
+
+        _spatialPool = new List<AudioSource>(spatialPoolSize);
+        _spatialPoolParent = new GameObject("SFX_SpatialPool").transform;
+        _spatialPoolParent.SetParent(parent);
+
+        for (int i = 0; i < spatialPoolSize; i++)
+        {
+            _spatialPool.Add(CreateSpatialAudioSource());
         }
     }
 
@@ -36,7 +56,7 @@ public class SFXPoolHelper
     }
 
     /// <summary>
-    /// 创建一个 AudioSource 组件
+    /// 创建一个 2D AudioSource 组件
     /// </summary>
     private AudioSource CreateAudioSource()
     {
@@ -46,6 +66,24 @@ public class SFXPoolHelper
         source.playOnAwake = false;
         source.loop = false;
         source.spatialBlend = 0f; // 2D 音效
+        return source;
+    }
+
+    /// <summary>
+    /// 创建一个 3D 空间音频 AudioSource 组件
+    /// </summary>
+    private AudioSource CreateSpatialAudioSource()
+    {
+        var go = new GameObject("SFX_SpatialSource");
+        go.transform.SetParent(_spatialPoolParent);
+        var source = go.AddComponent<AudioSource>();
+        source.playOnAwake = false;
+        source.loop = false;
+        source.spatialBlend = 1f; // 3D 音效
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = SpatialMinDistance;
+        source.maxDistance = SpatialMaxDistance;
+        source.dopplerLevel = 0f;
         return source;
     }
 
@@ -96,20 +134,39 @@ public class SFXPoolHelper
     }
 
     /// <summary>
-    /// 在指定位置播放 3D 音效
+    /// 从空间音频池中获取一个空闲的 3D AudioSource
+    /// </summary>
+    private AudioSource GetSpatialSource()
+    {
+        for (int i = 0; i < _spatialPool.Count; i++)
+        {
+            if (!_spatialPool[i].isPlaying)
+                return _spatialPool[i];
+        }
+
+        var newSource = CreateSpatialAudioSource();
+        _spatialPool.Add(newSource);
+        DebugHelper.Log($"[SFXPoolHelper] Spatial pool expanded to {_spatialPool.Count}");
+        return newSource;
+    }
+
+    /// <summary>
+    /// 在指定位置播放 3D 音效（使用独立空间音频池，带距离衰减）
     /// </summary>
     public void PlayAtPosition(AudioClip clip, Vector3 position, float volumeScale = 1f)
     {
         if (clip == null) return;
 
-        var source = GetSource();
+        var source = GetSpatialSource();
         source.transform.position = position;
-        source.spatialBlend = 1f; // 3D
         source.clip = clip;
         source.volume = _masterVolume * _sfxVolume * volumeScale;
+        source.spatialBlend = 1f;
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = SpatialMinDistance;
+        source.maxDistance = SpatialMaxDistance;
         source.pitch = 1f + Random.Range(-0.05f, 0.05f);
         source.Play();
-        source.spatialBlend = 0f; // 播放后重置为 2D
     }
 
     /// <summary>
@@ -132,6 +189,11 @@ public class SFXPoolHelper
         {
             if (_pool[i].isPlaying)
                 _pool[i].Stop();
+        }
+        for (int i = 0; i < _spatialPool.Count; i++)
+        {
+            if (_spatialPool[i].isPlaying)
+                _spatialPool[i].Stop();
         }
     }
 }

@@ -13,6 +13,18 @@ public class Damageable : MonoBehaviour, IDamageable
     [SerializeField] private int _maxHp = 100;
     [SerializeField] private int _currentHp;
     [SerializeField] private int _armor = 0;
+    [SerializeField] private float _hpRegenPerSecond = 0f;
+
+    // 护甲公式常量
+    private const float FLAT_CAP = 0.5f;        // 固定减伤最多减 50%
+    private const float PERCENT_BASE = 100f;     // 百分比减伤基数
+
+    /// <summary>每秒HP回复（可被升级修改）</summary>
+    public float HpRegenPerSecond
+    {
+        get => _hpRegenPerSecond;
+        set => _hpRegenPerSecond = Mathf.Max(0f, value);
+    }
 
     [Header("无敌帧（仅玩家）")]
     [SerializeField] private float _invincibleDuration = 0.5f;  // 无敌帧持续时间
@@ -67,6 +79,9 @@ public class Damageable : MonoBehaviour, IDamageable
     public string PoolKey => _poolKey;
 
     private BaseEntity _baseEntity;
+    private LightMarkEffect _cachedLightMark;
+    private DarkMarkEffect _cachedDarkMark;
+    private HitFlashEffect _cachedHitFlash;
 
     private void Awake()
     {
@@ -81,6 +96,9 @@ public class Damageable : MonoBehaviour, IDamageable
     {
         _currentHp = _maxHp;
         _dead = false;
+        _cachedLightMark = GetComponent<LightMarkEffect>();
+        _cachedDarkMark = GetComponent<DarkMarkEffect>();
+        _cachedHitFlash = GetComponent<HitFlashEffect>();
     }
 
     /// <summary>
@@ -96,8 +114,22 @@ public class Damageable : MonoBehaviour, IDamageable
     /// <summary>
     /// 玩家无敌帧闪烁效果（每帧调用）
     /// </summary>
+    private float _regenAccumulator;
+
     private void Update()
     {
+        // HP 回复
+        if (_hpRegenPerSecond > 0 && _currentHp > 0 && _currentHp < _maxHp)
+        {
+            _regenAccumulator += _hpRegenPerSecond * Time.deltaTime;
+            if (_regenAccumulator >= 1f)
+            {
+                int heal = Mathf.FloorToInt(_regenAccumulator);
+                _regenAccumulator -= heal;
+                Heal(heal);
+            }
+        }
+
         // 仅玩家无敌帧期间执行闪烁
         if (!gameObject.CompareTag("Player")) return;
         if (!IsInvincible)
@@ -156,21 +188,21 @@ public class Damageable : MonoBehaviour, IDamageable
 
     /// <summary>
     /// 受到伤害（默认白色数字）
-    /// 伤害公式：actualDamage = max(1, damage - armor)
+    /// 伤害公式：actualDamage = max(0.01, damage - armor)
     /// </summary>
     /// <param name="damage">原始伤害值</param>
-    public void TakeDamage(int damage)
+    public void TakeDamage(float damage)
     {
         TakeDamage(damage, Color.white);
     }
 
     /// <summary>
     /// 受到伤害（指定颜色的伤害数字）
-    /// 伤害公式：actualDamage = max(1, damage - armor)
+    /// 伤害公式：actualDamage = max(0.01, damage - armor)
     /// </summary>
     /// <param name="damage">原始伤害值</param>
     /// <param name="popupColor">伤害数字颜色</param>
-    public void TakeDamage(int damage, Color popupColor)
+    public void TakeDamage(float damage, Color popupColor)
     {
         if (_currentHp <= 0) return;
 
@@ -192,15 +224,35 @@ public class Damageable : MonoBehaviour, IDamageable
             }
         }
 
-        int actualDamage = Mathf.Max(1, damage - _armor);
-        _currentHp = Mathf.Max(0, _currentHp - actualDamage);
+        // 受伤加深效果（光明标记 + 黑暗标记）
+        if (_cachedLightMark == null) _cachedLightMark = GetComponent<LightMarkEffect>();
+        if (_cachedDarkMark == null) _cachedDarkMark = GetComponent<DarkMarkEffect>();
 
-        DebugHelper.Log($"[Damageable] {gameObject.name} took {actualDamage} damage (raw:{damage} - armor:{_armor}), HP: {_currentHp}/{_maxHp}");
+        float damageMultiplier = 1f;
+        if (_cachedLightMark != null && _cachedLightMark.IsActive)
+            damageMultiplier *= _cachedLightMark.GetDamageMultiplier();
+        if (_cachedDarkMark != null && _cachedDarkMark.IsActive)
+            damageMultiplier *= 1f + _cachedDarkMark.StackCount * DotEffectConfig.GetDefault().DarkMarkDamageBonus;
+
+        damage *= damageMultiplier;
+
+        // 混合护甲公式：固定减伤（上限50%） + 百分比减伤（递减收益）
+        // 固定减伤：最多减掉伤害的50%
+        float flatReduction = Mathf.Min(_armor, damage * FLAT_CAP);
+        // 百分比减伤：护甲/(护甲+100)，递减收益（护甲100=50%，护甲200=67%）
+        float percentReduction = _armor / (_armor + PERCENT_BASE);
+        float actualDamage = Mathf.Max(0.01f, (damage - flatReduction) * (1f - percentReduction));
+        _currentHp = Mathf.Max(0, _currentHp - Mathf.CeilToInt(actualDamage));
+
+        DebugHelper.Log($"[Damageable] {gameObject.name} took {actualDamage:F2} damage (raw:{damage:F2} - armor:{_armor}), HP: {_currentHp}/{_maxHp}");
 
         // 显示伤害数字（敌人受击时）
         if (!gameObject.CompareTag("Player"))
         {
             DamagePopup.Create(transform.position, actualDamage, popupColor, false);
+
+            if (_cachedHitFlash == null) _cachedHitFlash = GetComponent<HitFlashEffect>();
+            if (_cachedHitFlash != null) _cachedHitFlash.TriggerFlash();
         }
 
         OnDamaged?.Invoke(_currentHp, _maxHp);

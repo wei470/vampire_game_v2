@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 冰霜新星技能 - 释放冰霜冲击波，减速并伤害周围敌人。
@@ -12,6 +13,8 @@ using UnityEngine;
 /// </summary>
 public class FrostNovaSkill : BaseSkill
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     private System.Collections.Generic.List<(EnemyBase enemy, float originalSpeed)> _slowedEnemies
         = new System.Collections.Generic.List<(EnemyBase, float)>();
 
@@ -25,11 +28,11 @@ public class FrostNovaSkill : BaseSkill
         float slowAmount = _skillData.effectStrength; // 0.0 ~ 1.0
 
         // 对范围内所有敌人造成伤害和减速
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
+        int count = PhysicsHelper.OverlapCircle(center, radius, _overlapBuffer);
         int hitCount = 0;
 
-        foreach (var hit in hits)
-        {
+        for (int i = 0; i < count; i++)
+        { var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
             var dmg = hit.GetComponent<Damageable>();

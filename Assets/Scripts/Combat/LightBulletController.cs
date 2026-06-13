@@ -63,7 +63,7 @@ public class LightBulletController : MonoBehaviour
         _phase = Phase.Charging;
         _phaseTimer = 0f;
         CreateChargeBarVisual();
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
+        DotEffectConfig.OnConfigChanged += RefreshFromConfig;
     }
 
     private void Update()
@@ -246,14 +246,14 @@ public class LightBulletController : MonoBehaviour
 
     private void OnDestroy()
     {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
+        DotEffectConfig.OnConfigChanged -= RefreshFromConfig;
         if (_activeInstance == this) _activeInstance = null;
         CleanupVisuals();
     }
 
     private void RefreshFromConfig()
     {
-        var cfg = DotBulletConfig.GetDefault();
+        var cfg = DotEffectConfig.GetDefault();
         _chargeDuration = cfg.LightChargeDuration;
         _laserDamage = cfg.LightLaserDamage;
         _sweepAngle = cfg.LightSweepAngle;
@@ -270,164 +270,5 @@ public class LightBulletController : MonoBehaviour
         go.transform.position = pos;
         var controller = go.AddComponent<LightBulletController>();
         return controller;
-    }
-}
-
-/// <summary>
-/// 光明标记效果 — 挂载到敌人身上
-/// 每层受到伤害增加0.5%，无上限
-/// 敌人身上显示层数文字（与其他标记一致的xN格式）
-/// </summary>
-public class LightMarkEffect : MonoBehaviour
-{
-    private float _duration = 15f;
-    private int _stackCount = 0;
-    private float _lastStackTime;
-    private Damageable _damageable;
-    private GameObject _stackTextObj;
-    private float _damagePerStack = 0.005f;
-
-    public int StackCount => _stackCount;
-
-    public void AddStack(float duration, int maxStacks)
-    {
-        _duration = duration;
-        _lastStackTime = Time.time;
-        _stackCount++;
-        _damageable = GetComponent<Damageable>();
-
-        // 视觉：越叠越亮
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null)
-        {
-            float brightness = Mathf.Min(0.3f, _stackCount * 0.02f);
-            sr.color = Color.Lerp(sr.color, Color.white, brightness);
-        }
-
-        UpdateStackText();
-    }
-
-    /// <summary>
-    /// 获取受伤倍率：每层+0.5%，无上限
-    /// </summary>
-    public float GetDamageMultiplier()
-    {
-        if (_stackCount <= 0) return 1f;
-        return 1f + _stackCount * _damagePerStack;
-    }
-
-    private TextMesh _cachedTextMesh; // 缓存 TextMesh 组件
-    private int _lastDisplayStacks = -1; // 只在层数变化时更新文字
-
-    private void UpdateStackText()
-    {
-        if (_stackTextObj == null)
-        {
-            _stackTextObj = new GameObject("LightMarkText");
-            _stackTextObj.transform.localScale = Vector3.one * 0.3f;
-
-            _cachedTextMesh = _stackTextObj.AddComponent<TextMesh>();
-            _cachedTextMesh.characterSize = 0.2f;
-            _cachedTextMesh.anchor = TextAnchor.MiddleCenter;
-            _cachedTextMesh.alignment = TextAlignment.Center;
-            _cachedTextMesh.fontSize = 40;
-            _cachedTextMesh.color = new Color(1f, 1f, 0.8f);
-            _cachedTextMesh.fontStyle = FontStyle.Bold;
-            _lastDisplayStacks = -1; // 强制首次更新
-        }
-
-        // 只在层数变化时更新文字内容
-        if (_stackCount != _lastDisplayStacks)
-        {
-            _lastDisplayStacks = _stackCount;
-            if (_cachedTextMesh == null) _cachedTextMesh = _stackTextObj.GetComponent<TextMesh>();
-            if (_cachedTextMesh != null)
-            {
-                _cachedTextMesh.text = $"x{_stackCount}";
-                float t = Mathf.Clamp01(_stackCount / 50f);
-                _cachedTextMesh.color = Color.Lerp(new Color(1f, 1f, 0.7f), new Color(1f, 0.9f, 0.3f), t);
-            }
-        }
-    }
-
-    private void Start()
-    {
-        _damageable = GetComponent<Damageable>();
-        _lastStackTime = Time.time;
-        RefreshFromConfig();
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
-    }
-
-    private void LateUpdate()
-    {
-        // 持续更新文字位置跟随敌人
-        if (_stackTextObj != null)
-        {
-            _stackTextObj.transform.position = transform.position + new Vector3(0, 0.6f, 0);
-            _stackTextObj.transform.rotation = Quaternion.identity;
-        }
-
-        if (_stackCount > 0 && Time.time - _lastStackTime > _duration)
-        {
-            _stackCount = 0;
-            if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
-            var sr = GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = Color.white;
-            Destroy(this);
-            return;
-        }
-        if (_damageable != null && _damageable.CurrentHp <= 0)
-        {
-            if (_stackTextObj != null) Destroy(_stackTextObj);
-            Destroy(this);
-        }
-    }
-
-    private void OnDisable()
-    {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
-        if (_stackTextObj != null) { Destroy(_stackTextObj); _stackTextObj = null; }
-        _stackCount = 0;
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = Color.white;
-    }
-
-    private void OnDestroy()
-    {
-        if (_stackTextObj != null) Destroy(_stackTextObj);
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = Color.white;
-    }
-
-    private void RefreshFromConfig()
-    {
-        var cfg = DotBulletConfig.GetDefault();
-        _damagePerStack = cfg.LightMarkDamagePerStack;
-    }
-}
-
-/// <summary>
-/// 激光渐隐效果
-/// </summary>
-public class LaserFadeOut : MonoBehaviour
-{
-    private float _duration;
-    private float _startTime;
-    private SpriteRenderer _sr;
-
-    public void Init(float duration)
-    {
-        _duration = duration;
-        _startTime = Time.time;
-        _sr = GetComponent<SpriteRenderer>();
-    }
-
-    private void Update()
-    {
-        if (_sr == null) return;
-        float elapsed = Time.time - _startTime;
-        float alpha = 1f - (elapsed / _duration);
-        if (alpha <= 0f) { Destroy(gameObject); return; }
-        _sr.color = new Color(1f, 1f, 1f, alpha * 0.7f);
     }
 }

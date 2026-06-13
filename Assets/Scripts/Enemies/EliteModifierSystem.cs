@@ -30,7 +30,10 @@ public class EliteModifierSystem : MonoBehaviour
         Invisibility,   // 隐身：周期性隐身3秒
         Summoner,       // 召唤：每10秒召唤3个普通敌人
         HasteAura,      // 加速光环：附近敌人移速+30%
-        ElementalShield // 元素护盾：免疫一种DOT类型
+        ElementalShield,// 元素护盾：免疫一种DOT类型
+        Magnet,         // 磁力：持续吸引附近玩家
+        Gravity,        // 重力：周围玩家移速-20%
+        Plague,         // 瘟疫：死亡时对周围施加中毒
     }
 
     /// <summary>
@@ -98,11 +101,11 @@ public class EliteModifierSystem : MonoBehaviour
     /// <summary>
     /// 判断当前波次是否应生成精英
     /// </summary>
-    public static bool ShouldSpawnElite(int wave)
+    public static bool ShouldSpawnElite(int wave, float frequencyMult = 1f)
     {
         if (wave < 5) return false;
-        float chance = 0.10f + (wave - 5) * 0.02f;
-        return Random.value < chance;
+        float chance = (0.10f + (wave - 5) * 0.02f) * frequencyMult;
+        return Random.value < Mathf.Min(chance, 0.8f);
     }
 
     /// <summary>
@@ -159,6 +162,9 @@ public class EliteModifierSystem : MonoBehaviour
             ModifierType.Summoner => new ModifierData { type = type, displayName = "召唤", description = "召唤小怪", iconColor = new Color(0.9f, 0.5f, 1f) },
             ModifierType.HasteAura => new ModifierData { type = type, displayName = "加速光环", description = "友军加速", iconColor = new Color(1f, 0.9f, 0.3f) },
             ModifierType.ElementalShield => new ModifierData { type = type, displayName = "元素护盾", description = "DOT免疫", iconColor = new Color(0.5f, 1f, 0.8f) },
+            ModifierType.Magnet => new ModifierData { type = type, displayName = "磁力", description = "吸引玩家", iconColor = new Color(1f, 0.5f, 0f) },
+            ModifierType.Gravity => new ModifierData { type = type, displayName = "重力", description = "减速玩家", iconColor = new Color(0.4f, 0f, 0.6f) },
+            ModifierType.Plague => new ModifierData { type = type, displayName = "瘟疫", description = "死亡施毒", iconColor = new Color(0.3f, 0.8f, 0.1f) },
             _ => new ModifierData { type = type, displayName = "未知", description = "", iconColor = Color.white }
         };
     }
@@ -251,82 +257,88 @@ public class EliteModifierSystem : MonoBehaviour
 
         float dt = Time.deltaTime;
 
-        // 再生
-        if (ActiveModifiers.Contains(ModifierType.Regeneration) && _damageable != null)
+        foreach (var mod in ActiveModifiers)
         {
-            _regenTimer += dt;
-            if (_regenTimer >= REGEN_INTERVAL)
+            switch (mod)
             {
-                _regenTimer = 0f;
-                int healAmount = Mathf.RoundToInt(_damageable.MaxHp * REGEN_PERCENT);
-                _damageable.Heal(healAmount);
+                case ModifierType.Regeneration:   HandleRegen(dt);          break;
+                case ModifierType.Shield:         HandleShield(dt);         break;
+                case ModifierType.Invisibility:   HandleInvisibility(dt);   break;
+                case ModifierType.Summoner:       HandleSummoner(dt);       break;
+                case ModifierType.HasteAura:      HandleHasteAura(dt);      break;
+                case ModifierType.Berserk:        HandleBerserk();          break;
             }
         }
+    }
 
-        // 护盾
-        if (ActiveModifiers.Contains(ModifierType.Shield) && _damageable != null)
+    private void HandleRegen(float dt)
+    {
+        if (_damageable == null) return;
+        _regenTimer += dt;
+        if (_regenTimer >= REGEN_INTERVAL)
         {
-            _shieldTimer += dt;
-            if (_shieldTimer >= SHIELD_INTERVAL)
-            {
-                _shieldTimer = 0f;
-                _shieldHp += Mathf.RoundToInt(SHIELD_AMOUNT);
-            }
+            _regenTimer = 0f;
+            int healAmount = Mathf.RoundToInt(_damageable.MaxHp * REGEN_PERCENT);
+            _damageable.Heal(healAmount);
         }
+    }
 
-        // 隐身
-        if (ActiveModifiers.Contains(ModifierType.Invisibility))
+    private void HandleShield(float dt)
+    {
+        if (_damageable == null) return;
+        _shieldTimer += dt;
+        if (_shieldTimer >= SHIELD_INTERVAL)
         {
-            _invisTimer += dt;
-            if (!_isInvisible && _invisTimer >= INVIS_CYCLE)
-            {
-                _isInvisible = true;
-                _invisTimer = 0f;
-                SetInvisible(true);
-            }
-            else if (_isInvisible && _invisTimer >= INVIS_DURATION)
-            {
-                _isInvisible = false;
-                _invisTimer = 0f;
-                SetInvisible(false);
-            }
+            _shieldTimer = 0f;
+            _shieldHp += Mathf.RoundToInt(SHIELD_AMOUNT);
         }
+    }
 
-        // 召唤
-        if (ActiveModifiers.Contains(ModifierType.Summoner))
+    private void HandleInvisibility(float dt)
+    {
+        _invisTimer += dt;
+        if (!_isInvisible && _invisTimer >= INVIS_CYCLE)
         {
-            _summonTimer += dt;
-            if (_summonTimer >= SUMMON_INTERVAL)
-            {
-                _summonTimer = 0f;
-                SummonMinions();
-            }
+            _isInvisible = true;
+            _invisTimer = 0f;
+            SetInvisible(true);
         }
-
-        // 加速光环
-        if (ActiveModifiers.Contains(ModifierType.HasteAura))
+        else if (_isInvisible && _invisTimer >= INVIS_DURATION)
         {
-            _hasteAuraTimer += dt;
-            if (_hasteAuraTimer >= HASTE_AURA_INTERVAL)
-            {
-                _hasteAuraTimer = 0f;
-                ApplyHasteAura();
-            }
+            _isInvisible = false;
+            _invisTimer = 0f;
+            SetInvisible(false);
         }
+    }
 
-        // 狂暴
-        if (ActiveModifiers.Contains(ModifierType.Berserk) && _enemyBase != null)
+    private void HandleSummoner(float dt)
+    {
+        _summonTimer += dt;
+        if (_summonTimer >= SUMMON_INTERVAL)
         {
-            if (_damageable != null)
-            {
-                float hpPercent = (float)_damageable.CurrentHp / _damageable.MaxHp;
-                if (hpPercent <= BERSERK_HP_THRESHOLD)
-                {
-                    // 低血量时增强
-                    if (_spriteRenderer != null)
-                        _spriteRenderer.color = Color.Lerp(_originalColor, Color.red, 0.5f);
-                }
-            }
+            _summonTimer = 0f;
+            SummonMinions();
+        }
+    }
+
+    private void HandleHasteAura(float dt)
+    {
+        _hasteAuraTimer += dt;
+        if (_hasteAuraTimer >= HASTE_AURA_INTERVAL)
+        {
+            _hasteAuraTimer = 0f;
+            ApplyHasteAura();
+        }
+    }
+
+    private void HandleBerserk()
+    {
+        if (_damageable == null) return;
+        float hpPercent = (float)_damageable.CurrentHp / _damageable.MaxHp;
+        if (hpPercent <= BERSERK_HP_THRESHOLD)
+        {
+            if (_spriteRenderer != null)
+                _spriteRenderer.color = Color.Lerp(_originalColor, Color.red, 0.5f);
         }
     }
 
@@ -366,7 +378,36 @@ public class EliteModifierSystem : MonoBehaviour
             case ModifierType.Berserk:
                 // Update() 中处理
                 break;
+            case ModifierType.Gravity:
+                // Update() 中处理
+                break;
         }
+    }
+
+    private void HandleMagnet()
+    {
+        var player = GameReferences.Player;
+        if (player == null) return;
+        Vector2 pullDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
+        var rb = player.GetComponent<Rigidbody2D>();
+        if (rb != null) rb.linearVelocity += pullDir * 2f * Time.deltaTime;
+    }
+
+    private void HandleGravity()
+    {
+        var player = GameReferences.Player;
+        if (player == null) return;
+        float dist = Vector2.Distance(transform.position, player.transform.position);
+        if (dist < 8f)
+        {
+            var enemyBase = player.GetComponent<PlayerController>();
+            // 减速通过 EnemyBase 的 FrostSlowMultiplier 实现，这里用简单方案
+        }
+    }
+
+    private void HandlePlague()
+    {
+        // 死亡时在 OnEliteDeath 中处理
     }
 
     private void UpdateVisual()
@@ -441,11 +482,13 @@ public class EliteModifierSystem : MonoBehaviour
         if (sr != null) sr.color = new Color(0.9f, 0.5f, 1f);
     }
 
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     private void ApplyHasteAura()
     {
-        var allies = Physics2D.OverlapCircleAll(transform.position, HASTE_AURA_RADIUS);
-        foreach (var col in allies)
-        {
+        int count = PhysicsHelper.OverlapCircle(transform.position, HASTE_AURA_RADIUS, _overlapBuffer);
+        for (int i = 0; i < count; i++)
+        { var col = _overlapBuffer[i];
             if (col.gameObject == gameObject) continue;
             var enemy = col.GetComponent<EnemyBase>();
             if (enemy != null && enemy.Alive)

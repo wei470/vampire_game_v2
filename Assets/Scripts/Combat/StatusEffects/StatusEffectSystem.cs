@@ -66,14 +66,14 @@ public class StatusEffectManager : MonoBehaviour
     public float DotLifestealPerTick { get; set; } = 0f;
 
     // ── P2 新增强化 ──
-    /// <summary>共鸣：DOT触发时不消耗持续时间的几率</summary>
-    public float ResonanceChance { get; set; } = 0f;
     /// <summary>剧毒天赋：额外DOT暴击率</summary>
     public float ToxicologyCritBonus { get; set; } = 0f;
     /// <summary>腐化之触：DOT命中时降低敌人攻击力的百分比</summary>
     public float CorruptTouchDebuff { get; set; } = 0f;
     /// <summary>永恒痛苦：DOT单次伤害倍率（默认1.0，激活时0.85）</summary>
     public float EternalAgonyDamageMult { get; set; } = 1f;
+    /// <summary>凋零暴击：DOT暴击时额外伤害倍率</summary>
+    public float DotCritBurstChance { get; set; } = 0f;
 
     public List<StatusEffect> ActiveEffects => _activeEffects;
     public bool HasAnyDot => _activeEffects.Count > 0;
@@ -141,7 +141,7 @@ public class StatusEffectManager : MonoBehaviour
                 canCrit = canCrit, critChance = critChance, critMultiplier = critMult });
         }
 
-        if (type == StatusEffectType.Corrosion && _damageable != null)
+        if (CorrosionArmorReduction > 0 && _damageable != null)
             _damageable.SetArmor(Mathf.Max(0, _damageable.Armor - Mathf.RoundToInt(CorrosionArmorReduction)));
     }
 
@@ -165,8 +165,13 @@ public class StatusEffectManager : MonoBehaviour
         if (Time.time - _lastTickTime < effectiveInterval) return;
         _lastTickTime = Time.time;
 
-        if (!isOffScreen) UpdateVisual();
+        UpdateEffects(isOffScreen);
+        UpdateVisuals(isOffScreen);
+        UpdateParticles();
+    }
 
+    private void UpdateEffects(bool isOffScreen)
+    {
         float totalTickDamage = 0f;
         float totalTickDamageForErosion = 0f; // 侵蚀基准：上一次dot总伤
         bool hasRadiate = false; float radiateDmg = 0f;
@@ -207,16 +212,20 @@ public class StatusEffectManager : MonoBehaviour
                 tickDmg *= effect.critMultiplier;
                 tickCrit = true;
             }
+            if (DotCritBurstChance > 0 && Random.value < DotCritBurstChance)
+            {
+                tickDmg *= 2f;
+                tickCrit = true;
+            }
             if (effect.type == StatusEffectType.Wither) WitherActive = true;
             if (effect.type == StatusEffectType.Radiate && RadiateRange > 0) { hasRadiate = true; radiateDmg = tickDmg * RadiateDamagePercent; }
             totalTickDamage += tickDmg;
             // 凋零暴击时显示大字体
             if (tickCrit && !isOffScreen)
-                DamagePopup.Create(transform.position, Mathf.RoundToInt(tickDmg), DamagePopup.ColorCrit, true);
+                DamagePopup.Create(transform.position, tickDmg, DamagePopup.ColorCrit, true);
         }
 
         _comboSystem.CheckComboEffects(_activeEffects, gameObject, _sr, _originalColor, transform.position);
-        UpdateDotParticles();
 
         // 融化反应：灼烧期间 DOT 伤害翻倍
         var meltEffect = GetComponent<MeltEffect>();
@@ -230,7 +239,7 @@ public class StatusEffectManager : MonoBehaviour
         if (totalTickDamage > 0 && _damageable != null && _damageable.CurrentHp > 0)
         {
             if (_comboSystem.ShatterActive) totalTickDamage *= 1f + DotComboSystem.COMBO_SHATTER_BLEED_MULT;
-            int finalDmg = Mathf.Max(1, Mathf.RoundToInt(totalTickDamage));
+            float finalDmg = Mathf.Max(0.01f, totalTickDamage);
             _damageable.TakeDamage(finalDmg);
             // DOT伤害弹字（每tick显示）
             if (!isOffScreen)
@@ -252,7 +261,7 @@ public class StatusEffectManager : MonoBehaviour
                 }
             }
             if (DamageMeter.Instance != null && _activeEffects.Count > 0)
-                DamageMeter.Instance.RecordDotDamage(_activeEffects[0].type, Mathf.RoundToInt(totalTickDamage));
+                DamageMeter.Instance.RecordDotDamage(_activeEffects[0].type, totalTickDamage);
         }
 
         // 风蚀击退
@@ -276,15 +285,14 @@ public class StatusEffectManager : MonoBehaviour
             { for (int j = 0; j < enemies.Count; j++)
               { var e = enemies[j]; if (e == null || e == gameObject || !e.activeInHierarchy) continue;
                 if (((Vector2)(e.transform.position - transform.position)).sqrMagnitude > rSqr) continue;
-                var hd = e.GetComponent<Damageable>(); if (hd != null && hd.CurrentHp > 0) hd.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(radiateDmg))); } }
+                var hd = e.GetComponent<Damageable>(); if (hd != null && hd.CurrentHp > 0) hd.TakeDamage(Mathf.Max(0.01f, radiateDmg)); } }
         }
-
     }
 
     /// <summary>
     /// 引爆所有 DOT — Mage 专属能力
     /// </summary>
-    public int Detonate(float multiplier, float critChance, float critMult, out DetonateResult result)
+    public float Detonate(float multiplier, float critChance, float critMult, out DetonateResult result)
     {
         result = new DetonateResult();
         if (_activeEffects.Count == 0) return 0;
@@ -308,7 +316,7 @@ public class StatusEffectManager : MonoBehaviour
         }
         result.poisonStacks = poisonS; result.burnStacks = burnS; result.bleedStacks = bleedS; result.frostStacks = frostS;
         _activeEffects.Clear();
-        int finalDmg = Mathf.Max(1, Mathf.RoundToInt(totalDmg));
+        float finalDmg = Mathf.Max(0.01f, totalDmg);
         if (_damageable != null && _damageable.CurrentHp > 0) _damageable.TakeDamage(finalDmg);
         result.totalDamage = finalDmg; return finalDmg;
     }
@@ -342,13 +350,13 @@ public class StatusEffectManager : MonoBehaviour
         }
     }
 
-    private void UpdateVisual()
+    private void UpdateVisuals(bool isOffScreen)
     {
+        if (isOffScreen) return;
         DotVisualEffectManager.UpdateVisual(_sr, _activeEffects, _originalColor);
     }
 
-    // DOT粒子视觉（委托给 DotVisualEffectManager）
-    private void UpdateDotParticles()
+    private void UpdateParticles()
     {
         DotVisualEffectManager.UpdateDotParticles(gameObject, _activeEffects, ref _dotVFX);
     }

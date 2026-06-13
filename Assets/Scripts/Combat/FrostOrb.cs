@@ -30,6 +30,7 @@ public class FrostOrb : MonoBehaviour
     private float _lastTickTime;
     private float _damageMultiplier = 1f;
     private SpriteRenderer _sr;
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
     private HashSet<int> _slowedEnemies = new HashSet<int>();
 
     private void Awake()
@@ -107,9 +108,10 @@ public class FrostOrb : MonoBehaviour
 
     private void ApplyFrostDamage()
     {
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _zoneRadius);
-        foreach (var hit in hits)
+        int count = PhysicsHelper.OverlapCircle(transform.position, _zoneRadius, _overlapBuffer);
+        for (int i = 0; i < count; i++)
         {
+            var hit = _overlapBuffer[i];
             if (hit.CompareTag("Enemy"))
             {
                 var dmg = hit.GetComponent<Damageable>();

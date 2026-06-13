@@ -52,4 +52,11 @@ public class GameConfig : ScriptableObject
     public float cameraOrthoSize = 12f;
     public float cameraFollowSpeed = 8f;
     public float screenShakeIntensity = 0.3f;
+
+    [Header("DPS 测试木桩")]
+    public long dpsDummyHP = 2000000000;            // 木桩HP（默认20亿）
+    public int dpsDummyArmor = 0;                   // 木桩护甲
+    public float dpsDummyRegen = 0f;                // 木桩每秒回血
+    public bool dpsDummyInvincible = false;          // 木桩是否无敌（不死亡）
+    public float dpsDummyRespawnDelay = 1f;          // 木桩死亡后重生延迟
 }

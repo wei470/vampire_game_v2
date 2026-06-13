@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 雷暴技能 - 随机对多个敌人释放闪电攻击。
@@ -11,6 +12,7 @@ using UnityEngine;
 /// </summary>
 public class LightningStormSkill : BaseSkill
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
     [SerializeField] private int _maxTargets = 6;
 
     protected override void Activate()
@@ -22,11 +24,12 @@ public class LightningStormSkill : BaseSkill
         int damage = GetDamage();
 
         // 获取范围内的所有敌人
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
-        System.Collections.Generic.List<Damageable> enemies = new System.Collections.Generic.List<Damageable>();
+        int count = PhysicsHelper.OverlapCircle(center, radius, _overlapBuffer);
+        List<Damageable> enemies = new List<Damageable>();
 
-        foreach (var hit in hits)
+        for (int i = 0; i < count; i++)
         {
+            var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
             var dmg = hit.GetComponent<Damageable>();
             if (dmg != null && dmg.CurrentHp > 0)

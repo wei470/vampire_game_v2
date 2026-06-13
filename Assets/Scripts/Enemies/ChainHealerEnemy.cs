@@ -1,5 +1,6 @@
 #pragma warning disable CS0618
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 链式治疗敌人 - 治疗链跳跃到多个友军。
@@ -9,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class ChainHealerEnemy : EnemyBase
 {
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+
     [Header("链式治疗属性")]
     [SerializeField] private float _healRange = 6f;
     [SerializeField] private float _healCooldown = 4f;
@@ -66,12 +69,12 @@ public class ChainHealerEnemy : EnemyBase
         for (int i = 0; i < _chainCount; i++)
         {
             // 寻找最近的受伤友军
-            Collider2D[] nearby = Physics2D.OverlapCircleAll(currentPos, _chainRadius);
+            int nearbyCount = PhysicsHelper.OverlapCircle(currentPos, _chainRadius, _overlapBuffer);
             Transform bestTarget = null;
             float bestDist = float.MaxValue;
 
-            foreach (var col in nearby)
-            {
+            for (int j = 0; j < nearbyCount; j++)
+            { var col = _overlapBuffer[j];
                 if (!col.CompareTag("Enemy")) continue;
                 int id = col.gameObject.GetInstanceID();
                 if (healed.Contains(id)) continue;

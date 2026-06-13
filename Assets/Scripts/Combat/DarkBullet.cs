@@ -13,6 +13,7 @@ public class DarkBullet : MonoBehaviour
     private Vector2 _direction;
     private float _spawnTime;
     private Rigidbody2D _rb;
+    private PenetrateHandler _cachedPenetrate;
 
     private void Awake() { _rb = GetComponent<Rigidbody2D>(); }
     private void OnEnable()
@@ -20,6 +21,7 @@ public class DarkBullet : MonoBehaviour
         _spawnTime = Time.time;
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
+        _cachedPenetrate = GetComponent<PenetrateHandler>();
     }
     private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
     private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }
@@ -48,13 +50,22 @@ public class DarkBullet : MonoBehaviour
         DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
         var darkMark = other.GetComponent<DarkMarkEffect>();
         if (darkMark == null)
+        {
             darkMark = other.gameObject.AddComponent<DarkMarkEffect>();
-        darkMark.Init(_markSpreadRadius, _markSpreadEfficiency);
+            darkMark.Init(_markSpreadRadius, _markSpreadEfficiency);
+        }
+        else
+        {
+            darkMark.AddStack();
+        }
 
         // 命中视觉效果
         CombatManager.CreateExplosionEffect(other.transform.position, 0.4f,
             new Color(0.4f, 0.1f, 0.6f, 0.6f), 0.3f);
 
+        // 贯穿检查：懒加载回退（OnEnable 时 PenetrateHandler 可能还未添加）
+        if (_cachedPenetrate == null) _cachedPenetrate = GetComponent<PenetrateHandler>();
+        if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         DespawnSelf();
     }
 
@@ -84,300 +95,28 @@ public class DarkBullet : MonoBehaviour
     public static DarkBullet Create(Vector2 pos, Vector2 dir, float speed,
         float spreadRadius, float spreadEfficiency)
     {
-        var pool = ObjectPool.Instance;
-        GameObject go = null;
-        if (pool != null && pool.HasPool(PoolHelper.DOT_DARK_BULLET))
-        {
-            go = pool.Spawn(PoolHelper.DOT_DARK_BULLET, pos, Quaternion.identity);
-        }
-        else
-        {
-            PoolHelper.RegisterVirtualPrefab(PoolHelper.DOT_DARK_BULLET, BuildTemplate, 10);
-            go = pool != null ? pool.Spawn(PoolHelper.DOT_DARK_BULLET, pos, Quaternion.identity) : null;
-        }
+        var go = PoolHelper.SpawnOrFallback(PoolHelper.DOT_DARK_BULLET, BuildTemplate,
+            () => {
+                var g = new GameObject("DarkBullet");
+                g.tag = "Untagged";
+                PhysicsLayerSetup.SetAsBullet(g);
+                var sr = g.AddComponent<SpriteRenderer>();
+                sr.sprite = DotSpriteCache.Get();
+                sr.color = new Color(0.4f, 0.1f, 0.6f);
+                sr.sortingOrder = 15;
+                g.AddComponent<Rigidbody2D>().gravityScale = 0f;
+                var col = g.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                col.size = new Vector2(0.6f, 0.3f);
+                DotBulletVisualEffects.AttachTrail(g, new Color(0.4f, 0.1f, 0.6f, 0.7f), 0.8f, 0.05f);
+                g.AddComponent<DarkBullet>();
+                return g;
+            }, pos, 10);
 
-        if (go == null)
-        {
-            go = new GameObject("DarkBullet");
-            go.tag = "Untagged";
-            PhysicsLayerSetup.SetAsBullet(go);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = DotSpriteCache.Get();
-            sr.color = new Color(0.4f, 0.1f, 0.6f);
-            sr.sortingOrder = 15;
-            go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-            var col = go.AddComponent<BoxCollider2D>();
-            col.isTrigger = true;
-            col.size = new Vector2(0.6f, 0.3f);
-            DotBulletVisualEffects.AttachTrail(go, new Color(0.4f, 0.1f, 0.6f, 0.7f), 0.8f, 0.05f);
-            go.AddComponent<DarkBullet>();
-        }
-
-        go.transform.position = pos;
-        go.SetActive(true);
-        var bullet = go.GetComponent<DarkBullet>();
-        bullet.Setup(speed, spreadRadius, spreadEfficiency);
-        bullet.SetDirection(dir);
-        return bullet;
-    }
-}
-
-/// <summary>
-/// 黑暗标记效果 — 挂载到敌人身上
-/// 命中的敌人略微变黑（视觉反馈）
-/// 敌人死亡时，将所有DOT层数按50%效果传播给周围敌人
-/// 黑暗标记本身不会被传播
-/// </summary>
-public class DarkMarkEffect : MonoBehaviour
-{
-    private float _spreadRadius = 3f;
-    private float _spreadEfficiency = 0.5f;
-    private Damageable _damageable;
-    private bool _spreadDone = false;
-    private bool _visualApplied = false;
-    private Color _originalColor;
-    private BaseEntity _entity;
-
-    /// <summary>
-    /// 传播范围加成（可被升级增强）
-    /// </summary>
-    [System.NonSerialized] public float RadiusBonus = 0f;
-    /// <summary>
-    /// 传播效率加成（可被升级增强）
-    /// </summary>
-    [System.NonSerialized] public float EfficiencyBonus = 0f;
-
-    public void Init(float radius, float efficiency)
-    {
-        _spreadRadius = radius;
-        _spreadEfficiency = efficiency;
-        _damageable = GetComponent<Damageable>();
-        _spreadDone = false;
-
-        // 视觉：敌人略微变黑
-        ApplyDarkVisual();
-        // 订阅死亡事件（在敌人实际死亡时立即传播，此时DOT效果还在）
-        SubscribeDeath();
-    }
-
-    private void SubscribeDeath()
-    {
-        _entity = GetComponent<BaseEntity>();
-        if (_entity != null) _entity.OnDeath += OnDeathHandler;
-    }
-
-    private void UnsubscribeDeath()
-    {
-        if (_entity != null) { _entity.OnDeath -= OnDeathHandler; _entity = null; }
-    }
-
-    private void OnDeathHandler(Vector3 deathPos)
-    {
-        if (!_spreadDone)
-        {
-            _spreadDone = true;
-            SpreadDotOnDeath();
-        }
-    }
-
-    private void ApplyDarkVisual()
-    {
-        if (_visualApplied) return;
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null)
-        {
-            _originalColor = sr.color;
-            // 降低亮度30%，增加紫色色调
-            float darken = 0.7f;
-            sr.color = new Color(
-                _originalColor.r * darken + 0.1f,
-                _originalColor.g * darken,
-                _originalColor.b * darken + 0.15f,
-                _originalColor.a);
-            _visualApplied = true;
-        }
-    }
-
-    private void OnEnable()
-    {
-        // 对象池重用时重置状态
-        _spreadDone = false;
-        _visualApplied = false;
-        _damageable = GetComponent<Damageable>();
-        // 重新订阅死亡事件（如果之前Init过）
-        if (_entity != null) SubscribeDeath();
-        DotBulletConfig.OnConfigChanged += RefreshFromConfig;
-    }
-
-    private void OnDisable()
-    {
-        DotBulletConfig.OnConfigChanged -= RefreshFromConfig;
-        UnsubscribeDeath();
-        RestoreVisual();
-    }
-
-    private void OnDestroy()
-    {
-        UnsubscribeDeath();
-        RestoreVisual();
-    }
-
-    /// <summary>
-    /// 死亡时传播DOT到周围敌人（通过OnDeath事件触发，此时效果还在）
-    /// </summary>
-    private void SpreadDotOnDeath()
-    {
-        var sem = GetComponent<StatusEffectManager>();
-
-        float radius = _spreadRadius * (1f + RadiusBonus);
-        float efficiency = Mathf.Clamp01(_spreadEfficiency + EfficiencyBonus);
-        Vector3 pos = transform.position;
-
-        // 收集自身的DOT效果（可能为空，但仍需传播独立DOT组件）
-        var effects = sem?.ActiveEffects;
-        bool hasAnyDot = (effects != null && effects.Count > 0);
-        bool hasBleed = TryGetComponent<BleedEffect>(out _);
-        bool hasBurn = TryGetComponent<BurnStackEffect>(out _);
-        bool hasPoison = TryGetComponent<PoisonStackEffect>(out _);
-        bool hasFrost = TryGetComponent<FrostEffect>(out _);
-
-        if (!hasAnyDot && !hasBleed && !hasBurn && !hasPoison && !hasFrost)
-        {
-            DebugHelper.Log("[DarkMark] No active DOT effects to spread");
-            return;
-        }
-
-        DebugHelper.Log($"[DarkMark] Enemy dying with {(effects?.Count ?? 0)} DOT types + indie components, spreading at {efficiency:P0} eff");
-
-        // 查找周围敌人
-        Collider2D[] nearby = Physics2D.OverlapCircleAll(pos, radius);
-        int spreadCount = 0;
-        Collider2D nearestEnemy = null;
-        float nearestDist = float.MaxValue;
-
-        foreach (var col in nearby)
-        {
-            if (!col.CompareTag("Enemy")) continue;
-            if (col.gameObject == gameObject) continue;
-
-            var targetDmg = col.GetComponent<Damageable>();
-            if (targetDmg == null || targetDmg.CurrentHp <= 0) continue;
-
-            float dist = Vector2.Distance(pos, col.transform.position);
-            if (dist < nearestDist) { nearestDist = dist; nearestEnemy = col; }
-
-            DotBulletHelper.EnsureStatusEffectManager(col.gameObject);
-            var targetSem = col.GetComponent<StatusEffectManager>();
-            if (targetSem == null) continue;
-
-            // 传播 StatusEffectManager 中的每种DOT
-            if (effects != null)
-            {
-                foreach (var effect in effects)
-                {
-                    // 跳过黑暗标记本身（防止无限传播）
-                    if (effect.type == StatusEffectType.Dark) continue;
-
-                    float spreadDps = effect.damagePerSecond * efficiency;
-                    float spreadDuration = effect.remainingDuration * efficiency;
-
-                    if (spreadDps <= 0f && effect.type != StatusEffectType.Frostbite) continue;
-
-                    targetSem.ApplyEffect(effect.type, spreadDps, spreadDuration,
-                        effect.canCrit, effect.critChance, effect.critMultiplier);
-                }
-            }
-
-            // 传播独立DOT组件（与CurseSpreadSystem一致）
-            if (hasBleed)
-            {
-                var srcBleed = GetComponent<BleedEffect>();
-                if (!col.TryGetComponent<BleedEffect>(out var tgtBleed))
-                    tgtBleed = col.gameObject.AddComponent<BleedEffect>();
-                tgtBleed.Refresh(srcBleed._dps * efficiency, srcBleed._duration * efficiency,
-                    srcBleed._canCrit, srcBleed._critChance, srcBleed._critMult);
-            }
-            if (hasBurn)
-            {
-                var srcBurn = GetComponent<BurnStackEffect>();
-                if (!col.TryGetComponent<BurnStackEffect>(out var tgtBurn))
-                    tgtBurn = col.gameObject.AddComponent<BurnStackEffect>();
-                int stacks = Mathf.Max(1, Mathf.RoundToInt(srcBurn.StackCount * efficiency));
-                for (int s = 0; s < stacks; s++)
-                    tgtBurn.AddStack(srcBurn._baseDps * efficiency, srcBurn._duration * efficiency,
-                        srcBurn._canCrit, srcBurn._critChance, srcBurn._critMult);
-            }
-            if (hasPoison)
-            {
-                var srcPoison = GetComponent<PoisonStackEffect>();
-                if (!col.TryGetComponent<PoisonStackEffect>(out var tgtPoison))
-                    tgtPoison = col.gameObject.AddComponent<PoisonStackEffect>();
-                int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * efficiency));
-                for (int s = 0; s < pStacks; s++)
-                    tgtPoison.AddStack(2f, 0f, srcPoison._canCrit, srcPoison._critChance, srcPoison._critMult);
-            }
-            if (hasFrost)
-            {
-                var srcFrost = GetComponent<FrostEffect>();
-                if (!col.TryGetComponent<FrostEffect>(out var tgtFrost))
-                    tgtFrost = col.gameObject.AddComponent<FrostEffect>();
-                tgtFrost.ApplyFreeze(0.3f, srcFrost._slowPercent * efficiency,
-                    srcFrost._frostDps * efficiency, srcFrost._canCrit, srcFrost._critChance, srcFrost._critMult);
-            }
-
-            // 传播时附加紫色视觉效果
-            CombatManager.CreateExplosionEffect(col.transform.position, 0.4f,
-                new Color(0.4f, 0.1f, 0.6f, 0.5f), 0.3f);
-
-            spreadCount++;
-        }
-
-        // 锁链视觉：从死亡敌人指向最近敌人
-        if (nearestEnemy != null)
-            CreateDarkChain(pos, nearestEnemy.transform.position);
-
-        if (spreadCount > 0)
-        {
-            // 死亡时暗紫色冲击波扩散
-            CombatManager.CreateExplosionEffect(pos, radius, new Color(0.4f, 0.1f, 0.6f, 0.3f), 0.5f);
-            DebugHelper.Log($"[DarkMark] Spread DOT to {spreadCount} enemies, radius={radius:F1}, eff={efficiency:P0}");
-        }
-    }
-
-    /// <summary>
-    /// 创建暗紫色锁链视觉效果（从死亡敌人指向最近敌人）
-    /// </summary>
-    private static void CreateDarkChain(Vector3 from, Vector3 to)
-    {
-        var lineObj = new GameObject("DarkChain");
-        lineObj.transform.position = from;
-        var lr = lineObj.AddComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.startColor = new Color(0.5f, 0.1f, 0.8f, 0.9f);
-        lr.endColor = new Color(0.3f, 0.05f, 0.5f, 0f);
-        lr.startWidth = 0.15f;
-        lr.endWidth = 0.05f;
-        lr.positionCount = 2;
-        lr.SetPosition(0, from);
-        lr.SetPosition(1, to);
-        lr.sortingOrder = 25;
-        Object.Destroy(lineObj, 0.6f);
-    }
-
-    private void RestoreVisual()
-    {
-        if (_visualApplied)
-        {
-            var sr = GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = _originalColor;
-            _visualApplied = false;
-        }
-    }
-
-    private void RefreshFromConfig()
-    {
-        var cfg = DotBulletConfig.GetDefault();
-        _spreadRadius = cfg.DarkBaseRadius;
-        _spreadEfficiency = cfg.DarkBaseEfficiency;
+        var b = go.GetComponent<DarkBullet>();
+        if (b == null) b = go.AddComponent<DarkBullet>();
+        b.Setup(speed, spreadRadius, spreadEfficiency);
+        b.SetDirection(dir);
+        return b;
     }
 }

@@ -26,6 +26,7 @@ public class FireZone : MonoBehaviour
     private Vector2 _targetPosition;
     private bool _hasLanded = false;
     private Rigidbody2D _rb;
+    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
     private HashSet<int> _hitEnemies = new HashSet<int>();
     private float _damageMultiplier = 1f;
     private SpriteRenderer _sr;
@@ -101,9 +102,10 @@ public class FireZone : MonoBehaviour
 
     private void ApplyZoneDamage()
     {
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _zoneRadius);
-        foreach (var hit in hits)
+        int count = PhysicsHelper.OverlapCircle(transform.position, _zoneRadius, _overlapBuffer);
+        for (int i = 0; i < count; i++)
         {
+            var hit = _overlapBuffer[i];
             if (hit.CompareTag("Enemy"))
             {
                 var dmg = hit.GetComponent<Damageable>();

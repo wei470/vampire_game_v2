@@ -71,6 +71,7 @@ public abstract class DotBulletBase : MonoBehaviour
         _spawnTime = Time.time;
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
+        _cachedPenetrate = GetComponent<PenetrateHandler>();
     }
 
     protected virtual void Update()
@@ -94,6 +95,12 @@ public abstract class DotBulletBase : MonoBehaviour
             OnHitExtra(other);
         }
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
+        // 懒加载回退：OnEnable 时 PenetrateHandler 可能还未添加
+        if (_cachedPenetrate == null)
+        {
+            _cachedPenetrate = GetComponent<PenetrateHandler>();
+            if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
+        }
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
         DespawnSelf();
