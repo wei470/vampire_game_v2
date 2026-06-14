@@ -190,9 +190,9 @@ public class MinimapUI : MonoBehaviour
 
     private void DrawLootDots(float center, float scale, Vector3 playerPos)
     {
-        var gems = FindObjectsByType<XPGem>();
-        foreach (var gem in gems)
+        for (int i = 0; i < XPGem.All.Count; i++)
         {
+            var gem = XPGem.All[i];
             if (gem == null) continue;
             Vector3 offset = gem.transform.position - playerPos;
             if (offset.magnitude > _worldRange) continue;
@@ -202,9 +202,9 @@ public class MinimapUI : MonoBehaviour
             DrawDot(px - 1, py - 1, 2, _lootColor);
         }
 
-        var coins = FindObjectsByType<Coin>();
-        foreach (var coin in coins)
+        for (int i = 0; i < Coin.All.Count; i++)
         {
+            var coin = Coin.All[i];
             if (coin == null) continue;
             Vector3 offset = coin.transform.position - playerPos;
             if (offset.magnitude > _worldRange) continue;
@@ -222,9 +222,9 @@ public class MinimapUI : MonoBehaviour
     /// </summary>
     private void DrawEnvironmentZones(float center, float scale, Vector3 playerPos)
     {
-        var zones = FindObjectsByType<EnvironmentZone>();
-        foreach (var zone in zones)
+        for (int i = 0; i < EnvironmentZone.All.Count; i++)
         {
+            var zone = EnvironmentZone.All[i];
             if (zone == null) continue;
             Vector3 offset = zone.transform.position - playerPos;
             if (offset.magnitude > _worldRange) continue;

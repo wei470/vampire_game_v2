@@ -183,7 +183,7 @@ public class MenuSceneCreator
         GameObject helpObj = new GameObject("HelpText");
         helpObj.transform.SetParent(canvasObj.transform, false);
         Text helpText = helpObj.AddComponent<Text>();
-        helpText.text = "WASD=Move  Mouse=Aim  E=Detonate  F=Skill  ESC=Pause  R=Restart";
+        helpText.text = "WASD=Move  Mouse=Aim  E=Detonate  ESC=Pause  R=Restart";
         helpText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         helpText.fontSize = 16;
         helpText.color = new Color(0.5f, 0.5f, 0.5f);

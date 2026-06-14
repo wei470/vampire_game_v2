@@ -111,7 +111,10 @@ public class DetonateSystem : MonoBehaviour
     private void RefreshFromConfig()
     {
         var cfg = DotEffectConfig.GetDefault();
-        _detonateCooldown = cfg.DetonateCooldown;
+        var mage = _character as MagePassive;
+        float reduction = mage != null ? mage.DetonateCooldownReduction : 0f;
+        float mult = Mathf.Max(0.1f, 1f - reduction);
+        _detonateCooldown = cfg.DetonateCooldown * mult;
         _detonateMultiplier = cfg.DetonateMultiplier;
         _detonateRadius = cfg.DetonateRadius;
         _detonateWaveDuration = cfg.DetonateWaveDuration;
@@ -310,7 +313,7 @@ public class DetonateSystem : MonoBehaviour
                 if (_mage != null && _mage.FrostExplosionPct > 0
                     && enemy.TryGetComponent<FrostEffect>(out var frost) && frost.slowPercent >= _frostShatterThreshold)
                 {
-                    float frostDmg = Mathf.Max(0.01f, d.MaxHp * _mage.FrostExplosionPct);
+                    float frostDmg = Mathf.Min(800f, Mathf.Max(0.01f, 50f * _detonateMultiplier));
                     d.TakeDamage(frostDmg, new Color(0.4f, 0.7f, 1f));
                     totalDamage += frostDmg;
                     CombatManager.CreateExplosionEffect(enemy.transform.position, 2f, new Color(0.4f, 0.7f, 1f), 0.4f);
@@ -390,7 +393,7 @@ public class DetonateSystem : MonoBehaviour
                                  || enemy.TryGetComponent<PoisonStackEffect>(out _);
             if (hasAnyDotEffect && d.CurrentHp > 0)
             {
-                float extra = d.MaxHp * 0.1f * _detonateMultiplier * _chainDamageRatio;
+                float extra = 10f * _detonateMultiplier * _chainDamageRatio;
                 if (extra > 0) { d.TakeDamage(extra); chainDamage += extra; chainHits++; }
             }
         }

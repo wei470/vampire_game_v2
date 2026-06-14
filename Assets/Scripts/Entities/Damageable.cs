@@ -15,9 +15,9 @@ public class Damageable : MonoBehaviour, IDamageable
     [SerializeField] private int _armor = 0;
     [SerializeField] private float _hpRegenPerSecond = 0f;
 
-    // 护甲公式常量
-    private const float FLAT_CAP = 0.5f;        // 固定减伤最多减 50%
-    private const float PERCENT_BASE = 100f;     // 百分比减伤基数
+    // 护甲公式：每点护甲 = 2% 减伤
+    private const float ARMOR_REDUCTION_PER_POINT = 0.02f;
+    private const float MAX_REDUCTION = 0.9f;
 
     /// <summary>每秒HP回复（可被升级修改）</summary>
     public float HpRegenPerSecond
@@ -236,13 +236,10 @@ public class Damageable : MonoBehaviour, IDamageable
 
         damage *= damageMultiplier;
 
-        // 混合护甲公式：固定减伤（上限50%） + 百分比减伤（递减收益）
-        // 固定减伤：最多减掉伤害的50%
-        float flatReduction = Mathf.Min(_armor, damage * FLAT_CAP);
-        // 百分比减伤：护甲/(护甲+100)，递减收益（护甲100=50%，护甲200=67%）
-        float percentReduction = _armor / (_armor + PERCENT_BASE);
-        float actualDamage = Mathf.Max(0.01f, (damage - flatReduction) * (1f - percentReduction));
-        _currentHp = Mathf.Max(0, _currentHp - Mathf.CeilToInt(actualDamage));
+        // 护甲减伤：每点护甲 = 2% 减伤，上限 90%
+        float reduction = Mathf.Min(_armor * ARMOR_REDUCTION_PER_POINT, MAX_REDUCTION);
+        float actualDamage = Mathf.Max(0.01f, damage * (1f - reduction));
+        _currentHp = Mathf.Max(0, _currentHp - Mathf.RoundToInt(actualDamage));
 
         DebugHelper.Log($"[Damageable] {gameObject.name} took {actualDamage:F2} damage (raw:{damage:F2} - armor:{_armor}), HP: {_currentHp}/{_maxHp}");
 

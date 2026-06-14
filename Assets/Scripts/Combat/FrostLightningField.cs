@@ -143,9 +143,6 @@ public class FrostLightningField : MonoBehaviour
         _slowPercent = cfg.FrostBaseSlowPct;
     }
 
-    /// <summary>
-    /// 显示"霜电！"文字
-    /// </summary>
     private static void ShowFrostLightningText(Vector2 pos, float radius)
     {
         var textObj = new GameObject("FrostLightningText");
@@ -159,56 +156,9 @@ public class FrostLightningField : MonoBehaviour
         textMesh.alignment = TextAlignment.Center;
         textMesh.fontSize = 50;
         textMesh.fontStyle = FontStyle.Bold;
-        textMesh.color = new Color(0.4f, 0.7f, 1f); // 蓝白色
+        textMesh.color = new Color(0.4f, 0.7f, 1f);
 
         var ticker = textObj.AddComponent<ReactionTextTicker>();
         ticker.Lifetime = 1.5f;
-    }
-}
-
-/// <summary>
-/// 通用反应文字飘动组件 — 向上飘动并淡出
-/// </summary>
-public class ReactionTextTicker : MonoBehaviour
-{
-    public float Lifetime = 1.0f;
-    private float _spawnTime;
-    private TextMesh _textMesh;
-
-    private void Awake()
-    {
-        _spawnTime = Time.time;
-        _textMesh = GetComponent<TextMesh>();
-        Destroy(gameObject, Lifetime + 1f);
-    }
-
-    private void OnEnable()
-    {
-        _spawnTime = Time.time;
-    }
-
-    private void Update()
-    {
-        float elapsed = Time.time - _spawnTime;
-        if (elapsed >= Lifetime)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        transform.position += Vector3.up * Time.deltaTime * 1.5f;
-
-        if (_textMesh != null)
-        {
-            Color c = _textMesh.color;
-            c.a = Mathf.Clamp01(1f - (elapsed / Lifetime));
-            _textMesh.color = c;
-        }
-    }
-
-    private void OnDisable()
-    {
-        // 不在 OnDisable 中 Destroy(gameObject) —— FullReset 会先 disable 所有 MB
-        // 再由 CleanupLingeringCombatObjects 统一销毁，避免级联销毁导致异常
     }
 }

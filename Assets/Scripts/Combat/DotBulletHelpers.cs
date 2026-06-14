@@ -30,11 +30,24 @@ public static class DotBulletHelper
         if (magePassive != null)
         {
             sem.DotDurationMultiplier = magePassive.GetDotDurationMultiplier();
-            sem.DotFrequencyBonus = magePassive.DotFrequencyBonus;
             sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
             sem.WindErosionKnockback = magePassive.KnockbackBonus;
-            sem.EternalAgonyDamageMult = magePassive.EternalAgonyActive ? 0.85f : 1f;
-            sem.DotCritBurstChance = magePassive.DotCritBurstChance;
+
+            var dmg = enemy.GetComponent<Damageable>();
+            if (dmg != null)
+            {
+                int armor = dmg.Armor;
+
+                // 1. 腐蚀：护甲 × 90%
+                if (magePassive.CorrosionArmorReduction > 0)
+                    armor = Mathf.FloorToInt(armor * (1f - magePassive.CorrosionArmorReduction));
+
+                // 2. 侵蚀：无视 N 点护甲
+                if (magePassive.ErosionArmorPenetration > 0)
+                    armor -= magePassive.ErosionArmorPenetration;
+
+                dmg.SetArmor(Mathf.Max(0, armor));
+            }
         }
     }
 }
@@ -87,13 +100,19 @@ public static class DotSpriteCache
 /// </summary>
 public static class DotBulletVisualEffects
 {
+    private static Material _cachedDefaultMaterial;
+    private static Material DefaultMaterial
+    {
+        get { if (_cachedDefaultMaterial == null) _cachedDefaultMaterial = new Material(Shader.Find("Sprites/Default")); return _cachedDefaultMaterial; }
+    }
+
     public static void AttachTrail(GameObject go, Color trailColor, float trailTime, float startWidth)
     {
         var trail = go.AddComponent<TrailRenderer>();
         trail.time = trailTime;
         trail.startWidth = startWidth;
         trail.endWidth = 0f;
-        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.material = DefaultMaterial;
         trail.startColor = trailColor;
         trail.endColor = new Color(trailColor.r, trailColor.g, trailColor.b, 0f);
         trail.numCapVertices = 2;
@@ -121,7 +140,7 @@ public static class DotBulletVisualEffects
         trail.time = 0.3f;
         trail.startWidth = 0.2f;
         trail.endWidth = 0.05f;
-        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.material = DefaultMaterial;
         trail.startColor = new Color(0.5f, 0.8f, 1f, 0.7f);
         trail.endColor = new Color(0.5f, 0.8f, 1f, 0f);
         trail.numCapVertices = 3;
@@ -141,7 +160,7 @@ public static class DotBulletVisualEffects
         trail.time = 0.15f;
         trail.startWidth = 0.1f;
         trail.endWidth = 0.02f;
-        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.material = DefaultMaterial;
         trail.startColor = new Color(0.7f, 0.85f, 1f, 0.6f);
         trail.endColor = new Color(0.7f, 0.85f, 1f, 0f);
         trail.numCapVertices = 2;
@@ -165,7 +184,7 @@ public static class DotBulletVisualEffects
         trail.time = 0.2f;
         trail.startWidth = 0.15f;
         trail.endWidth = 0.02f;
-        trail.material = new Material(Shader.Find("Sprites/Default"));
+        trail.material = DefaultMaterial;
         trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
         trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
         trail.numCapVertices = 2;

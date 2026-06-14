@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// DOT 子弹基类 — 提取所有 DOT 子弹的公共逻辑
@@ -9,6 +10,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public abstract class DotBulletBase : MonoBehaviour
 {
+    public static readonly List<MonoBehaviour> ActiveDotBullets = new List<MonoBehaviour>();
     [SerializeField] protected float _speed = 12f;
     [SerializeField] protected float _lifetime = 4f;
     protected int _impactDamage;
@@ -68,6 +70,7 @@ public abstract class DotBulletBase : MonoBehaviour
 
     protected virtual void OnEnable()
     {
+        ActiveDotBullets.Add(this);
         _spawnTime = Time.time;
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
@@ -90,9 +93,9 @@ public abstract class DotBulletBase : MonoBehaviour
         var dmg = other.GetComponent<Damageable>();
         if (dmg != null && dmg.CurrentHp > 0)
         {
-            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             OnHitEnemy(other.gameObject);
             OnHitExtra(other);
+            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
         }
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) return;
         // 懒加载回退：OnEnable 时 PenetrateHandler 可能还未添加
@@ -108,6 +111,7 @@ public abstract class DotBulletBase : MonoBehaviour
 
     protected void DespawnSelf()
     {
+        ActiveDotBullets.Remove(this);
         OnBulletDespawn();
         if (gameObject.activeInHierarchy)
             gameObject.SetActive(false);

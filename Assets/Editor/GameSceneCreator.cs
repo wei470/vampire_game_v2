@@ -14,7 +14,7 @@ using UnityEngine.InputSystem.UI;
 /// 
 /// 创建内容：
 ///   - 玩家（蓝色方块 + PlayerController + Damageable + WeaponController + PlayerLevelSystem 
-///          + PlayerSkillManager + EquipmentManager）
+///          + EquipmentManager）
 ///   - SpawnManager（波次生成系统）
 ///   - HUD（Canvas: HP Bar + XP Bar + Level + Wave + Coins）
 ///   - LevelUpUI（升级选择面板）
@@ -74,10 +74,6 @@ public class GameSceneCreator
         // ── 9. 创建 GameOver UI ────────────────────────────────
         GameObject goMgr = new GameObject("GameOverManager");
         goMgr.AddComponent<GameOverUI>();
-
-        // ── 10. 创建 SelectionApplier ──────────────────────────
-        GameObject selApplier = new GameObject("SelectionApplier");
-        selApplier.AddComponent<SelectionApplier>();
 
         // ── 11. 创建 GameSceneBootstrap ────────────────────────
         GameObject bootstrap = new GameObject("GameSceneBootstrap");
@@ -164,9 +160,6 @@ public class GameSceneCreator
 
         // 武器控制器
         WeaponController wc = player.AddComponent<WeaponController>();
-
-        // 技能管理器
-        player.AddComponent<PlayerSkillManager>();
 
         return player;
     }

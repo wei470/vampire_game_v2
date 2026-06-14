@@ -169,11 +169,6 @@ public class LevelUpUI : MonoBehaviour
                     _customUpgradeStacks[slot.customOption.upgradeId] = 0;
                 _customUpgradeStacks[slot.customOption.upgradeId]++;
             }
-            else if (slot.isSkillUpgrade)
-            {
-                var skill = slot.skillUpgrade.skill;
-                if (skill != null) { skill.Upgrade(); DebugHelper.Log($"[LevelUpUI] Skill: {skill.Data.skillName} → Lv.{skill.CurrentLevel}"); }
-            }
             else
             {
                 ApplyGenericUpgrade(slot.genericType);

@@ -85,7 +85,11 @@ public class SpawnManager : MonoBehaviour
     /// </summary>
     public void StartFirstWave()
     {
-        // 懒初始化（Start() 可能还没执行）
+        StartFromWave(1);
+    }
+
+    public void StartFromWave(int wave)
+    {
         if (_configHelper == null)
         {
             _configHelper = new WaveConfigHelper();
@@ -98,7 +102,7 @@ public class SpawnManager : MonoBehaviour
             _prefabFactory = new EnemyPrefabFactory(gameObject.layer);
 
         StopAllCoroutines();
-        _currentWave = 0;
+        _currentWave = Mathf.Max(0, wave - 1);
         _enemiesAlive = 0;
         _isSpawning = false;
         _waveInProgress = false;
@@ -230,10 +234,6 @@ public class SpawnManager : MonoBehaviour
             EventManager.TriggerWaveComplete(_currentWave);
             WaveAffixSystem.OnWaveEnd();
 
-            // 难度解锁检查 + 存档
-            int unlocked = DifficultyManager.CheckDifficultyUnlock(DifficultyManager.CurrentDifficulty, _currentWave);
-            DifficultyManager.RecordWaveResult(DifficultyManager.CurrentDifficulty, _currentWave, 0);
-
             StartCoroutine(RestBeforeNextWave());
         }
     }
@@ -303,18 +303,11 @@ public class SpawnManager : MonoBehaviour
         float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
         int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
 
-        // 难度倍率
-        float diffHp = DifficultyManager.GetEnemyHpMult(_currentWave);
-        float diffDmg = DifficultyManager.GetEnemyDmgMult(_currentWave);
-        float diffSpd = DifficultyManager.GetEnemySpeedMult();
-        float diffElite = DifficultyManager.GetEliteFrequencyMult();
-
         EnemyScalingHelper.ApplyScaling(enemy, _playerTransform,
-            HpMultiplier * diffHp, WeakenMultiplier * diffDmg,
-            challengeHp, challengeSpd * diffSpd, eliteArmor, _currentWave);
+            HpMultiplier, WeakenMultiplier,
+            challengeHp, challengeSpd, eliteArmor, _currentWave);
 
-        // 精英词缀系统：精英率受难度倍率影响
-        if (EliteModifierSystem.ShouldSpawnElite(_currentWave, diffElite))
+        if (EliteModifierSystem.ShouldSpawnElite(_currentWave, 1f))
         {
             var eliteMod = enemy.GetComponent<EliteModifierSystem>();
             if (eliteMod == null) eliteMod = enemy.AddComponent<EliteModifierSystem>();
@@ -400,7 +393,19 @@ public class SpawnManager : MonoBehaviour
         if (_playerTransform == null) return Random.insideUnitCircle * _spawnRadius;
         float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
         Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * _spawnRadius;
-        return (Vector2)_playerTransform.position + offset;
+        Vector2 pos = (Vector2)_playerTransform.position + offset;
+
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            float h = cam.orthographicSize - 2f;
+            float w = h * cam.aspect - 2f;
+            Vector3 cp = cam.transform.position;
+            pos.x = Mathf.Clamp(pos.x, cp.x - w, cp.x + w);
+            pos.y = Mathf.Clamp(pos.y, cp.y - h, cp.y + h);
+        }
+
+        return pos;
     }
 
     private void CleanDeadEnemies()
@@ -425,11 +430,11 @@ public class SpawnManager : MonoBehaviour
         // 通过 Tag 查找所有敌人用于强制清理（无更好的替代方案）
         foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
         {
-            if (enemy != null) { Object.DestroyImmediate(enemy); destroyed++; }
+            if (enemy != null) { Object.Destroy(enemy); destroyed++; }
         }
         foreach (var boss in FindObjectsByType<BossEnemy>())
         {
-            if (boss != null) { Object.DestroyImmediate(boss.gameObject); destroyed++; }
+            if (boss != null) { Object.Destroy(boss.gameObject); destroyed++; }
         }
         DebugHelper.Log($"[SpawnManager] ForceDestroyAllEnemies: Destroyed {destroyed} enemies");
     }

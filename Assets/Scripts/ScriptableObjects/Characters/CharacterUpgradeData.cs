@@ -44,10 +44,11 @@ public class CharacterUpgradeOption
 
         // ── Mage 专属扩展 ──
         ArmorReduction,     // 腐蚀 — 拥有DOT的敌人护甲降低
+        ArmorPenetration,   // 侵蚀 — 无视敌人护甲
         DotFrequency,       // 痛苦 — DOT触发间隔缩短
         DotCritBurst,       // 凋零 — DOT有几率造成双倍伤害
         DotTrigger,         // 侵蚀 — 每N次DOT生效额外冲击
-        AttackSpeed,        // 急速 — 攻速+子弹速度
+        AttackSpeed,        // 急速 — 攻速
         BulletCount,        // 弹幕 — 子弹数量增加
         Ricochet,           // 贯穿 — 子弹穿透
         BulletSize,         // 弹体 — 子弹碰撞体积
@@ -60,7 +61,6 @@ public class CharacterUpgradeOption
         CritDamageBonus,    // 暴击伤害
         MagnetRange,        // 拾取范围
         HpRegen,            // HP回复
-        BulletSpeed,        // 子弹速度
         Knockback,          // 击退
 
         // ── Mage 协同 ──

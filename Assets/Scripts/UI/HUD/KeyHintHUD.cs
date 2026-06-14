@@ -28,7 +28,7 @@ public class KeyHintHUD : MonoBehaviour
     private const float FADE_DURATION = 1f;
 
     // ── Mage 专属键位 ──
-    private string _hintText = "WASD Move | Mouse Shoot | F Skill | Q Switch | Tab Shop | ESC Pause";
+    private string _hintText = "WASD Move | Mouse Shoot | E Detonate | Tab Shop | ESC Pause";
 
     private void Awake()
     {
@@ -46,7 +46,7 @@ public class KeyHintHUD : MonoBehaviour
     /// </summary>
     public void SetMageKeys()
     {
-        _hintText = "WASD Move | E Detonate | F Skill | Q Switch | Tab Shop | ESC Pause";
+        _hintText = "WASD Move | E Detonate | Tab Shop | ESC Pause";
     }
 
     private void Update()

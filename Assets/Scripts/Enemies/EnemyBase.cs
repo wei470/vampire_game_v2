@@ -20,6 +20,11 @@ public class EnemyBase : BaseEntity
     private float _lastAttackTime;
     private EnemyHealthBar _healthBar;
 
+    public Damageable CachedDamageable => _damageable;
+    public Rigidbody2D CachedRigidbody => _rb;
+
+    public static readonly System.Collections.Generic.List<EnemyBase> AllAlive = new System.Collections.Generic.List<EnemyBase>(64);
+
     // ── #15 距离分级 LOD 系统 ──
     private static int _globalFrameCounter = 0;
     private int _aiUpdateInterval = 1;      // 每 N 帧更新一次 AI
@@ -74,11 +79,11 @@ public class EnemyBase : BaseEntity
     /// </summary>
     protected override void OnEnable()
     {
-        PhysicsLayerSetup.SetAsEnemy(gameObject); // #17 Enemy Layer
-        base.OnEnable(); // 重置 _alive = true
+        PhysicsLayerSetup.SetAsEnemy(gameObject);
+        base.OnEnable();
         RegisterDeathEvent();
+        if (!AllAlive.Contains(this)) AllAlive.Add(this);
 
-        // 对象池回收时重置移速到基础值（避免上一次DOT效果残留的减速/暂停）
         _moveSpeed = BaseMoveSpeed;
         FrostSlowMultiplier = 1f;
         IsStaticStunned = false;
@@ -110,6 +115,7 @@ public class EnemyBase : BaseEntity
     /// </summary>
     protected virtual void OnDisable()
     {
+        AllAlive.Remove(this);
         UnregisterDeathEvent();
     }
 

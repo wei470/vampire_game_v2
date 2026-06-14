@@ -27,24 +27,28 @@ public class MenuSceneBootstrap : MonoBehaviour
 
     private void Start()
     {
-        // ======== 仅运行时执行的初始化 ========
         if (!Application.isPlaying) return;
 
-        // GameManager 默认状态已是 Menu，无需重复设置
-
-        // SaveManager 是 Singleton，Instance getter 自动创建
         _ = SaveManager.Instance;
 
-        // ShopUI 无 Instance，需要查找或创建
+        // 确保 BGMManager 存在并播放主菜单 BGM
+        if (BGMManager.Instance == null)
+        {
+            var bgmObj = new GameObject("BGMManager");
+            bgmObj.AddComponent<BGMManager>();
+        }
+        BGMManager.Instance.PlayClip("music1");
+
         _shopUI = FindAnyObjectByType<ShopUI>();
         if (_shopUI == null)
         {
             var shopObj = new GameObject("ShopUI");
             _shopUI = shopObj.AddComponent<ShopUI>();
-            DebugHelper.Log("[MenuBootstrap] Created ShopUI");
         }
 
-        // 绑定按钮事件（仅运行时）
+        bool isAdmin = AdminConfig.Instance.IsAdmin;
+
+        // 绑定按钮事件
         var buttons = FindObjectsByType<Button>();
         foreach (var btn in buttons)
         {
@@ -58,32 +62,33 @@ public class MenuSceneBootstrap : MonoBehaviour
                     {
                         if (_shopUI != null) _shopUI.OpenShop();
                     });
+                    if (!isAdmin) btn.gameObject.SetActive(false);
                     break;
                 case "TestButton":
                     btn.onClick.AddListener(StartTestMode);
+                    if (!isAdmin) btn.gameObject.SetActive(false);
                     break;
                 case "DailyButton":
                     btn.onClick.AddListener(StartDailyChallenge);
+                    if (!isAdmin) btn.gameObject.SetActive(false);
                     break;
             }
         }
 
-        // 如果场景中没有 TestButton，动态创建一个
-        bool foundTest = false;
-        foreach (var btn in buttons)
-        {
-            if (btn.gameObject.name == "TestButton")
-            {
-                foundTest = true;
-                break;
-            }
-        }
+        if (!isAdmin) return;
 
+        // 管理员模式：动态创建测试按钮
         var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             var allCanvases = FindObjectsByType<Canvas>();
             if (allCanvases.Length > 0) canvas = allCanvases[0];
+        }
+
+        bool foundTest = false;
+        foreach (var btn in buttons)
+        {
+            if (btn.gameObject.name == "TestButton") { foundTest = true; break; }
         }
 
         if (!foundTest && canvas != null)
@@ -206,24 +211,23 @@ public class MenuSceneBootstrap : MonoBehaviour
             StartGame();
         }
 
-            if (kb.tKey.wasPressedThisFrame)
+        if (!AdminConfig.Instance.IsAdmin) return;
+
+        if (kb.tKey.wasPressedThisFrame)
         {
             StartTestMode();
         }
 
-        // 按B键进入Boss测试模式
         if (kb.bKey.wasPressedThisFrame)
         {
             StartBossTestMode();
         }
 
-        // #43 按 D 键开始每日挑战
         if (Keyboard.current.dKey.wasPressedThisFrame)
         {
             StartDailyChallenge();
         }
 
-        // 按 G 键进入 DPS 测试模式
         if (Keyboard.current.gKey.wasPressedThisFrame)
         {
             StartDpsTestMode();

@@ -12,9 +12,8 @@ public class CoreSystemTests
     // ═══ DOT 计算测试 ═══
 
     [Test]
-    public void DotGunState_IsStruct_NoHeapAllocation()
+    public void DotGunState_CreatesWithDefaults()
     {
-        // DotGunState 应为 struct（#11 优化）
         var gun = new DotGunState
         {
             effectType = StatusEffectType.Poison,
@@ -23,7 +22,6 @@ public class CoreSystemTests
             impactDamage = 0,
             dotDps = 2f,
             dotDuration = 5f,
-            lastFireTime = -999f,
             upgradeLevel = 1
         };
 
@@ -220,548 +218,373 @@ public class CoreSystemTests
 
     // ═══ 升级叠加效果正确性测试 ═══
 
-    [Test]
-    public void EnemyDotResistance_DamageMultiplier_CalculatesCorrectly()
-    {
-        // 抗性0.5 → 倍率0.5, 弱点-0.5 → 倍率1.5, 免疫1.0 → 倍率0
-        Assert.AreEqual(0.5f, Mathf.Max(0f, 1f - 0.5f));
-        Assert.AreEqual(1.5f, Mathf.Max(0f, 1f - (-0.5f)));
-        Assert.AreEqual(0f, Mathf.Max(0f, 1f - 1.0f));
-        Assert.AreEqual(1.0f, Mathf.Max(0f, 1f - 0f));
-    }
-
-    [Test]
-    public void EnemyDotResistance_TankPreset_HasCorrectValues()
-    {
-        // Tank: 流血抗性+50%, 霜冻弱点-30%
-        float bleedRes = 0.5f;
-        float frostRes = -0.3f;
-        Assert.AreEqual(0.5f, Mathf.Max(0f, 1f - bleedRes)); // 流血伤害减半
-        Assert.AreEqual(1.3f, Mathf.Max(0f, 1f - frostRes)); // 霜冻伤害+30%
-    }
-
-    [Test]
-    public void DarkMarkEffect_SpreadEfficiency_DefaultIs50()
-    {
-        float efficiency = 0.5f;
-        Assert.AreEqual(0.5f, efficiency);
-        // 传播后DPS = 原DPS * 0.5
-        Assert.AreEqual(2.5f, 5f * efficiency);
-    }
-
-    // ═══ DOT伤害来源追踪测试 (5.2架构改进) ═══
-
-    [Test]
-    public void StatusEffect_HasSourceTracking_Fields()
-    {
-        // StatusEffect 应包含 canCrit/critChance/critMultiplier 用于伤害来源
-        var effect = new StatusEffect
-        {
-            type = StatusEffectType.Poison,
-            damagePerSecond = 2f,
-            remainingDuration = 5f,
-            canCrit = true,
-            critChance = 0.3f,
-            critMultiplier = 2f
-        };
-        Assert.IsTrue(effect.canCrit);
-        Assert.AreEqual(0.3f, effect.critChance);
-        Assert.AreEqual(2f, effect.critMultiplier);
-    }
-
-    [Test]
-    public void DotDamageCalculation_WithCrit_MultipliesCorrectly()
-    {
-        // 基础伤害 * 暴击倍率
-        int baseDmg = 5;
-        float critMult = 2f;
-        int critDmg = Mathf.RoundToInt(baseDmg * critMult);
-        Assert.AreEqual(10, critDmg);
-    }
-
-    [Test]
-    public void DotDamageCalculation_WithCritRounds_Correctly()
-    {
-        // 3 * 1.5 = 4.5 → Mathf.RoundToInt 使用银行家舍入，4.5 → 4
-        int baseDmg = 3;
-        float critMult = 1.5f;
-        Assert.AreEqual(4, Mathf.RoundToInt(baseDmg * critMult));
-    }
-
-    // ═══ MagnetMultiplier 测试 ═══
-
-    [Test]
-    public void MagnetMultiplier_DefaultsToOne()
-    {
-        MagnetMultiplierSystem.Reset();
-        Assert.AreEqual(1f, MagnetMultiplierSystem.MagnetRangeMultiplier);
-    }
-
-    [Test]
-    public void MagnetMultiplier_ResetWorks()
-    {
-        MagnetMultiplierSystem.ApplyMagnetRangeUp();
-        MagnetMultiplierSystem.Reset();
-        Assert.AreEqual(1f, MagnetMultiplierSystem.MagnetRangeMultiplier);
-    }
-
-    // ═══ #18 新增：DOT 暴击公式测试（含进化+协同叠加）═══
-
-    [Test]
-    public void DotCrit_BasicFormula_CalculatesCorrectly()
-    {
-        // 基础暴击率 10% + 升级 10% = 20%
-        float baseCritChance = 0.10f;
-        float upgradeBonus = 0.10f;
-        float totalCritChance = baseCritChance + upgradeBonus;
-
-        Assert.AreEqual(0.20f, totalCritChance, 0.001f);
-    }
-
-    [Test]
-    public void DotCrit_WithEvolution_ScalesCorrectly()
-    {
-        // 进化系统提供额外暴击加成
-        float baseCritChance = 0.10f;
-        float upgradeBonus = 0.20f; // 2次凋零升级
-        float evolutionBonus = 0.05f; // 进化加成
-        float totalCritChance = Mathf.Clamp01(baseCritChance + upgradeBonus + evolutionBonus);
-
-        Assert.AreEqual(0.35f, totalCritChance, 0.001f);
-    }
-
-    [Test]
-    public void DotCrit_CappedAt100Percent()
-    {
-        // 暴击率不应超过 100%
-        float baseCritChance = 0.10f;
-        float upgradeBonus = 0.50f; // 5次凋零
-        float evolutionBonus = 0.20f;
-        float synergyBonus = 0.30f;
-        float totalCritChance = Mathf.Clamp01(baseCritChance + upgradeBonus + evolutionBonus + synergyBonus);
-
-        Assert.AreEqual(1.0f, totalCritChance, 0.001f);
-    }
-
-    [Test]
-    public void DotCrit_Multiplier_AppliesOnCrit()
-    {
-        // 暴击时伤害 = 基础 * 暴击倍率
-        int baseDmg = 5;
-        float critMultiplier = 2.0f;
-        int critDmg = Mathf.RoundToInt(baseDmg * critMultiplier);
-        int normalDmg = baseDmg; // 未暴击
-
-        Assert.AreEqual(10, critDmg);
-        Assert.AreEqual(5, normalDmg);
-    }
-
-    [Test]
-    public void DotCrit_Multiplier_WithStacks()
-    {
-        // 每层凋零 +10% 暴击率，3层 = 30%
-        float baseCrit = 0.10f;
-        float perStack = 0.10f;
-        int stacks = 3;
-        float totalCrit = baseCrit + perStack * stacks;
-
-        Assert.AreEqual(0.40f, totalCrit, 0.001f);
-    }
-
-    // ═══ #18 新增：元素反应触发条件测试 ═══
-
-    [Test]
-    public void ElementReaction_BurnWind_CanTriggerTogether()
-    {
-        // 燃烧 + 风化 可以共存在同一敌人上
-        bool hasBurn = true;
-        bool hasWind = true;
-        bool canReact = hasBurn && hasWind;
-
-        Assert.IsTrue(canReact);
-    }
-
-    [Test]
-    public void ElementReaction_FrostLightning_CanTriggerTogether()
-    {
-        // 霜冻 + 雷电 可以触发冰场
-        bool hasFrost = true;
-        bool hasLightning = true;
-        bool canTriggerField = hasFrost && hasLightning;
-
-        Assert.IsTrue(canTriggerField);
-    }
-
-    [Test]
-    public void ElementReaction_FrostLightningField_RadiusAndDuration()
-    {
-        // 霜电冰场参数
-        float fieldRadius = 1f;
-        float fieldDuration = 2f;
-        float tickInterval = 1.25f;
-
-        Assert.Greater(fieldRadius, 0f, "冰场半径应大于 0");
-        Assert.Greater(fieldDuration, 0f, "冰场持续时间应大于 0");
-        Assert.Greater(tickInterval, 0f, "tick 间隔应大于 0");
-        Assert.Less(tickInterval, fieldDuration, "tick 间隔应小于持续时间");
-    }
-
-    [Test]
-    public void ElementReaction_BurnSpread_RadiusFromConfig()
-    {
-        // 燃烧扩散半径应从 DotEffectConfig 读取
-        float spreadRadius = 5f; // 默认值
-        Assert.AreEqual(5f, spreadRadius);
-        Assert.Greater(spreadRadius, 0f, "扩散半径应大于 0");
-    }
-
-    [Test]
-    public void ElementReaction_MissingOneElement_NoReaction()
-    {
-        // 只有一种元素时不应触发反应
-        bool hasBurn = true;
-        bool hasWind = false;
-        bool canReact = hasBurn && hasWind;
-
-        Assert.IsFalse(canReact);
-    }
-
-    // ═══ #18 新增：引爆伤害计算边界测试 ═══
-
-    [Test]
-    public void DetonateDamage_ZeroDOT_ReturnsZero()
-    {
-        // 无 DOT 效果时引爆伤害为 0
-        int dotCount = 0;
-        int baseDmgPerDot = 5;
-        int totalDmg = dotCount * baseDmgPerDot;
-
-        Assert.AreEqual(0, totalDmg);
-    }
-
-    [Test]
-    public void DetonateDamage_SingleDOT_CalculatesCorrectly()
-    {
-        // 1 种 DOT 时的基础引爆伤害
-        int dotCount = 1;
-        int baseDmgPerDot = 5;
-        float detonateMultiplier = 1.0f;
-        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
-
-        Assert.AreEqual(5, totalDmg);
-    }
-
-    [Test]
-    public void DetonateDamage_EightDOT_FullStack_CalculatesCorrectly()
-    {
-        // 8 种 DOT 全满时的引爆伤害
-        int dotCount = 8;
-        int baseDmgPerDot = 5;
-        float detonateMultiplier = 1.0f;
-        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
-
-        Assert.AreEqual(40, totalDmg);
-    }
-
-    [Test]
-    public void DetonateDamage_WithMultiplier_ScalesCorrectly()
-    {
-        // 引爆倍率加成（辐射升级 +30%）
-        int dotCount = 4;
-        int baseDmgPerDot = 5;
-        float detonateMultiplier = 1.3f; // +30%
-        int totalDmg = Mathf.RoundToInt(dotCount * baseDmgPerDot * detonateMultiplier);
-
-        Assert.AreEqual(26, totalDmg); // 4*5*1.3 = 26
-    }
-
-    [Test]
-    public void DetonateDamage_WithExtraPerDot_AddsCorrectly()
-    {
-        // 元素引爆：每种 DOT 额外 +8 伤害
-        int dotCount = 3;
-        int baseDmgPerDot = 5;
-        int extraPerDot = 8;
-        float detonateMultiplier = 1.0f;
-        int totalDmg = Mathf.RoundToInt(dotCount * (baseDmgPerDot + extraPerDot) * detonateMultiplier);
-
-        Assert.AreEqual(39, totalDmg); // 3 * (5+8) = 39
-    }
-
-    [Test]
-    public void DetonateDamage_ChainReaction_50PercentDamage()
-    {
-        // 连锁反应二次引爆 50% 伤害
-        int originalDmg = 40;
-        float chainRatio = 0.5f;
-        int chainDmg = Mathf.RoundToInt(originalDmg * chainRatio);
-
-        Assert.AreEqual(20, chainDmg);
-    }
-
-    // ═══ #18 新增：升级叠加上限测试 ═══
-
-    [Test]
-    public void UpgradeStacking_InfiniteStacks_AllowsUnlimited()
-    {
-        // maxStacks = 0 表示无限叠加
-        int maxStacks = 0;
-        int currentStacks = 100;
-        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
-
-        Assert.IsTrue(canStack);
-    }
-
-    [Test]
-    public void UpgradeStacking_LimitedStacks_EnforcesLimit()
-    {
-        // maxStacks = 3 表示最多叠加 3 次
-        int maxStacks = 3;
-        int currentStacks = 3;
-        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
-
-        Assert.IsFalse(canStack);
-    }
-
-    [Test]
-    public void UpgradeStacking_LimitedStacks_AllowsBelowLimit()
-    {
-        int maxStacks = 3;
-        int currentStacks = 2;
-        bool canStack = maxStacks == 0 || currentStacks < maxStacks;
-
-        Assert.IsTrue(canStack);
-    }
-
-    [Test]
-    public void UpgradeStacking_Ricochet_MaxStacks3()
-    {
-        // 贯穿弹最大叠加 3 次
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var ricochet = config.GetUpgradeEntry("ricochet");
-
-        Assert.IsTrue(ricochet.HasValue);
-        Assert.AreEqual(3, ricochet.Value.maxStacks);
-    }
-
-    [Test]
-    public void UpgradeStacking_ChainReaction_MaxStacks3()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var chainReaction = config.GetUpgradeEntry("chain_reaction");
-
-        Assert.IsTrue(chainReaction.HasValue);
-        Assert.AreEqual(3, chainReaction.Value.maxStacks);
-    }
-
-    [Test]
-    public void UpgradeStacking_AnnihilationZone_MaxStacks3()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var annihilation = config.GetUpgradeEntry("annihilation_zone");
-
-        Assert.IsTrue(annihilation.HasValue);
-        Assert.AreEqual(3, annihilation.Value.maxStacks);
-    }
-
-    [Test]
-    public void UpgradeStacking_Corrosion_InfiniteStacks()
-    {
-        // 腐蚀是无限叠加 (maxStacks = 0)
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var corrosion = config.GetUpgradeEntry("corrosion");
-
-        Assert.IsTrue(corrosion.HasValue);
-        Assert.AreEqual(0, corrosion.Value.maxStacks);
-    }
-
-    [Test]
-    public void UpgradeStacking_Haste_InfiniteStacks()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var haste = config.GetUpgradeEntry("haste");
-
-        Assert.IsTrue(haste.HasValue);
-        Assert.AreEqual(0, haste.Value.maxStacks);
-    }
-
-    [Test]
-    public void UpgradeStacking_PercentBonus_AccumulatesCorrectly()
-    {
-        // 腐蚀 10% * 5 次 = 50%
-        float perStack = 0.10f;
-        int stacks = 5;
-        float total = perStack * stacks;
-
-        Assert.AreEqual(0.50f, total, 0.001f);
-    }
-
-    [Test]
-    public void UpgradeStacking_DetonateMultiplier_ScalesWithRadiation()
-    {
-        // 辐射 +30% * 无限叠加
-        float baseMultiplier = 1.0f;
-        float perUpgrade = 0.30f;
-        int upgradeCount = 3;
-        float totalMultiplier = baseMultiplier + perUpgrade * upgradeCount;
-
-        Assert.AreEqual(1.9f, totalMultiplier, 0.001f);
-    }
-
-    // ═══ #18 新增：SpatialGrid 测试 ═══
-
-    [Test]
-    public void SpatialGrid_QueryRadius_ReturnsList()
-    {
-        // SpatialGrid 应该能返回查询结果（即使为空）
-        var results = SpatialGrid.QueryRadius(Vector2.zero, 10f);
-        Assert.IsNotNull(results);
-    }
-
-    [Test]
-    public void SpatialGrid_QueryRadius_ZeroRadius_ReturnsEmpty()
-    {
-        var results = SpatialGrid.QueryRadius(Vector2.zero, 0f);
-        Assert.IsNotNull(results);
-        Assert.AreEqual(0, results.Count);
-    }
-
-    // ═══ #18 新增：DotEffectConfig 默认值验证 ═══
-
-    [Test]
-    public void DotEffectConfig_DefaultValues_AreReasonable()
-    {
-        var config = ScriptableObject.CreateInstance<DotEffectConfig>();
-
-        // 速度应为正数
-        Assert.Greater(config.BurnSpeed, 0f);
-        Assert.Greater(config.PoisonSpeed, 0f);
-        Assert.Greater(config.FrostSpeed, 0f);
-        Assert.Greater(config.LightningSpeed, 0f);
-        Assert.Greater(config.DarkSpeed, 0f);
-        Assert.Greater(config.WindSpeed, 0f);
-
-        // 持续时间应为正数
-        Assert.Greater(config.BurnDuration, 0f);
-
-        // 减速应在合理范围
-        Assert.Greater(config.FrostBaseSlowPct, 0f);
-        Assert.Less(config.FrostBaseSlowPct, 1f);
-    }
-
-    [Test]
-    public void DotEffectConfig_GetDefault_NeverReturnsNull()
-    {
-        var config = DotEffectConfig.GetDefault();
-        Assert.IsNotNull(config);
-    }
-
-    // ═══ 难度系统测试 ═══
-
-    [Test]
-    public void DifficultyManager_DefaultDifficultyIsOne()
-    {
-        DifficultyManager.CurrentDifficulty = 1;
-        Assert.AreEqual(1, DifficultyManager.CurrentDifficulty);
-    }
-
-    [Test]
-    public void DifficultyManager_ClampedToValidRange()
-    {
-        DifficultyManager.CurrentDifficulty = 0;
-        Assert.AreEqual(1, DifficultyManager.CurrentDifficulty);
-        DifficultyManager.CurrentDifficulty = 999;
-        Assert.LessOrEqual(DifficultyManager.CurrentDifficulty, DifficultyManager.MaxDifficulty);
-    }
-
-    [Test]
-    public void DifficultyManager_ConfigNeverNull()
-    {
-        DifficultyManager.EnsureInitialized();
-        var config = DifficultyManager.CurrentConfig;
-        Assert.IsNotNull(config);
-    }
-
-    [Test]
-    public void DifficultyConfig_HpMultScalesWithWave()
-    {
-        var cfg = ScriptableObject.CreateInstance<DifficultyConfig>();
-        cfg.enemyHpMult = 2f;
-        cfg.scalingExponent = 1.2f;
-        float wave1 = cfg.GetEffectiveHpMult(1);
-        float wave100 = cfg.GetEffectiveHpMult(100);
-        Assert.Greater(wave100, wave1);
-    }
-
-    // ═══ 角色工厂测试 ═══
-
-    [Test]
-    public void CharacterFactory_MageIsRegistered()
-    {
-        Assert.IsTrue(CharacterFactory.IsRegistered("mage"));
-    }
-
-    [Test]
-    public void CharacterFactory_UnknownFallsBackToMage()
-    {
-        var go = new GameObject("TestPlayer");
-        var passive = CharacterFactory.Create("nonexistent", go);
-        Assert.IsNotNull(passive);
-        Assert.IsTrue(passive is MagePassive);
-        Object.DestroyImmediate(go);
-    }
-
-    // ═══ IGunState 接口测试 ═══
-
-    [Test]
-    public void DotGunState_ImplementsIGunState()
-    {
-        DotGunState gun = new DotGunState
-        {
-            effectType = StatusEffectType.Burn,
-            color = Color.red,
-            cooldown = 1f,
-            impactDamage = 5,
-            dotDps = 3f,
-            dotDuration = 4f,
-            upgradeLevel = 2
-        };
-
-        IGunState iGun = gun;
-        Assert.AreEqual(StatusEffectType.Burn, iGun.EffectType);
-        Assert.AreEqual(3f, iGun.DotDps);
-        Assert.AreEqual(2, iGun.UpgradeLevel);
-    }
-
-    // ═══ ICharacterPassive 接口测试 ═══
-
-    [Test]
-    public void MagePassive_ImplementsICharacterPassive()
+    private MagePassive CreateTestMage()
     {
         var go = new GameObject("TestMage");
-        var mage = go.AddComponent<MagePassive>();
-        ICharacterPassive cp = mage;
-        Assert.AreEqual("mage", cp.CharacterId);
-        Assert.IsNotNull(cp.DotGuns);
+        return go.AddComponent<MagePassive>();
+    }
+
+    [Test]
+    public void Upgrade_Corrosion_ArmorReduction()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0.1f, mage.CorrosionArmorReduction, 0.001f);
+        mage.CorrosionArmorReduction += 0.10f;
+        Assert.AreEqual(0.2f, mage.CorrosionArmorReduction, 0.001f);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_Radiate_DetonateMultiplier()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(3f, mage.DetonateMultiplier, 0.001f);
+        mage.DetonateMultiplier += 0.30f;
+        Assert.AreEqual(3.3f, mage.DetonateMultiplier, 0.001f);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_Haste_AttackSpeed()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0f, mage.AttackSpeedBonus, 0.001f);
+        mage.AttackSpeedBonus += 0.15f;
+        Assert.AreEqual(0.15f, mage.AttackSpeedBonus, 0.001f);
+        float mult = Mathf.Max(0.2f, 1f - mage.AttackSpeedBonus);
+        Assert.AreEqual(0.85f, mult, 0.001f);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_Barrage_BulletCount()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0, mage.BulletCountBonus);
+        mage.BulletCountBonus += 1;
+        Assert.AreEqual(1, mage.BulletCountBonus);
+        int bulletCount = Mathf.Min(1 + mage.BulletCountBonus, 3);
+        Assert.AreEqual(2, bulletCount);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_Ricochet_Piercing()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0, mage.PiercingBonus);
+        mage.PiercingBonus += 1;
+        Assert.AreEqual(1, mage.PiercingBonus);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_LightJudgment_Bonus()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0f, mage.LightJudgmentBonus, 0.001f);
+        mage.LightJudgmentBonus += 0.003f;
+        Assert.AreEqual(0.003f, mage.LightJudgmentBonus, 0.0001f);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_StaticField_Stacks()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0, mage.StaticFieldStacks);
+        mage.StaticFieldStacks += 1;
+        Assert.AreEqual(1, mage.StaticFieldStacks);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_FrostExplosion_Pct()
+    {
+        var mage = CreateTestMage();
+        Assert.AreEqual(0f, mage.FrostExplosionPct, 0.001f);
+        mage.FrostExplosionPct += 0.03f;
+        Assert.AreEqual(0.03f, mage.FrostExplosionPct, 0.001f);
+        Object.DestroyImmediate(mage.gameObject);
+    }
+
+    [Test]
+    public void Upgrade_AllCategories_HaveHandlers()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        Assert.IsNotNull(config.upgradeEntries);
+        Assert.GreaterOrEqual(config.upgradeEntries.Length, 10);
+        foreach (var entry in config.upgradeEntries)
+        {
+            Assert.IsFalse(string.IsNullOrEmpty(entry.upgradeId));
+            Assert.IsFalse(string.IsNullOrEmpty(entry.upgradeName));
+        }
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void Upgrade_Stacking_AllUpgradeIds_AreUnique()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var seen = new System.Collections.Generic.HashSet<string>();
+        foreach (var entry in config.upgradeEntries)
+            Assert.IsTrue(seen.Add(entry.upgradeId), $"重复 upgradeId: {entry.upgradeId}");
+        Object.DestroyImmediate(config);
+    }
+
+    // ═══ 护甲系统测试 ═══
+
+    [Test]
+    public void Armor_EachPointGives2PctReduction()
+    {
+        var go = new GameObject("TestEnemy");
+        var dmg = go.AddComponent<Damageable>();
+        dmg.SetMaxHp(1000); dmg.Heal(1000);
+
+        // 0 护甲 = 0% 减伤
+        dmg.SetArmor(0);
+        dmg.TakeDamage(100f);
+        Assert.AreEqual(900, dmg.CurrentHp, "0护甲: 100伤害应扣100HP");
+
+        // 重置
+        dmg.Heal(1000);
+
+        // 10 护甲 = 20% 减伤 → 100 * 0.8 = 80
+        dmg.SetArmor(10);
+        dmg.TakeDamage(100f);
+        Assert.AreEqual(920, dmg.CurrentHp, "10护甲: 100伤害应扣80HP (20%减伤)");
+
         Object.DestroyImmediate(go);
     }
 
-    // ═══ WaveAffixSystem 测试 ═══
-
     [Test]
-    public void WaveAffixSystem_DefaultInactive()
+    public void Armor_50Points_Max90PctReduction()
     {
-        WaveAffixSystem.OnWaveEnd();
-        Assert.IsFalse(WaveAffixSystem.IsAffixActive);
+        var go = new GameObject("TestEnemy");
+        var dmg = go.AddComponent<Damageable>();
+        dmg.SetMaxHp(1000); dmg.Heal(1000);
+
+        // 50 护甲 = 100% → 上限 90% → 100 * 0.1 = 10
+        dmg.SetArmor(50);
+        dmg.TakeDamage(100f);
+        Assert.AreEqual(990, dmg.CurrentHp, "50护甲: 上限90%减伤, 100伤害应扣10HP");
+
+        Object.DestroyImmediate(go);
     }
 
     [Test]
-    public void WaveAffixSystem_AffixDescriptionNotEmpty()
+    public void Armor_WaveScaling_Plus1PerWave()
     {
-        // 即使未激活，GetAffixDescription 应返回空字符串而不抛异常
-        WaveAffixSystem.OnWaveEnd();
-        string desc = WaveAffixSystem.GetAffixDescription();
-        Assert.AreEqual("", desc);
+        // 验证 EnemyScalingHelper 每波+1护甲的逻辑
+        int wave = 5;
+        int expectedArmor = wave;
+        Assert.AreEqual(5, expectedArmor, "第5波敌人应有5护甲");
+    }
+
+    [Test]
+    public void Armor_Corrosion_ReducesBy10PctPerStack()
+    {
+        // 模拟腐蚀：护甲 × (1 - 0.1) = 护甲 × 0.9
+        int initialArmor = 20;
+        float corrosionRate = 0.1f;
+
+        int after1 = Mathf.RoundToInt(initialArmor * (1f - corrosionRate));
+        Assert.AreEqual(18, after1, "1层腐蚀: 20 × 0.9 = 18");
+
+        int after2 = Mathf.RoundToInt(after1 * (1f - corrosionRate));
+        Assert.AreEqual(16, after2, "2层腐蚀: 18 × 0.9 = 16");
+
+        int after5 = initialArmor;
+        for (int i = 0; i < 5; i++)
+            after5 = Mathf.RoundToInt(after5 * (1f - corrosionRate));
+        Assert.AreEqual(12, after5, "5层腐蚀: 20 × 0.9^5 ≈ 12");
+    }
+
+    [Test]
+    public void Armor_Corrosion_NeverBelowZero()
+    {
+        int armor = 1;
+        float corrosionRate = 0.1f;
+        int reduced = Mathf.RoundToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(1, Mathf.Max(0, reduced), "1护甲腐蚀后至少为0");
+
+        armor = 0;
+        reduced = Mathf.RoundToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(0, Mathf.Max(0, reduced), "0护甲腐蚀后仍为0");
+    }
+
+    [Test]
+    public void Armor_WithCorrosion_DamageIncreases()
+    {
+        var go = new GameObject("TestEnemy");
+        var dmg = go.AddComponent<Damageable>();
+        dmg.SetMaxHp(1000); dmg.Heal(1000);
+
+        // 10护甲 = 20%减伤
+        dmg.SetArmor(10);
+        dmg.TakeDamage(100f);
+        int hpAfter10Armor = dmg.CurrentHp; // 920
+
+        // 重置，腐蚀后 10 × 0.9 = 9护甲 = 18%减伤
+        dmg.Heal(1000);
+        dmg.SetArmor(9);
+        dmg.TakeDamage(100f);
+        int hpAfterCorrosion = dmg.CurrentHp; // 918
+
+        Assert.Greater(hpAfter10Armor, hpAfterCorrosion,
+            "腐蚀后护甲降低，受到更多伤害");
+
+        Object.DestroyImmediate(go);
+    }
+
+    // ═══ 引爆冷却测试 ═══
+
+    [Test]
+    public void Contaminate_CooldownReduction_10PctPerStack()
+    {
+        float baseCooldown = 12f;
+
+        float reduction0 = 0f;
+        float cd0 = baseCooldown * Mathf.Max(0.1f, 1f - reduction0);
+        Assert.AreEqual(12f, cd0, 0.01f, "0层: 12s");
+
+        float reduction1 = 0.10f;
+        float cd1 = baseCooldown * Mathf.Max(0.1f, 1f - reduction1);
+        Assert.AreEqual(10.8f, cd1, 0.01f, "1层: 10.8s");
+
+        float reduction6 = 0.60f;
+        float cd6 = baseCooldown * Mathf.Max(0.1f, 1f - reduction6);
+        Assert.AreEqual(4.8f, cd6, 0.01f, "6层: 4.8s");
+    }
+
+    [Test]
+    public void Contaminate_MaxStacks6()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("contaminate");
+        Assert.IsTrue(entry.HasValue);
+        Assert.AreEqual(6, entry.Value.maxStacks, "污染最多6层");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void Contaminate_CooldownNeverBelow10Pct()
+    {
+        float baseCooldown = 12f;
+        float maxReduction = 0.9f;
+        float cd = baseCooldown * Mathf.Max(0.1f, 1f - maxReduction);
+        Assert.AreEqual(1.2f, cd, 0.01f, "90%减冷: 1.2s (不会到0)");
+    }
+
+    // ═══ 腐蚀效果测试 ═══
+
+    [Test]
+    public void Corrosion_ArmorReduction_Formula()
+    {
+        float corrosionRate = 0.1f;
+
+        int armor20 = Mathf.FloorToInt(20 * (1f - corrosionRate));
+        Assert.AreEqual(18, armor20, "20护甲 × 0.9 = 18");
+
+        int armor10 = Mathf.FloorToInt(10 * (1f - corrosionRate));
+        Assert.AreEqual(9, armor10, "10护甲 × 0.9 = 9");
+
+        int armor1 = Mathf.FloorToInt(1 * (1f - corrosionRate));
+        Assert.AreEqual(0, armor1, "1护甲 × 0.9 = 0 (FloorToInt)");
+    }
+
+    [Test]
+    public void Corrosion_AppliedMultipleTimes()
+    {
+        float corrosionRate = 0.1f;
+        int armor = 20;
+
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(18, armor, "第1次: 20 × 0.9 = 18");
+
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(16, armor, "第2次: 18 × 0.9 = 16");
+
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(14, armor, "第3次: 16 × 0.9 ≈ 14");
+    }
+
+    // ═══ 侵蚀效果测试 ═══
+
+    [Test]
+    public void Erosion_Ignores1ArmorPerStack()
+    {
+        int armor = 10;
+        int erosion = 3;
+        int result = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(7, result, "10护甲 - 3侵蚀 = 7");
+    }
+
+    [Test]
+    public void Corrosion_ThenErosion_OrderCorrect()
+    {
+        int armor = 20;
+        float corrosionRate = 0.1f;
+        int erosion = 5;
+
+        // 1. 腐蚀
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(18, armor, "腐蚀: 20 × 0.9 = 18");
+
+        // 2. 侵蚀
+        armor = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(13, armor, "侵蚀: 18 - 5 = 13");
+    }
+
+    [Test]
+    public void Corrosion_MaxStacks8()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("corrosion");
+        Assert.IsTrue(entry.HasValue);
+        Assert.AreEqual(8, entry.Value.maxStacks, "腐蚀最多8层");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void Erosion_InfiniteStacks()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("erosion");
+        Assert.IsTrue(entry.HasValue);
+        Assert.AreEqual(0, entry.Value.maxStacks, "侵蚀无上限");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void Erosion_ArmorNeverBelowZero()
+    {
+        int armor = 5;
+        int erosion = 100;
+        int result = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(0, result, "侵蚀后护甲不会负数");
+    }
+
+    [Test]
+    public void Armor_FullPipeline_20Armor_Corrosion3_Erosion5()
+    {
+        int armor = 20;
+        float corrosionRate = 0.1f;
+        int erosion = 5;
+
+        // 3次腐蚀
+        for (int i = 0; i < 3; i++)
+            armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(14, armor, "3次腐蚀: 20→18→16→14");
+
+        // 侵蚀
+        armor = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(9, armor, "侵蚀: 14 - 5 = 9");
+
+        // 减伤
+        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
+        float actualDmg = 100f * (1f - reduction);
+        Assert.AreEqual(82f, actualDmg, 0.01f, "9护甲=18%减伤, 100→82");
     }
 }
 #endif

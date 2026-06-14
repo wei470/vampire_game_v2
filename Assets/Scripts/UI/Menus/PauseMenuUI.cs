@@ -188,7 +188,7 @@ public class PauseMenuUI : MonoBehaviour
         y += 22;
         DrawStatRow(x, y, w, labelStyle, valueStyle, "Enemies Alive", $"{alive}");
         y += 22;
-        DrawStatRow(x, y, w, labelStyle, valueStyle, "Time", FormatTime(Time.timeSinceLevelLoad));
+        DrawStatRow(x, y, w, labelStyle, valueStyle, "Time", UIFormatUtils.FormatTime(Time.timeSinceLevelLoad));
         y += 22;
         DrawStatRow(x, y, w, labelStyle, valueStyle, "Coins", $"{Coin.TotalCoins}");
         y += 28;
@@ -291,10 +291,4 @@ public class PauseMenuUI : MonoBehaviour
         GUI.color = Color.white;
     }
 
-    private string FormatTime(float seconds)
-    {
-        int mins = Mathf.FloorToInt(seconds / 60f);
-        int secs = Mathf.FloorToInt(seconds % 60f);
-        return $"{mins:00}:{secs:00}";
-    }
 }

@@ -30,6 +30,7 @@ public interface IStackEffect
 public abstract class StackEffectBase : MonoBehaviour, IStackEffect
 {
     protected Damageable _damageable;
+    public float FrequencyMultiplier { get; set; } = 1f;
 
     public abstract int StackCount { get; }
     public abstract StatusEffectType EffectType { get; }

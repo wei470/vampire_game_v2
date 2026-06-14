@@ -26,9 +26,7 @@ public interface ICharacterPassive
     float GetDotCritChance();
     float GetDotCritMultiplier();
     float GetDotDurationMultiplier();
-    float GetDotFrequencyMultiplier();
     float GetAttackSpeedMultiplier();
-    float GetBulletSpeedMultiplier();
 
     // ── 引爆系统 ──
     DetonateSystem GetDetonateSystem();

@@ -24,8 +24,6 @@ public class GameSceneBootstrap : MonoBehaviour
 
     private bool _selectionDone = false;
     private bool _gameStarted = false;
-    private bool _waitingForDifficulty = false;
-    private DifficultySelectUI _difficultyUI;
 
     /// <summary>
     /// 当前选择的角色数据（静态，供 LevelUpUI 等访问）
@@ -47,6 +45,8 @@ public class GameSceneBootstrap : MonoBehaviour
 
     private void Start()
     {
+        Application.targetFrameRate = 120;
+
         // #17 配置 Physics2D 碰撞矩阵
         PhysicsLayerSetup.SetupCollisionMatrix();
 
@@ -89,7 +89,7 @@ public class GameSceneBootstrap : MonoBehaviour
 
         // ── 创建 SelectionUI ──
         _selectionUI = gameObject.AddComponent<SelectionUI>();
-        _selectionUI.Setup(_dataLoader.Characters, _dataLoader.Weapons, _dataLoader.Skills);
+        _selectionUI.Setup(_dataLoader.Characters, _dataLoader.Weapons);
         _selectionUI.OnSelectionConfirmed = OnSelectionConfirmed;
 
         // ── 创建 DebugOverlay ──
@@ -128,36 +128,30 @@ public class GameSceneBootstrap : MonoBehaviour
         }
         else
         {
-            // 正常模式：先显示难度选择
-            var diffUI = gameObject.AddComponent<DifficultySelectUI>();
-            diffUI.Show();
-            _waitingForDifficulty = true;
-            DebugHelper.Log("[GameSceneBootstrap] Showing difficulty selection");
+            _selectionDone = false;
+            DebugHelper.Log("[GameSceneBootstrap] Showing character selection");
         }
     }
 
     /// <summary>
-    /// 选择完成回调（由 SelectionUI 触发）
-    /// </summary>
+
     private void OnSelectionConfirmed(int selectedChar, int selectedWeapon, int selectedSkill)
     {
         _selectionDone = true;
         _gameStarted = true;
         _gameStarter.ApplySelectionAndStartGame(
-            selectedChar, selectedWeapon, selectedSkill,
-            _dataLoader.Characters, _dataLoader.Weapons, _dataLoader.Skills,
+            selectedChar, selectedWeapon,
+            _dataLoader.Characters, _dataLoader.Weapons,
             _dataLoader.MageUpgradeConfig);
     }
 
     /// <summary>
     /// Test 模式子弹选择完成回调
     /// </summary>
-    private void OnTestBulletSelectionConfirmed(List<string> selectedBulletIds, Dictionary<string, int> selectedUpgrades)
+    private void OnTestBulletSelectionConfirmed(List<string> selectedBulletIds, Dictionary<string, int> selectedUpgrades, int startWave)
     {
         var characters = _dataLoader.Characters;
-        var skills = _dataLoader.Skills;
 
-        // 找到 Mage 角色索引
         int mageIndex = 0;
         for (int i = 0; i < characters.Length; i++)
         {
@@ -169,47 +163,37 @@ public class GameSceneBootstrap : MonoBehaviour
             }
         }
 
-        // 找到 Teleport 技能索引
-        int teleportIndex = 0;
-        for (int i = 0; i < skills.Length; i++)
-        {
-            if (skills[i] != null && skills[i].skillName.ToLower().Contains("teleport"))
-            {
-                teleportIndex = i;
-                break;
-            }
-        }
-
         _gameStarted = true;
 
-        // DPS 测试模式：先禁用出怪，再启动游戏（不开始波次）
         if (GameReferences.DpsTestMode)
         {
             if (_spawnManager != null) _spawnManager.enabled = false;
             Time.timeScale = 1f;
 
-            // 只初始化玩家和 MagePassive，不启动波次
             _gameStarter.ApplySelectionAndStartGame(
-                mageIndex, 0, teleportIndex,
-                characters, _dataLoader.Weapons, skills,
+                mageIndex, 0,
+                characters, _dataLoader.Weapons,
                 _dataLoader.MageUpgradeConfig);
 
-            // 再次确保出怪禁用（ApplySelectionAndStartGame 可能会启用它）
             if (_spawnManager != null) _spawnManager.enabled = false;
 
             ApplyTestBulletsAndUpgrades(selectedBulletIds, selectedUpgrades);
             SpawnDpsTestDummy();
-            DebugHelper.Log("[GameSceneBootstrap] DPS Test mode: Dummy spawned, enemies disabled");
             return;
         }
 
-        // 正常 Test 模式
         _gameStarter.ApplySelectionAndStartGame(
-            mageIndex, 0, teleportIndex,
-            characters, _dataLoader.Weapons, skills,
+            mageIndex, 0,
+            characters, _dataLoader.Weapons,
             _dataLoader.MageUpgradeConfig);
 
         ApplyTestBulletsAndUpgrades(selectedBulletIds, selectedUpgrades);
+
+        if (_spawnManager != null && !GameReferences.DpsTestMode)
+        {
+            _spawnManager.enabled = true;
+            _spawnManager.StartFromWave(startWave);
+        }
         DebugHelper.Log($"[GameSceneBootstrap] TestMode: Game started with Mage + Teleport, {selectedBulletIds.Count} bullets, {(selectedUpgrades != null ? selectedUpgrades.Count : 0)} upgrades");
     }
 
@@ -258,24 +242,24 @@ public class GameSceneBootstrap : MonoBehaviour
         var dummyObj = new GameObject("DpsBoss");
         dummyObj.transform.position = Vector3.zero;
 
-        // 图形 — 大型 Boss 外观
+        // 图形 — 巨大木桩外观
         var sr = dummyObj.AddComponent<SpriteRenderer>();
         sr.sprite = HealthBarSpriteHelper.GetWhiteSprite();
         sr.color = new Color(0.6f, 0.1f, 0.1f);
         sr.sortingOrder = 5;
-        dummyObj.transform.localScale = Vector3.one * 3f;
+        dummyObj.transform.localScale = Vector3.one * 8f;
 
-        // 碰撞
+        // 碰撞 — Static 刚体，绝对不可推动
         var col = dummyObj.AddComponent<BoxCollider2D>();
         col.size = new Vector2(1f, 1f);
         var rb = dummyObj.AddComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
-        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.bodyType = RigidbodyType2D.Static;
 
-        // Damageable — 20万HP
+        // Damageable — 200万HP
         var dmg = dummyObj.AddComponent<Damageable>();
-        int hp = gc != null ? (int)Mathf.Min(gc.dpsDummyHP, int.MaxValue) : 200000;
+        int hp = gc != null ? (int)Mathf.Min(gc.dpsDummyHP, int.MaxValue) : 2000000;
         dmg.SetMaxHp(hp);
         dmg.Heal(hp);
 
@@ -289,24 +273,24 @@ public class GameSceneBootstrap : MonoBehaviour
 
         // 血条
         var healthBar = dummyObj.AddComponent<EnemyHealthBar>();
-        healthBar.Setup(dmg, 3.0f, 0.35f, 2f);
+        healthBar.Setup(dmg, 8.0f, 0.5f, 3f);
 
         // DPS 追踪器
         var trackerObj = new GameObject("DpsTracker");
         trackerObj.AddComponent<DpsTracker>();
 
-        // 传送玩家到 Boss 面前
+        // 传送玩家到木桩面前
         var player = GameReferences.Player;
         if (player != null)
-            player.transform.position = new Vector3(-5f, 0f, 0f);
+            player.transform.position = new Vector3(-8f, 0f, 0f);
 
-        // Boss 名字标签
+        // 名字标签
         var labelObj = new GameObject("BossLabel");
         labelObj.transform.SetParent(dummyObj.transform);
-        labelObj.transform.localPosition = new Vector3(0f, 2f, 0f);
+        labelObj.transform.localPosition = new Vector3(0f, 1.5f, 0f);
         var tm = labelObj.AddComponent<TextMesh>();
-        tm.text = "DPS TEST BOSS";
-        tm.characterSize = 0.3f;
+        tm.text = "DPS TEST";
+        tm.characterSize = 0.2f;
         tm.anchor = TextAnchor.MiddleCenter;
         tm.alignment = TextAlignment.Center;
         tm.fontSize = 50;
@@ -320,21 +304,6 @@ public class GameSceneBootstrap : MonoBehaviour
         var kb = UnityEngine.InputSystem.Keyboard.current;
         if (kb == null) return;
 
-        // 难度选择阶段：Enter/Space 确认
-        if (_waitingForDifficulty && _difficultyUI != null && _difficultyUI.IsVisible)
-        {
-            if (kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
-            {
-                DifficultyManager.CurrentDifficulty = _difficultyUI.SelectedDifficulty;
-                _difficultyUI.Hide();
-                _waitingForDifficulty = false;
-                _selectionDone = false;
-                DebugHelper.Log($"[GameSceneBootstrap] Difficulty selected: {DifficultyManager.CurrentDifficulty}");
-            }
-            return;
-        }
-
-        // 选择阶段：Enter/Space 确认
         if (!_selectionDone)
         {
             if (kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)

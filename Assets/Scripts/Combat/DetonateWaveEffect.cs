@@ -139,19 +139,19 @@ public class DetonateWaveEffect : MonoBehaviour
 
         if (enemy.TryGetComponent<BleedEffect>(out var bleed))
         {
-            float extra = dmg.MaxHp * _bleedHpPct * _detonateMultiplier;
+            float extra = bleed.dps * 5f * _detonateMultiplier;
             dmg.TakeDamage(extra); _totalDamage += extra; enemyDmg += extra; hadEffect = true;
         }
 
         if (enemy.TryGetComponent<BurnStackEffect>(out var burn))
         {
-            float extra = dmg.MaxHp * _burnHpPct * _detonateMultiplier;
+            float extra = burn.baseDps * 5f * _detonateMultiplier;
             dmg.TakeDamage(extra); _totalDamage += extra; enemyDmg += extra; hadEffect = true;
         }
 
         if (enemy.TryGetComponent<PoisonStackEffect>(out var poison))
         {
-            float extra = dmg.MaxHp * _poisonHpPct * _detonateMultiplier;
+            float extra = 2f * 5f * _detonateMultiplier;
             dmg.TakeDamage(extra); _totalDamage += extra; enemyDmg += extra; hadEffect = true;
         }
 

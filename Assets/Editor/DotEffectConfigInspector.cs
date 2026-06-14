@@ -152,14 +152,9 @@ public class DotEffectConfigInspector : Editor
         if (_showWind)
         {
             EditorGUI.indentLevel++;
-            FloatField(config, "子弹飞行速度", "WindSpeed", "速度最快");
+            FloatField(config, "子弹飞行速度", "WindSpeed", "高速单发");
             IntField(config, "命中叠层间隔", "WindHitsPerStack", "每N次命中叠一层");
             FloatField(config, "基础击退距离", "WindKnockbackDistance", "单位：场景单位");
-
-            // 散射角度数组用默认 Inspector 绘制
-            var anglesProp = serializedObject.FindProperty("WindSpreadAngles");
-            if (anglesProp != null)
-                EditorGUILayout.PropertyField(anglesProp, new GUIContent("散射角度数组(度)"), true);
 
             FloatField(config, "风化击退距离", "WindErosionKnockbackDistance", "风化标记固定击退");
             IntField(config, "最大叠加层数", "WindMaxStacks", "超过不再增加");

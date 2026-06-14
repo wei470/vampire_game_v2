@@ -116,7 +116,7 @@ public class DebugOverlay : MonoBehaviour
         }
 
         GUI.color = Color.gray;
-        GUILayout.Label("WASD=Move Mouse=Aim E=Skill R=Restart ESC=Pause");
+        GUILayout.Label("WASD=Move Mouse=Aim E=Detonate R=Restart ESC=Pause");
 
         GUILayout.EndArea();
     }

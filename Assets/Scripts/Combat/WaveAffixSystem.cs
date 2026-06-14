@@ -36,7 +36,7 @@ public static class WaveAffixSystem
     /// </summary>
     public static void OnWaveStart(int wave)
     {
-        if (!DifficultyManager.IsAffixEnabled())
+        if (wave < 6)
         {
             _affixActive = false;
             return;

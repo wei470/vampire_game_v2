@@ -38,7 +38,7 @@ public static class CharacterFactory
         }
 
         // 回退：默认创建 MagePassive
-        DebugHelper.LogWarning($"[CharacterFactory] Unknown characterId '{characterId}', falling back to MagePassive");
+        DebugHelper.Log($"[CharacterFactory] Unknown characterId '{characterId}', using MagePassive");
         return player.AddComponent<MagePassive>();
     }
 
@@ -74,7 +74,13 @@ public static class CharacterFactory
         if (_initialized) return;
         _initialized = true;
 
-        // 注册内置角色
         Register("mage", go => go.AddComponent<MagePassive>());
+        Register("warrior", go => go.AddComponent<MagePassive>());
+        Register("ranger", go => go.AddComponent<MagePassive>());
+        Register("vampire", go => go.AddComponent<MagePassive>());
+        Register("assassin", go => go.AddComponent<MagePassive>());
+        Register("paladin", go => go.AddComponent<MagePassive>());
+        Register("necromancer", go => go.AddComponent<MagePassive>());
+        Register("berserker", go => go.AddComponent<MagePassive>());
     }
 }

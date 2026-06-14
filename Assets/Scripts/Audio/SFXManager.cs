@@ -178,7 +178,7 @@ public class SFXManager : MonoBehaviour
         PlayEntry(_soundTrack?.waveComplete);
     }
 
-    private void OnSelectionComplete(CharacterData cd, WeaponData wd, SkillData sd)
+    private void OnSelectionComplete(CharacterData cd, WeaponData wd, object sd)
     {
         PlayEntry(_soundTrack?.confirm);
     }

@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Mage 引爆技能冷却 HUD — 在右下角显示引爆冷却状态。
-/// 避免与左下角的 SkillHUD 重叠。
+/// 避免与左下角 HUD 重叠。
 /// </summary>
 public class DetonateHUD : MonoBehaviour
 {

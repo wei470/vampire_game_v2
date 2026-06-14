@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49dd9cf8ce375174280820980934a6e7, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier: Gameplay::GameConfig
+  basePlayerHP: 100
+  basePlayerSpeed: 5
+  basePlayerArmor: 0
+  basePlayerAttack: 10
+  baseLevelUpExp: 20
+  expPerLevel: 15
+  expPickupRadius: 2.5
+  xpGemMagnetSpeed: 8
+  baseCoinDrop: 5
+  coinPickupRadius: 2
+  equipmentDropChance: 0.12
+  legendaryDropChance: 0.02
+  maxEquipmentSlots: 3
+  damageScalingPerWave: 0.1
+  hpScalingPerWave: 0.15
+  speedScalingPerWave: 0.03
+  bossWaveInterval: 5
+  bossBaseHP: 300
+  bossHPPerWave: 100
+  spawnRadius: 15
+  enemyDespawnDistance: 50
+  defaultContactDamage: 10
+  skipWaveXpReward: 10
+  skipWaveCoinReward: 5
+  restBetweenWaves: 2
+  cameraOrthoSize: 12
+  cameraFollowSpeed: 8
+  screenShakeIntensity: 0.3
+  dpsDummyHP: 2000000
+  dpsDummyArmor: 0
+  dpsDummyRegen: 0
+  dpsDummyInvincible: 0
+  dpsDummyRespawnDelay: 1

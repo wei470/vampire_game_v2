@@ -23,7 +23,6 @@ public static class LootDropSystem
     public static EquipmentInstance TryDrop(bool isElite, bool isBoss, int wave)
     {
         float dropChance = GetDropChance(isElite, isBoss);
-        dropChance *= DifficultyManager.GetDropMult();
 
         if (Random.value > dropChance) return null;
 

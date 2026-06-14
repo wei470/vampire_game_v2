@@ -16,6 +16,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(Collider2D))]
 public class EnvironmentZone : MonoBehaviour
 {
+    public static readonly List<EnvironmentZone> All = new List<EnvironmentZone>();
     [Header("区域类型")]
     [SerializeField] private MapThemeData.EnvironmentZoneType _zoneType = MapThemeData.EnvironmentZoneType.Slow;
 
@@ -84,6 +85,7 @@ public class EnvironmentZone : MonoBehaviour
 
     private void Start()
     {
+        All.Add(this);
         _spawnTime = Time.time;
         _lastTickTime = Time.time;
 
@@ -322,6 +324,7 @@ public class EnvironmentZone : MonoBehaviour
 
     private void OnDestroy()
     {
+        All.Remove(this);
         // 清理：移除所有实体的持续效果
         foreach (var col in _entitiesInZone)
         {

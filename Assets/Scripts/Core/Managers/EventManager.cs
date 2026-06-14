@@ -81,7 +81,7 @@ public static class EventManager
     public static event Action<string> OnThemeChanged;
 
     // ── 选择流程事件 ──
-    public static event Action<CharacterData, WeaponData, SkillData> OnSelectionComplete;
+    public static event Action<CharacterData, WeaponData, object> OnSelectionComplete;
     public static event Action<CharacterData> OnCharacterSelected;
 
     // ── Boss 事件 ──
@@ -110,7 +110,7 @@ public static class EventManager
     public static void TriggerThemeChanged(string name) => OnThemeChanged?.Invoke(name);
     public static void TriggerGameStateChanged(GameManager.GameState old, GameManager.GameState nw) => OnGameStateChanged?.Invoke(old, nw);
     public static void TriggerComboChanged(int count) => OnComboChanged?.Invoke(count);
-    public static void TriggerSelectionComplete(CharacterData c, WeaponData w, SkillData s) => OnSelectionComplete?.Invoke(c, w, s);
+    public static void TriggerSelectionComplete(CharacterData c, WeaponData w, object s) => OnSelectionComplete?.Invoke(c, w, s);
     public static void TriggerCharacterSelected(CharacterData c) => OnCharacterSelected?.Invoke(c);
     public static void TriggerBossSpawn(string name, int hp) => OnBossSpawn?.Invoke(name, hp);
     public static void TriggerBossPhaseChange(int cur, int max) => OnBossPhaseChange?.Invoke(cur, max);

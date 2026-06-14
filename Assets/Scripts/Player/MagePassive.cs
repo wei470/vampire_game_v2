@@ -22,16 +22,12 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
 
     [Header("DOT 增强属性")]
     [SerializeField] private float _corrosionArmorReduction = 0.1f;
+    [SerializeField] private int _erosionArmorPenetration = 0;
     [SerializeField] private int _curseSpreadTargets = 1;
-    [SerializeField] private float _dotFrequencyBonus = 0f;
-    [SerializeField] private float _dotCritBurstChance = 0f;
 
     [Header("子弹增强属性")]
     [SerializeField] private float _attackSpeedBonus = 0f;
-    [SerializeField] private float _bulletSpeedBonus = 0f;
     [SerializeField] private int _bulletCountBonus = 0;
-    [SerializeField] private float _ricochetChance = 0f;
-    [SerializeField] private int _ricochetMaxBounces = 0;
     [SerializeField] private float _bulletSizeBonus = 0f;
     [SerializeField] private float _knockbackBonus = 0f;
 
@@ -56,7 +52,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     [SerializeField] private float _elementalShieldHp = 0f;    // 元素护盾：额外最大生命
 
     [Header("P3 终极/高级属性")]
-    [SerializeField] private bool _eternalAgonyActive = false;  // 永恒痛苦：是否激活
     [SerializeField] private float _doomsdayThreshold = 0f;    // 末日审判：HP阈值
     [SerializeField] private int _shatterBoostFragments = 0;   // [已弃用]碎裂强化：碎片数量
     [SerializeField] private float _shatterBoostDmg = 0f;      // [已弃用]碎裂强化：碎片伤害
@@ -83,6 +78,7 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     public bool DetonateReady => _detonateSystem != null ? _detonateSystem.DetonateReady : true;
     public float DetonateMultiplier { get => _detonateSystem != null ? _detonateSystem.DetonateMultiplier : 3f; set { if (_detonateSystem != null) _detonateSystem.DetonateMultiplier = value; } }
     public float DetonateCooldownValue { get => _detonateSystem != null ? _detonateSystem.DetonateCooldown : 12f; set { if (_detonateSystem != null) _detonateSystem.DetonateCooldownValue = value; } }
+    public float DetonateCooldownReduction { get; set; } = 0f;
     public bool IsCharging => _detonateSystem != null && _detonateSystem.IsCharging;
     public float ChargeProgress => _detonateSystem != null ? _detonateSystem.ChargeProgress : 0f;
     public float ChargeMultiplier => _detonateSystem != null ? _detonateSystem.ChargeMultiplier : 1f;
@@ -95,15 +91,10 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
 
     // ── DOT 增强属性访问器 ──
     public float CorrosionArmorReduction { get => _corrosionArmorReduction; set => _corrosionArmorReduction = value; }
+    public int ErosionArmorPenetration { get => _erosionArmorPenetration; set => _erosionArmorPenetration = value; }
     public int CurseSpreadTargets { get => _curseSpreadTargets; set => _curseSpreadTargets = value; }
-    public float DotFrequencyBonus { get => _dotFrequencyBonus; set => _dotFrequencyBonus = value; }
-    public float DotCritBurstChance { get => _dotCritBurstChance; set => _dotCritBurstChance = value; }
     public float AttackSpeedBonus { get => _attackSpeedBonus; set => _attackSpeedBonus = value; }
-    public float BulletSpeedBonus { get => _bulletSpeedBonus; set => _bulletSpeedBonus = value; }
     public int BulletCountBonus { get => _bulletCountBonus; set => _bulletCountBonus = value; }
-    public float RicochetChance { get => _ricochetChance; set => _ricochetChance = value; }
-    public int RicochetMaxBounces { get => _ricochetMaxBounces; set => _ricochetMaxBounces = value; }
-    /// <summary>贯穿弹：穿透敌人数量（贯穿弹升级）</summary>
     public int PiercingBonus { get; set; } = 0;
     public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
     public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
@@ -129,7 +120,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     public float ElementalShieldHp { get => _elementalShieldHp; set => _elementalShieldHp = value; }
 
     // ── P3 终极/高级属性访问器 ──
-    public bool EternalAgonyActive { get => _eternalAgonyActive; set => _eternalAgonyActive = value; }
     public float DoomsdayThreshold { get => _doomsdayThreshold; set => _doomsdayThreshold = Mathf.Min(0.30f, value); }
     public int ShatterBoostFragments { get => _shatterBoostFragments; set => _shatterBoostFragments = value; }
     public float ShatterBoostDmg { get => _shatterBoostDmg; set => _shatterBoostDmg = value; }
@@ -169,9 +159,11 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
         return baseCrit;
     }
 
+    private const float MIN_ATTACK_SPEED_MULT = 0.2f;
+    private float _lastAttackSpeedMult = 1f;
+
     public float GetDotCritMultiplier() => _dotCritMultiplier;
-    public float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus);
-    public float GetBulletSpeedMultiplier() => 1f + _bulletSpeedBonus;
+    public float GetAttackSpeedMultiplier() => Mathf.Max(MIN_ATTACK_SPEED_MULT, 1f - _attackSpeedBonus);
 
     public float GetChargeMoveSpeedMultiplier()
     {
@@ -194,15 +186,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
         }
     }
 
-    public float GetDotFrequencyMultiplier()
-    {
-        float mult = 1f - _dotFrequencyBonus;
-        if (_activeSynergies.Contains("judgment_day") && Time.time < _judgmentDayEndTime)
-            mult *= 0.5f;
-        return Mathf.Max(0.1f, mult);
-    }
-
-    private float _judgmentDayEndTime = 0f;
     public bool HasPlagueSynergy => _activeSynergies.Contains("plague");
     public bool HasFrozenBladeSynergy => _activeSynergies.Contains("frozen_blade");
     public bool HasBulletStormSynergy => _activeSynergies.Contains("bullet_storm");
@@ -234,7 +217,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
                 gun.dotDps *= 1.15f;
                 gun.impactDamage = Mathf.RoundToInt(gun.impactDamage * 1.1f);
                 gun.upgradeLevel++;
-                _dotGuns[i] = gun;
                 DebugHelper.Log($"[MagePassive] Upgraded {type} DOT gun to Lv{gun.upgradeLevel}");
                 if (gun.upgradeLevel >= 5 && !_evolvedTypes.Contains(type))
                     MageUpgradeApplier.CheckEvolution(this, type);
@@ -246,7 +228,7 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
         {
             effectType = type, color = color, cooldown = cooldown,
             impactDamage = impactDmg, dotDps = dotDps, dotDuration = dotDuration,
-            lastFireTime = Time.time, upgradeLevel = 1
+            upgradeLevel = 1
         });
         DebugHelper.Log($"[MagePassive] Unlocked {type} DOT gun! (color={color})");
         MageUpgradeApplier.CheckMilestones(this);
@@ -256,9 +238,7 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     {
         for (int i = 0; i < _dotGuns.Count; i++)
         {
-            var gun = _dotGuns[i];
-            gun.dotDps *= (1f + dpsMultiplier);
-            _dotGuns[i] = gun;
+            _dotGuns[i].dotDps *= (1f + dpsMultiplier);
         }
     }
 

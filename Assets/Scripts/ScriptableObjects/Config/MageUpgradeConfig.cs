@@ -104,9 +104,9 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
             upgradeId = "wind",
             effectType = StatusEffectType.WindErosion,
             displayName = "风 (Wind)",
-            description = "获得风子弹（固定3发，0.5s冷却）",
+            description = "获得风子弹（高速0.2s冷却，随机偏射±25°）",
             color = new Color(0.7f, 0.85f, 1f),
-            cooldown = 0.5f,
+            cooldown = 0.2f,
             impactDmg = 0,
             dotDps = 0f,
             dotDuration = 0f
@@ -121,25 +121,17 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
         {
             upgradeId = "corrosion",
             upgradeName = "腐蚀 (Corrosion)",
-            description = "护甲-10%",
+            description = "护甲×90%，最多8层",
             category = CharacterUpgradeOption.UpgradeCategory.ArmorReduction,
-            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
+            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 8
         },
         new UpgradeEntry
         {
-            upgradeId = "agony",
-            upgradeName = "痛苦 (Agony)",
-            description = "DOT频率+10%",
-            category = CharacterUpgradeOption.UpgradeCategory.DotFrequency,
-            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "wither",
-            upgradeName = "凋零 (Wither)",
-            description = "DOT暴击+10%",
-            category = CharacterUpgradeOption.UpgradeCategory.DotCritBurst,
-            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
+            upgradeId = "erosion",
+            upgradeName = "侵蚀 (Erosion)",
+            description = "无视敌人1点护甲，无限叠加",
+            category = CharacterUpgradeOption.UpgradeCategory.ArmorPenetration,
+            value1 = 1f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
 
         // ═══ 引爆增强（2 种）═══
@@ -147,17 +139,17 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
         {
             upgradeId = "radiate",
             upgradeName = "辐射 (Radiation)",
-            description = "引爆伤害+30%",
+            description = "引爆伤害×115%，最多10层",
             category = CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier,
-            value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
+            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 10
         },
         new UpgradeEntry
         {
             upgradeId = "contaminate",
             upgradeName = "污染 (Contaminate)",
-            description = "引爆冷却-30%",
+            description = "引爆冷却-10%，最多6层",
             category = CharacterUpgradeOption.UpgradeCategory.DetonateAbility,
-            value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
+            value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 6
         },
 
         // ═══ 子弹增强（3 种）═══
@@ -165,9 +157,9 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
         {
             upgradeId = "haste",
             upgradeName = "急速 (Haste)",
-            description = "攻速+15% 速度+10%",
+            description = "攻速+15%",
             category = CharacterUpgradeOption.UpgradeCategory.AttackSpeed,
-            value1 = 0.15f, value2 = 0.10f, value3 = 0f, maxStacks = 0
+            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
         new UpgradeEntry
         {
@@ -212,7 +204,7 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
             value1 = 0.03f, value2 = 0.80f, value3 = 0f, maxStacks = 0
         },
 
-        // ═══ 一般强化（10种，全角色通用）═══
+        // ═══ 一般强化（1种，全角色通用）═══
         new UpgradeEntry
         {
             upgradeId = "move_speed",
@@ -220,78 +212,6 @@ public class MageUpgradeConfig : ScriptableObject, ICharacterConfig
             description = "移动速度+10%",
             category = CharacterUpgradeOption.UpgradeCategory.MoveSpeed,
             value1 = 0.10f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "armor_bonus",
-            upgradeName = "护甲 (Armor)",
-            description = "护甲+5",
-            category = CharacterUpgradeOption.UpgradeCategory.ArmorBonus,
-            value1 = 5f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "max_hp",
-            upgradeName = "生命 (Max HP)",
-            description = "最大HP+20",
-            category = CharacterUpgradeOption.UpgradeCategory.MaxHpBonus,
-            value1 = 20f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "crit_chance",
-            upgradeName = "暴击率 (Crit Chance)",
-            description = "暴击率+5%",
-            category = CharacterUpgradeOption.UpgradeCategory.CritChanceBonus,
-            value1 = 0.05f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "crit_damage",
-            upgradeName = "暴击伤害 (Crit Damage)",
-            description = "暴击倍率+20%",
-            category = CharacterUpgradeOption.UpgradeCategory.CritDamageBonus,
-            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "magnet_range",
-            upgradeName = "磁力 (Magnet Range)",
-            description = "拾取范围+30%",
-            category = CharacterUpgradeOption.UpgradeCategory.MagnetRange,
-            value1 = 0.30f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "hp_regen",
-            upgradeName = "回复 (HP Regen)",
-            description = "每秒回复1%HP",
-            category = CharacterUpgradeOption.UpgradeCategory.HpRegen,
-            value1 = 0.01f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "bullet_speed",
-            upgradeName = "弹速 (Bullet Speed)",
-            description = "子弹飞行速度+20%",
-            category = CharacterUpgradeOption.UpgradeCategory.BulletSpeed,
-            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "knockback",
-            upgradeName = "击退 (Knockback)",
-            description = "击退距离+20%",
-            category = CharacterUpgradeOption.UpgradeCategory.Knockback,
-            value1 = 0.20f, value2 = 0f, value3 = 0f, maxStacks = 0
-        },
-        new UpgradeEntry
-        {
-            upgradeId = "bullet_size",
-            upgradeName = "弹体 (Bullet Size)",
-            description = "子弹碰撞体积+15%",
-            category = CharacterUpgradeOption.UpgradeCategory.BulletSize,
-            value1 = 0.15f, value2 = 0f, value3 = 0f, maxStacks = 0
         },
     };
 

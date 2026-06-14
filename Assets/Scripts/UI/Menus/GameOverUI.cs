@@ -63,7 +63,7 @@ public class GameOverUI : MonoBehaviour
         }
 
         if (_statsText != null)
-            _statsText.text = $"波次: {finalWave}  |  存活: {FormatTime(DamageMeter.Instance != null ? DamageMeter.Instance.CombatTime : 0f)}";
+            _statsText.text = $"波次: {finalWave}  |  存活: {UIFormatUtils.FormatTime(DamageMeter.Instance != null ? DamageMeter.Instance.CombatTime : 0f)}";
         if (_coinsEarnedText != null)
             _coinsEarnedText.text = $"金币: {coinsThisGame}";
 
@@ -85,9 +85,9 @@ public class GameOverUI : MonoBehaviour
         float elapsed = dm.CombatTime;
         float avgDps = elapsed > 0 ? totalDmg / elapsed : 0f;
 
-        sb.AppendLine($"总伤害: {FmtDmg(totalDmg)}  |  平均DPS: {FmtDmg((long)avgDps)}/s");
+        sb.AppendLine($"总伤害: {UIFormatUtils.FormatDamage(totalDmg)}  |  平均DPS: {UIFormatUtils.FormatDamage((long)avgDps)}/s");
         sb.AppendLine($"击杀: {dm.TotalKills}  |  Boss: {dm.BossKills}");
-        sb.AppendLine($"最高引爆: {FmtDmg(dm.MaxSingleDetonateDamage)}  |  最高DPS: {FmtDmg((long)dm.MaxDpsPeak)}/s");
+        sb.AppendLine($"最高引爆: {UIFormatUtils.FormatDamage(dm.MaxSingleDetonateDamage)}  |  最高DPS: {UIFormatUtils.FormatDamage((long)dm.MaxDpsPeak)}/s");
         sb.AppendLine($"DOT触发: {dm.TotalDotTicks}次");
         sb.AppendLine();
         sb.AppendLine("── 伤害分布 ──");
@@ -108,7 +108,7 @@ public class GameOverUI : MonoBehaviour
             var stats = (DamageMeter.SourceStats)kvp.Value;
             float pct = totalDmg > 0 ? (float)stats.totalDamage / totalDmg * 100f : 0f;
             string bar = BuildAsciiBar(pct, 10);
-            sb.AppendLine($"  {GetSourceLabel(kvp.Key)} {FmtDmg(stats.totalDamage)} {bar} {pct:F1}%");
+            sb.AppendLine($"  {GetSourceLabel(kvp.Key)} {UIFormatUtils.FormatDamage(stats.totalDamage)} {bar} {pct:F1}%");
         }
 
         return sb.ToString();
@@ -134,20 +134,6 @@ public class GameOverUI : MonoBehaviour
         int filled = Mathf.RoundToInt(percent / 100f * width);
         filled = Mathf.Clamp(filled, 0, width);
         return "[" + new string('█', filled) + new string('░', width - filled) + "]";
-    }
-
-    private string FmtDmg(long dmg)
-    {
-        if (dmg >= 1_000_000) return $"{dmg / 1_000_000f:F1}M";
-        if (dmg >= 1_000) return $"{dmg / 1_000f:F1}K";
-        return dmg.ToString();
-    }
-
-    private string FormatTime(float seconds)
-    {
-        int mins = Mathf.FloorToInt(seconds / 60f);
-        int secs = Mathf.FloorToInt(seconds % 60f);
-        return $"{mins:00}:{secs:00}";
     }
 
     private void CreateGameOverUI()

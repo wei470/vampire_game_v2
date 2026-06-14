@@ -51,7 +51,7 @@ public class CharacterData : ScriptableObject
     public EvolutionMilestone[] evolutionTree;  // 角色进化树
 
     [Header("默认技能")]
-    public SkillData defaultSkill;             // 角色初始技能
+    [HideInInspector] public object defaultSkill;             // 已弃用
 
     [Header("角色专属升级")]
     [Tooltip("如果为空，使用默认升级选项池（攻击/生命/速度/护甲/磁铁）")]

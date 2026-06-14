@@ -195,16 +195,12 @@ public static class MageStatsHUDRenderer
 
             // ── DOT 增强属性 ──
             cy = DrawSectionHeader(x, cy, panelW, "DOT ENHANCEMENTS", headerHeight, titleStyle);
-            cy = DrawStatRow(x + 8, cy, panelW - 16, "Frequency +", $"{mage.DotFrequencyBonus * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
             cy = DrawStatRow(x + 8, cy, panelW - 16, "Corrosion", $"{mage.CorrosionArmorReduction * 100:F0}%/stack", TextPrimary, lineHeight, labelStyle, valueStyle);
             cy = DrawStatRow(x + 8, cy, panelW - 16, "Curse Spread", $"{mage.CurseSpreadTargets} targets", TextPrimary, lineHeight, labelStyle, valueStyle);
-            cy = DrawStatRow(x + 8, cy, panelW - 16, "Wither Burst", $"{mage.DotCritBurstChance * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
 
             // ── 子弹增强属性 ──
             cy = DrawStatRow(x + 8, cy, panelW - 16, "Attack Speed +", $"{mage.AttackSpeedBonus * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
-            cy = DrawStatRow(x + 8, cy, panelW - 16, "Bullet Speed +", $"{mage.BulletSpeedBonus * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
             cy = DrawStatRow(x + 8, cy, panelW - 16, "Bullet Count", $"{1 + mage.BulletCountBonus}", TextPrimary, lineHeight, labelStyle, valueStyle);
-            cy = DrawStatRow(x + 8, cy, panelW - 16, "Ricochet", $"{mage.RicochetChance * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
 
             cy = DrawDivider(x, cy, panelW, lineHeight, dividerTex);
 

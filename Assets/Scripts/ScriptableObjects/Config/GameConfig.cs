@@ -54,7 +54,7 @@ public class GameConfig : ScriptableObject
     public float screenShakeIntensity = 0.3f;
 
     [Header("DPS 测试木桩")]
-    public long dpsDummyHP = 2000000000;            // 木桩HP（默认20亿）
+    public long dpsDummyHP = 2000000;               // 木桩HP（默认200万）
     public int dpsDummyArmor = 0;                   // 木桩护甲
     public float dpsDummyRegen = 0f;                // 木桩每秒回血
     public bool dpsDummyInvincible = false;          // 木桩是否无敌（不死亡）

@@ -25,7 +25,7 @@ public class MageStatsHUD : MonoBehaviour
     [SerializeField] private float _headerHeight = 28f;
 
     [Header("位置")]
-    [SerializeField] private float _marginBottom = 200f;   // 距底部（避让 SkillHUD）
+    [SerializeField] private float _marginBottom = 200f;   // 距底部
     [SerializeField] private float _marginLeft = 24f;
 
     // ════════════════════════════════════════════════════════════════

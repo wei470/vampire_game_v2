@@ -12,10 +12,13 @@ using System.Collections.Generic;
 public class TestBulletSelectUI : MonoBehaviour
 {
     private MageUpgradeConfig _config;
-    private System.Action<List<string>, Dictionary<string, int>> _onConfirmed;
+    private System.Action<List<string>, Dictionary<string, int>, int> _onConfirmed;
 
     private Dictionary<string, bool> _bulletSelections = new Dictionary<string, bool>();
     private Dictionary<string, int> _upgradeSelections = new Dictionary<string, int>();
+
+    private int _startWave = 1;
+    private string _waveInput = "1";
 
     private Vector2 _bulletScrollPos;
     private Vector2 _generalScrollPos;
@@ -25,12 +28,13 @@ public class TestBulletSelectUI : MonoBehaviour
     private int _activeTab = 0;
     private bool _isVisible = true;
 
-    // ── 一般强化类别（所有角色通用）──
-    private static readonly HashSet<string> _generalCategories = new HashSet<string>
+    // ── 一般强化类别（枚举值，自动匹配）──
+    private static readonly HashSet<CharacterUpgradeOption.UpgradeCategory> _generalCategories = new HashSet<CharacterUpgradeOption.UpgradeCategory>
     {
-        "MoveSpeed", "ArmorBonus", "MaxHpBonus", "CritChanceBonus", "CritDamageBonus",
-        "MagnetRange", "HpRegen", "AttackSpeed", "BulletSpeed", "BulletSize",
-        "BulletCount", "Knockback", "Penetrate", "Ricochet"
+        CharacterUpgradeOption.UpgradeCategory.MoveSpeed,
+        CharacterUpgradeOption.UpgradeCategory.AttackSpeed,
+        CharacterUpgradeOption.UpgradeCategory.BulletCount,
+        CharacterUpgradeOption.UpgradeCategory.Ricochet,
     };
 
     // ── 分类后的升级缓存 ──
@@ -102,7 +106,7 @@ public class TestBulletSelectUI : MonoBehaviour
     private const float PANEL_Y = 140f;
     private const float PANEL_H = SCREEN_H - PANEL_Y - 90f;
 
-    public void Setup(MageUpgradeConfig config, System.Action<List<string>, Dictionary<string, int>> onConfirmed)
+    public void Setup(MageUpgradeConfig config, System.Action<List<string>, Dictionary<string, int>, int> onConfirmed)
     {
         _config = config;
         _onConfirmed = onConfirmed;
@@ -126,7 +130,7 @@ public class TestBulletSelectUI : MonoBehaviour
                 _upgradeSelections[entry.upgradeId] = 0;
 
                 string cat = entry.category.ToString();
-                if (_generalCategories.Contains(cat))
+                if (_generalCategories.Contains(entry.category))
                     _generalUpgrades.Add(entry);
                 else
                     _specificUpgrades.Add(entry);
@@ -135,6 +139,11 @@ public class TestBulletSelectUI : MonoBehaviour
 
         RebuildCategoryColorCache();
         DebugHelper.Log($"[TestBulletSelectUI] {_bulletSelections.Count} bullets, {_generalUpgrades.Count} general, {_specificUpgrades.Count} specific");
+    }
+
+    public void Refresh()
+    {
+        if (_config != null) Setup(_config, _onConfirmed);
     }
 
     private void RebuildCategoryColorCache()
@@ -376,12 +385,18 @@ public class TestBulletSelectUI : MonoBehaviour
         }
         GUI.color = Color.white;
 
-        // 统计
+        // 统计 + 波次选择
         int bc = GetSelectedBulletCount();
         int gc = GetCount(_generalUpgrades);
         int sc = GetCount(_specificUpgrades);
-        GUI.Label(new Rect(PANEL_X + PANEL_W / 2 - 250f, btnY + 8f, 500f, 30f),
+        GUI.Label(new Rect(PANEL_X + PANEL_W / 2 - 350f, btnY + 2f, 300f, 24f),
             $"子弹:{bc}/{_bulletSelections.Count}  一般:{gc}  专属:{sc}", _countStyle);
+
+        // 波次输入
+        GUI.Label(new Rect(PANEL_X + PANEL_W / 2 + 10f, btnY + 2f, 60f, 24f), "起始波:", _countStyle);
+        _waveInput = GUI.TextField(new Rect(PANEL_X + PANEL_W / 2 + 70f, btnY + 2f, 50f, 24f), _waveInput, _countStyle);
+        if (int.TryParse(_waveInput, out int parsed) && parsed >= 1)
+            _startWave = parsed;
 
         // 确认
         GUI.color = new Color(0.2f, 0.75f, 0.2f, 0.95f);
@@ -402,9 +417,9 @@ public class TestBulletSelectUI : MonoBehaviour
         foreach (var kvp in _upgradeSelections)
             if (kvp.Value > 0) upgrades[kvp.Key] = kvp.Value;
 
-        DebugHelper.Log($"[TestBulletSelectUI] Confirmed: {bullets.Count} bullets, {upgrades.Count} upgrades");
+        DebugHelper.Log($"[TestBulletSelectUI] Confirmed: {bullets.Count} bullets, {upgrades.Count} upgrades, wave {_startWave}");
         _isVisible = false;
-        _onConfirmed?.Invoke(bullets, upgrades);
+        _onConfirmed?.Invoke(bullets, upgrades, _startWave);
     }
 
     // ═══ 辅助 ═══

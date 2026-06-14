@@ -357,34 +357,6 @@ public class DebugConfigPanel : MonoBehaviour
             wc.enemiesPerWave = DrawIntField("每波增加敌人", ref _wavePerWaveInput, wc.enemiesPerWave);
         }
 
-        // === 难度切换 ===
-        GUILayout.Space(8);
-        DrawSectionHeader("难度切换");
-        GUILayout.Label($"当前难度: {DifficultyManager.CurrentDifficulty} ({DifficultyManager.CurrentConfig?.difficultyName})");
-        GUILayout.Label($"已解锁最高: {DifficultyManager.MaxUnlockedDifficulty}");
-        GUILayout.BeginHorizontal();
-        for (int d = 1; d <= Mathf.Min(DifficultyManager.MaxDifficulty, 5); d++)
-        {
-            if (GUILayout.Button($"{d}", GUILayout.Width(35)))
-            {
-                DifficultyManager.CurrentDifficulty = d;
-            }
-        }
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        for (int d = 6; d <= DifficultyManager.MaxDifficulty; d++)
-        {
-            if (GUILayout.Button($"{d}", GUILayout.Width(35)))
-            {
-                DifficultyManager.CurrentDifficulty = d;
-            }
-        }
-        if (GUILayout.Button("全部解锁", GUILayout.Width(70)))
-        {
-            DifficultyManager.MaxUnlockedDifficulty = DifficultyManager.MaxDifficulty;
-        }
-        GUILayout.EndHorizontal();
-
         // === DOT 注入器 ===
         GUILayout.Space(8);
         DrawSectionHeader("DOT 注入器");

@@ -1,8 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// 燃烧叠加效果 — 层数越高，tick间隔越短（最低0.2秒）
-/// </summary>
 public class BurnStackEffect : StackEffectBase
 {
     private int _stacks;
@@ -16,6 +13,9 @@ public class BurnStackEffect : StackEffectBase
     private DotColorBlender _blender;
     private float _tickAccumulator;
     private int _lastRegisteredStacks = -1;
+
+    private float _baseTickInterval = 0.5f;
+    private float _stackBonus = 0.1f;
 
     public void AddStack(float baseDps, float duration, bool canCrit, float critChance, float critMult)
     {
@@ -34,11 +34,14 @@ public class BurnStackEffect : StackEffectBase
         _blender = GetComponent<DotColorBlender>();
         _tickAccumulator = 0f;
         _lastRegisteredStacks = -1;
+        RefreshFromConfig();
     }
 
     protected override void RefreshFromConfig()
     {
-        duration = DotEffectConfig.GetDefault().BurnDuration;
+        var cfg = DotEffectConfig.GetDefault();
+        duration = cfg.BurnDuration;
+        _baseTickInterval = cfg.BurnBaseTickInterval;
     }
 
     private void Update()
@@ -52,16 +55,14 @@ public class BurnStackEffect : StackEffectBase
             _blender.RegisterDot("burn", DotColorBlender.BURN_ORANGE, intensity, 10f);
         }
 
-        float tickInterval = Mathf.Max(0.2f, 1.0f / _stacks);
         _tickAccumulator += Time.deltaTime;
+        if (_tickAccumulator < _baseTickInterval) return;
+        _tickAccumulator -= _baseTickInterval;
 
-        if (_tickAccumulator >= tickInterval)
-        {
-            _tickAccumulator -= tickInterval;
-            float dmg = baseDps * tickInterval;
-            if (canCrit && Random.value < critChance) dmg *= critMult;
-            _damageable.TakeDamage(Mathf.Max(0.01f, dmg), new Color(1f, 0.5f, 0f));
-        }
+        float stackMultiplier = 1f + (_stacks - 1) * _stackBonus;
+        float dmg = baseDps * _baseTickInterval * stackMultiplier;
+        if (canCrit && Random.value < critChance) dmg *= critMult;
+        _damageable.TakeDamage(Mathf.Max(0.01f, dmg), new Color(1f, 0.5f, 0f));
     }
 
     protected override void OnDestroy() { base.OnDestroy(); UnregisterColor(); }

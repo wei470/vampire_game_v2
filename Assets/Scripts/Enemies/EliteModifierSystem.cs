@@ -61,6 +61,7 @@ public class EliteModifierSystem : MonoBehaviour
     private EnemyBase _enemyBase;
     private Damageable _damageable;
     private SpriteRenderer _spriteRenderer;
+    private Damageable _playerDamageable;
     private Color _originalColor;
     private float _originalSpeed;
     private int _originalContactDamage;
@@ -74,7 +75,7 @@ public class EliteModifierSystem : MonoBehaviour
     private float _hasteAuraTimer;
     private int _shieldHp;
 
-    // ── 配置 ──
+    // TODO #34: Extract to EliteModifierConfig ScriptableObject
     private const float REGEN_INTERVAL = 1f;
     private const float REGEN_PERCENT = 0.02f;
     private const float SHIELD_INTERVAL = 5f;
@@ -183,10 +184,10 @@ public class EliteModifierSystem : MonoBehaviour
             var player = GameReferences.Player;
             if (player != null)
             {
-                var playerDmg = player.GetComponent<Damageable>();
-                if (playerDmg != null)
+                if (_playerDamageable == null) _playerDamageable = player.GetComponent<Damageable>();
+                if (_playerDamageable != null)
                 {
-                    playerDmg.TakeDamage(reflected);
+                    _playerDamageable.TakeDamage(reflected);
                 }
             }
         }
@@ -376,38 +377,10 @@ public class EliteModifierSystem : MonoBehaviour
                     _enemyBase.MoveSpeed *= 1.5f;
                 break;
             case ModifierType.Berserk:
-                // Update() 中处理
                 break;
             case ModifierType.Gravity:
-                // Update() 中处理
                 break;
         }
-    }
-
-    private void HandleMagnet()
-    {
-        var player = GameReferences.Player;
-        if (player == null) return;
-        Vector2 pullDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
-        var rb = player.GetComponent<Rigidbody2D>();
-        if (rb != null) rb.linearVelocity += pullDir * 2f * Time.deltaTime;
-    }
-
-    private void HandleGravity()
-    {
-        var player = GameReferences.Player;
-        if (player == null) return;
-        float dist = Vector2.Distance(transform.position, player.transform.position);
-        if (dist < 8f)
-        {
-            var enemyBase = player.GetComponent<PlayerController>();
-            // 减速通过 EnemyBase 的 FrostSlowMultiplier 实现，这里用简单方案
-        }
-    }
-
-    private void HandlePlague()
-    {
-        // 死亡时在 OnEliteDeath 中处理
     }
 
     private void UpdateVisual()
@@ -478,7 +451,7 @@ public class EliteModifierSystem : MonoBehaviour
             GameReferences.SpawnManager.SpawnSingleEnemy(spawnPos);
         }
 
-        var sr = GetComponent<SpriteRenderer>();
+        var sr = _spriteRenderer;
         if (sr != null) sr.color = new Color(0.9f, 0.5f, 1f);
     }
 

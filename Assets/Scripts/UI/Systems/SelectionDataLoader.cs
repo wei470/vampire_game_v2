@@ -40,33 +40,6 @@ public static class SelectionDataLoader
     }
 
     /// <summary>
-    /// 加载技能数据数组
-    /// </summary>
-    public static SkillData[] LoadSkills()
-    {
-        // 优先从 Resources/Skills 加载（打包后可用）
-        var skillAssets = Resources.LoadAll<SkillData>("Skills");
-        if (skillAssets.Length > 0)
-            return skillAssets;
-
-#if UNITY_EDITOR
-        return new SkillData[]
-        {
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_WindWave.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_Berserk.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_TheWorld.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_Teleport.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_DeathAura.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_LightningStorm.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_GravityWell.asset"),
-            UnityEditor.AssetDatabase.LoadAssetAtPath<SkillData>("Assets/ScriptableObjects/Skills/Skill_FrostNova.asset"),
-        };
-#else
-        return new SkillData[0];
-#endif
-    }
-
-    /// <summary>
     /// 获取武器数据数组（优先使用Inspector分配，否则从WeaponController获取）
     /// </summary>
     public static WeaponData[] GetWeaponDataArray(WeaponData[] inspectorWeapons)

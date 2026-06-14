@@ -11,7 +11,6 @@ public class GameDataLoader
     // ── 加载的数据 ──
     public CharacterData[] Characters { get; private set; }
     public WeaponData[] Weapons { get; private set; }
-    public SkillData[] Skills { get; private set; }
     public MageUpgradeConfig MageUpgradeConfig { get; private set; }
 
     /// <summary>
@@ -35,24 +34,10 @@ public class GameDataLoader
         // ── 加载武器（运行时创建，因为 Weapons 目录为空）──
         Weapons = CreateDefaultWeapons();
 
-        // ── 加载技能（从 ScriptableObjects/Skills/*.asset）──
-        var skillNames = new string[] {
-            "Skill_WindWave", "Skill_Berserk", "Skill_TheWorld", "Skill_Teleport",
-            "Skill_DeathAura", "Skill_LightningStorm", "Skill_GravityWell", "Skill_FrostNova"
-        };
-        var skillList = new List<SkillData>();
-        foreach (var name in skillNames)
-        {
-            var s = LoadAsset<SkillData>($"Assets/Resources/Skills/{name}.asset");
-            if (s != null) skillList.Add(s);
-        }
-        Skills = skillList.Count > 0 ? skillList.ToArray() : new SkillData[0];
-
         // ── #38 加载 MageUpgradeConfig ──
-        MageUpgradeConfig = LoadAsset<MageUpgradeConfig>("Assets/Resources/Configs/MageUpgradeConfig.asset");
+        MageUpgradeConfig = Resources.Load<MageUpgradeConfig>("Configs/MageUpgradeConfig");
         if (MageUpgradeConfig == null)
         {
-            // 运行时创建默认配置（与编辑器中的 .asset 一致）
             MageUpgradeConfig = ScriptableObject.CreateInstance<MageUpgradeConfig>();
             DebugHelper.Log("[GameDataLoader] MageUpgradeConfig: runtime default created");
         }
@@ -80,9 +65,8 @@ public class GameDataLoader
         // ── 确保至少有选项 ──
         if (Characters.Length == 0) Characters = new CharacterData[] { CreateDefaultCharacter() };
         if (Weapons.Length == 0) Weapons = CreateDefaultWeapons();
-        if (Skills.Length == 0) Skills = new SkillData[] { CreateDefaultSkill() };
 
-        DebugHelper.Log($"[GameDataLoader] Loaded: {Characters.Length} characters, {Weapons.Length} weapons, {Skills.Length} skills");
+        DebugHelper.Log($"[GameDataLoader] Loaded: {Characters.Length} characters, {Weapons.Length} weapons");
     }
 
     /// <summary>
@@ -145,16 +129,6 @@ public class GameDataLoader
         c.attackDamage = 10;
         c.characterColor = Color.blue;
         return c;
-    }
-
-    private SkillData CreateDefaultSkill()
-    {
-        var s = ScriptableObject.CreateInstance<SkillData>();
-        s.skillName = "Default Skill";
-        s.description = "Default skill";
-        s.baseDamage = 10;
-        s.cooldown = 10f;
-        return s;
     }
 
     /// <summary>

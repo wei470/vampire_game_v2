@@ -82,9 +82,15 @@ public class BGMManager : MonoBehaviour
         }
         else
         {
-            DebugHelper.LogWarning("[BGMManager] No audio clips found. " +
-                "Please assign BGM clips in SoundTrack or move files to Assets/Resources/Audio/");
-            _clips = new AudioClip[0];
+            // 尝试逐个加载已知文件
+            var clip1 = Resources.Load<AudioClip>("Audio/music1");
+            var clip2 = Resources.Load<AudioClip>("Audio/music2");
+            var list = new System.Collections.Generic.List<AudioClip>();
+            if (clip1 != null) list.Add(clip1);
+            if (clip2 != null) list.Add(clip2);
+            _clips = list.ToArray();
+            if (_clips.Length > 0)
+                DebugHelper.Log($"[BGMManager] Loaded {_clips.Length} clips individually");
         }
     }
 
@@ -134,6 +140,24 @@ public class BGMManager : MonoBehaviour
         }
         _isPlaying = true;
         PlayNext();
+    }
+
+    /// <summary>
+    /// 播放指定名称的音频剪辑
+    /// </summary>
+    public void PlayClip(string clipName)
+    {
+        var clip = Resources.Load<AudioClip>($"Audio/{clipName}");
+        if (clip == null)
+        {
+            DebugHelper.Log($"[BGMManager] Clip not found: Audio/{clipName} (upload file to Assets/Resources/Audio/)");
+            return;
+        }
+        _audioSource.clip = clip;
+        _audioSource.loop = true;
+        _audioSource.Play();
+        _isPlaying = true;
+        DebugHelper.Log($"[BGMManager] Playing: {clipName}");
     }
 
     /// <summary>

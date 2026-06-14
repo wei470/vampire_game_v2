@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0710688bca8dbaf44a04fe97cd470ad2, type: 3}
   m_Name: DotEffectConfig
   m_EditorClassIdentifier: Gameplay::DotEffectConfig
+  BarrageSpreadAngle: 15
   BurnSpeed: 12
   BurnLifetime: 4
   BurnBaseDps: 2
@@ -20,8 +21,8 @@ MonoBehaviour:
   PoisonSpeed: 14
   PoisonExplosionRadius: 0.5
   PoisonPuddleRadius: 1.5
-  PoisonPuddleDuration: 5
-  PoisonPuddleTickInterval: 1
+  PoisonPuddleDuration: 3
+  PoisonPuddleTickInterval: 2
   PoisonPuddleTickDecay: 0.9
   PoisonPuddleMinTickInterval: 0.2
   PoisonBaseTickInterval: 1
@@ -67,12 +68,6 @@ MonoBehaviour:
   WindSpeed: 24
   WindHitsPerStack: 1
   WindKnockbackDistance: 0.6
-  WindSpreadAngles:
-  - -15
-  - -7.5
-  - 0
-  - 7.5
-  - 15
   WindErosionKnockbackDistance: 1
   WindMaxStacks: 999
   BurnSpreadRadius: 5
@@ -84,7 +79,7 @@ MonoBehaviour:
   HomingSpeed: 10
   HomingLifetime: 5
   HomingTargetRadius: 6
-  DetonateCooldown: 1
+  DetonateCooldown: 12
   DetonateMultiplier: 3
   DetonateRadius: 50
   DetonateWaveDuration: 0.3

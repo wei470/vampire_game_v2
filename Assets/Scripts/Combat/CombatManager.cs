@@ -85,16 +85,16 @@ public class CombatManager : Singleton<CombatManager>
             var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
-            var dmg = hit.GetComponent<Damageable>();
+            var enemyBase = hit.GetComponent<EnemyBase>();
+            var dmg = enemyBase != null ? enemyBase.CachedDamageable : hit.GetComponent<Damageable>();
             if (dmg != null && dmg.CurrentHp > 0)
             {
                 DealDamage(dmg, baseDamage, multiplier);
                 hitCount++;
 
-                // 击退
                 if (knockbackForce > 0)
                 {
-                    var rb = hit.GetComponent<Rigidbody2D>();
+                    var rb = enemyBase != null ? enemyBase.CachedRigidbody : hit.GetComponent<Rigidbody2D>();
                     if (rb != null)
                     {
                         Vector2 pushDir = ((Vector2)hit.transform.position - center).normalized;
@@ -120,7 +120,7 @@ public class CombatManager : Singleton<CombatManager>
         if (target == null || target.CurrentHp <= 0) return false;
 
         // 防止重复命中 — 使用 collider 实例作为 key，避免 GetInstanceID 废弃警告
-        int targetId = target.gameObject.GetHashCode();
+        int targetId = target.gameObject.GetInstanceID();
 
         if (hitEnemies.Contains(targetId)) return false;
         hitEnemies.Add(targetId);
@@ -152,10 +152,10 @@ public class CombatManager : Singleton<CombatManager>
     public static void DespawnAllDotBullets()
     {
         int despawned = 0;
-        // 查找所有场景中的 DOT 子弹组件并回收
-        var bullets = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
-        foreach (var b in bullets)
+        var bullets = DotBulletBase.ActiveDotBullets;
+        for (int i = bullets.Count - 1; i >= 0; i--)
         {
+            var b = bullets[i];
             if (b == null) continue;
             string typeName = b.GetType().Name;
             string poolKey = null;

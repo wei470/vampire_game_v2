@@ -3,16 +3,14 @@ using System.Collections.Generic;
 
 public class SelectionUI : MonoBehaviour
 {
-    public enum SelectPhase { Character, Skill, Done }
+    public enum SelectPhase { Character, Done }
 
     [Header("当前状态")]
     [SerializeField] private SelectPhase _selectPhase = SelectPhase.Character;
     [SerializeField] private int _selectedChar = 0;
-    [SerializeField] private int _selectedSkill = 0;
 
     private CharacterData[] _characters;
     private WeaponData[] _weapons;
-    private SkillData[] _skills;
 
     private Texture2D _bgTex, _btnNormalTex, _btnSelectedTex, _btnConfirmTex, _btnHoverTex, _previewBgTex;
 
@@ -47,9 +45,9 @@ public class SelectionUI : MonoBehaviour
     public bool IsDone => _selectPhase == SelectPhase.Done;
     private const float LEFT_RATIO = 0.35f, CENTER_RATIO = 0.28f;
 
-    public void Setup(CharacterData[] c, WeaponData[] w, SkillData[] s) { _characters = c ?? new CharacterData[0]; _weapons = w ?? new WeaponData[0]; _skills = s ?? new SkillData[0]; InitTextures(); }
-    public void SetPreSelection(int a, int b, int c) { _selectedChar = a; _selectedSkill = c; }
-    public void ConfirmSelection() { switch (_selectPhase) { case SelectPhase.Character: _selectPhase = SelectPhase.Skill; break; case SelectPhase.Skill: _selectPhase = SelectPhase.Done; OnSelectionConfirmed?.Invoke(_selectedChar, 0, _selectedSkill); break; } }
+    public void Setup(CharacterData[] c, WeaponData[] w) { _characters = c ?? new CharacterData[0]; _weapons = w ?? new WeaponData[0]; InitTextures(); }
+    public void SetPreSelection(int a, int b, int c) { _selectedChar = a; }
+    public void ConfirmSelection() { _selectPhase = SelectPhase.Done; OnSelectionConfirmed?.Invoke(_selectedChar, 0, 0); }
 
     private void InitTextures() { _bgTex = UIColorTheme.MakeTexture(UIColorTheme.OverlayDark); _btnNormalTex = UIColorTheme.MakeTexture(UIColorTheme.ButtonNormal); _btnSelectedTex = UIColorTheme.MakeTexture(UIColorTheme.ButtonSelected); _btnConfirmTex = UIColorTheme.MakeTexture(UIColorTheme.AccentCyan); _btnHoverTex = UIColorTheme.MakeTexture(UIColorTheme.ButtonHover); _previewBgTex = UIColorTheme.MakeTexture(UIColorTheme.PanelBackground); }
 
@@ -72,7 +70,7 @@ public class SelectionUI : MonoBehaviour
     {
         var ts = _titleLargeStyle;
         GUI.color = UIColorTheme.AccentCyan; GUI.Label(new Rect(0, 10, sw, 40), "Vampire Survivors", ts); GUI.color = Color.white;
-        string st = _selectPhase switch { SelectPhase.Character => "Step 1/2: Choose Character", SelectPhase.Skill => "Step 2/2: Choose Skill", _ => "" };
+        string st = "Choose Character";
         var ss = _titleStepStyle;
         GUI.Label(new Rect(0, 55, sw, 30), st, ss);
         GUI.color = UIColorTheme.PanelBackground; GUI.DrawTexture(new Rect(sw * 0.1f, 90, sw * 0.8f, 2), _previewBgTex); GUI.color = Color.white;
@@ -80,8 +78,8 @@ public class SelectionUI : MonoBehaviour
 
     private void DrawButtonList()
     {
-        int count, si;
-        switch (_selectPhase) { case SelectPhase.Character: count = _characters.Length; si = _selectedChar; break; case SelectPhase.Skill: count = _skills.Length; si = _selectedSkill; break; default: return; }
+        int count = _characters.Length;
+        int si = _selectedChar;
         float aw = Screen.width * LEFT_RATIO - 16f, btnH = 60f, sp = btnH + 14f;
         for (int i = 0; i < count; i++)
         {
@@ -120,8 +118,8 @@ public class SelectionUI : MonoBehaviour
         }
     }
 
-    private string GetItemName(int i) => _selectPhase switch { SelectPhase.Character => i < _characters.Length && _characters[i] != null ? _characters[i].characterName : "???", SelectPhase.Skill => i < _skills.Length && _skills[i] != null ? _skills[i].skillName : "???", _ => "???" };
-    private void SetSelection(int i) { switch (_selectPhase) { case SelectPhase.Character: _selectedChar = i; break; case SelectPhase.Skill: _selectedSkill = i; break; } }
+    private string GetItemName(int i) => i < _characters.Length && _characters[i] != null ? _characters[i].characterName : "???";
+    private void SetSelection(int i) { _selectedChar = i; }
 
     private void DrawPreviewArea(Rect a)
     {
@@ -142,9 +140,9 @@ public class SelectionUI : MonoBehaviour
         GUI.color = Color.white;
     }
 
-    private Sprite GetSelectedIcon() => _selectPhase switch { SelectPhase.Character => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].icon : null, SelectPhase.Skill => _selectedSkill < _skills.Length && _skills[_selectedSkill] != null ? _skills[_selectedSkill].icon : null, _ => null };
-    private string GetSelectedName() => _selectPhase switch { SelectPhase.Character => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].characterName : "???", SelectPhase.Skill => _selectedSkill < _skills.Length && _skills[_selectedSkill] != null ? _skills[_selectedSkill].skillName : "???", _ => "???" };
-    private Color GetSelectedColor() => _selectPhase switch { SelectPhase.Character => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].characterColor : UIColorTheme.AccentCyan, _ => UIColorTheme.AccentCyan };
+    private Sprite GetSelectedIcon() => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].icon : null;
+    private string GetSelectedName() => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].characterName : "???";
+    private Color GetSelectedColor() => _selectedChar < _characters.Length && _characters[_selectedChar] != null ? _characters[_selectedChar].characterColor : UIColorTheme.AccentCyan;
     private string GetSelectedInitial() { string n = GetSelectedName(); return string.IsNullOrEmpty(n) ? "?" : n[0].ToString().ToUpper(); }
 
     private void DrawDetailArea(Rect a)
@@ -156,9 +154,6 @@ public class SelectionUI : MonoBehaviour
         {
             case SelectPhase.Character:
                 if (_selectedChar < _characters.Length && _characters[_selectedChar] != null) { var c = _characters[_selectedChar]; t = c.characterName; d = c.description; e = $"HP: {c.maxHP}  |  SPD: {c.moveSpeed:F1}  |  ARM: {c.armor}\nATK: {c.attackDamage}  |  Crit: {c.critChance:P0}\n\nPassive: {c.passiveDescription}"; }
-                else { t = "???"; d = ""; e = ""; } break;
-            case SelectPhase.Skill:
-                if (_selectedSkill < _skills.Length && _skills[_selectedSkill] != null) { var s = _skills[_selectedSkill]; t = s.skillName; d = s.description; e = $"Type: {s.skillType}\nDMG: {s.baseDamage}  |  CD: {s.cooldown:F1}s\nDuration: {s.duration:F1}s  |  Radius: {s.effectRadius:F1}"; }
                 else { t = "???"; d = ""; e = ""; } break;
             default: return;
         }
@@ -174,7 +169,7 @@ public class SelectionUI : MonoBehaviour
     {
         float w = 220f, h = 60f, cx = (sw - w) / 2f, cy = sh - h - 40f;
         GUI.color = Color.white;
-        if (GUI.Button(new Rect(cx, cy, w, h), _selectPhase == SelectPhase.Skill ? "Start" : "Confirm", _confirmBtnStyle)) ConfirmSelection();
+        if (GUI.Button(new Rect(cx, cy, w, h), "Start", _confirmBtnStyle)) ConfirmSelection();
         GUI.color = Color.white;
     }
 }

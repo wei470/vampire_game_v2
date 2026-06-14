@@ -6,13 +6,26 @@ using System.Collections.Generic;
 /// </summary>
 public static class MageUpgradeApplier
 {
+    private static Damageable _cachedPlayerDmg;
+    private static Damageable PlayerDmg
+    {
+        get
+        {
+            if (_cachedPlayerDmg == null)
+            {
+                var player = GameReferences.Player;
+                if (player != null) _cachedPlayerDmg = player.GetComponent<Damageable>();
+            }
+            return _cachedPlayerDmg;
+        }
+    }
+
     private static readonly Dictionary<CharacterUpgradeOption.UpgradeCategory, System.Action<MagePassive, UpgradeEntry>> _appliers = new()
     {
         { CharacterUpgradeOption.UpgradeCategory.ArmorReduction, ApplyArmorReduction },
-        { CharacterUpgradeOption.UpgradeCategory.DotFrequency, ApplyDotFrequency },
-        { CharacterUpgradeOption.UpgradeCategory.DotCritBurst, ApplyDotCritBurst },
+        { CharacterUpgradeOption.UpgradeCategory.ArmorPenetration, ApplyArmorPenetration },
         { CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, ApplyDetonateMultiplier },
-        { CharacterUpgradeOption.UpgradeCategory.DetonateAbility, ApplyNoop },
+        { CharacterUpgradeOption.UpgradeCategory.DetonateAbility, ApplyDetonateAbility },
         { CharacterUpgradeOption.UpgradeCategory.DotTrigger, ApplyNoop },
         { CharacterUpgradeOption.UpgradeCategory.AttackSpeed, ApplyAttackSpeed },
         { CharacterUpgradeOption.UpgradeCategory.BulletCount, ApplyBulletCount },
@@ -25,18 +38,9 @@ public static class MageUpgradeApplier
         { CharacterUpgradeOption.UpgradeCategory.Penetrate, ApplyPenetrate },
         { CharacterUpgradeOption.UpgradeCategory.ElementalShield, ApplyElementalShield },
         { CharacterUpgradeOption.UpgradeCategory.Doomsday, ApplyDoomsday },
-        { CharacterUpgradeOption.UpgradeCategory.EternalAgony, ApplyEternalAgony },
 
         // 一般强化
         { CharacterUpgradeOption.UpgradeCategory.MoveSpeed, ApplyMoveSpeed },
-        { CharacterUpgradeOption.UpgradeCategory.ArmorBonus, ApplyArmorBonus },
-        { CharacterUpgradeOption.UpgradeCategory.MaxHpBonus, ApplyMaxHpBonus },
-        { CharacterUpgradeOption.UpgradeCategory.CritChanceBonus, ApplyCritChanceBonus },
-        { CharacterUpgradeOption.UpgradeCategory.CritDamageBonus, ApplyCritDamageBonus },
-        { CharacterUpgradeOption.UpgradeCategory.MagnetRange, ApplyMagnetRange },
-        { CharacterUpgradeOption.UpgradeCategory.HpRegen, ApplyHpRegen },
-        { CharacterUpgradeOption.UpgradeCategory.BulletSpeed, ApplyBulletSpeed },
-        { CharacterUpgradeOption.UpgradeCategory.Knockback, ApplyKnockback },
     };
 
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)
@@ -76,24 +80,16 @@ public static class MageUpgradeApplier
     private static void ApplyArmorReduction(MagePassive mage, UpgradeEntry ue)
     {
         mage.CorrosionArmorReduction += ue.value1;
-        DebugHelper.Log($"[MageUpgradeApplier] Corrosion: armor -{ue.value1:P0}");
     }
 
-    private static void ApplyDotFrequency(MagePassive mage, UpgradeEntry ue)
+    private static void ApplyArmorPenetration(MagePassive mage, UpgradeEntry ue)
     {
-        mage.DotFrequencyBonus += ue.value1;
-        DebugHelper.Log($"[MageUpgradeApplier] Agony DOT frequency: +{ue.value1:P0}");
-    }
-
-    private static void ApplyDotCritBurst(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.DotCritBurstChance += ue.value1;
-        DebugHelper.Log($"[MageUpgradeApplier] Wither DOT crit: +{ue.value1:P0}");
+        mage.ErosionArmorPenetration += (int)ue.value1;
     }
 
     private static void ApplyDetonateMultiplier(MagePassive mage, UpgradeEntry ue)
     {
-        mage.DetonateMultiplier += ue.value1;
+        mage.DetonateMultiplier *= (1f + ue.value1);
     }
 
     private static void ApplyNoop(MagePassive mage, UpgradeEntry ue) { }
@@ -103,7 +99,6 @@ public static class MageUpgradeApplier
     private static void ApplyAttackSpeed(MagePassive mage, UpgradeEntry ue)
     {
         mage.AttackSpeedBonus += ue.value1;
-        mage.BulletSpeedBonus += ue.value2;
     }
 
     private static void ApplyBulletCount(MagePassive mage, UpgradeEntry ue)
@@ -119,6 +114,13 @@ public static class MageUpgradeApplier
     private static void ApplyBulletSize(MagePassive mage, UpgradeEntry ue)
     {
         mage.BulletSizeBonus += ue.value1;
+    }
+
+    private static void ApplyDetonateAbility(MagePassive mage, UpgradeEntry ue)
+    {
+        mage.DetonateCooldownReduction += ue.value1;
+        float mult = Mathf.Max(0.1f, 1f - mage.DetonateCooldownReduction);
+        mage.DetonateCooldownValue = DotEffectConfig.GetDefault().DetonateCooldown * mult;
     }
 
     private static void ApplyPenetrate(MagePassive mage, UpgradeEntry ue)
@@ -153,7 +155,7 @@ public static class MageUpgradeApplier
             var player = GameReferences.Player;
             if (player != null)
             {
-                var dmg = player.GetComponent<Damageable>();
+                var dmg = PlayerDmg;
                 if (dmg != null)
                 {
                     dmg.SetMaxHp(dmg.MaxHp + Mathf.RoundToInt(hpGain));
@@ -168,75 +170,11 @@ public static class MageUpgradeApplier
         mage.DoomsdayThreshold += ue.value2;
     }
 
-    private static void ApplyEternalAgony(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.EternalAgonyActive = true;
-    }
-
     // ═══ 一般强化 ═══
 
     private static void ApplyMoveSpeed(MagePassive mage, UpgradeEntry ue)
     {
         // 移速暂不实现，BaseEntity 无 MoveSpeed 属性
-    }
-
-    private static void ApplyArmorBonus(MagePassive mage, UpgradeEntry ue)
-    {
-        var player = GameReferences.Player;
-        if (player != null)
-        {
-            var dmg = player.GetComponent<Damageable>();
-            if (dmg != null) dmg.SetArmor(dmg.Armor + (int)ue.value1);
-        }
-    }
-
-    private static void ApplyMaxHpBonus(MagePassive mage, UpgradeEntry ue)
-    {
-        var player = GameReferences.Player;
-        if (player != null)
-        {
-            var dmg = player.GetComponent<Damageable>();
-            if (dmg != null)
-            {
-                dmg.SetMaxHp(dmg.MaxHp + (int)ue.value1);
-                dmg.Heal((int)ue.value1);
-            }
-        }
-    }
-
-    private static void ApplyCritChanceBonus(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.CritChanceBonus += ue.value1;
-    }
-
-    private static void ApplyCritDamageBonus(MagePassive mage, UpgradeEntry ue)
-    {
-        // 暴击倍率通过 DotEffectConfig 调节，此处暂时 noop
-    }
-
-    private static void ApplyMagnetRange(MagePassive mage, UpgradeEntry ue)
-    {
-        // 拾取范围由 MagnetMultiplierSystem 管理
-    }
-
-    private static void ApplyHpRegen(MagePassive mage, UpgradeEntry ue)
-    {
-        var player = GameReferences.Player;
-        if (player != null)
-        {
-            var dmg = player.GetComponent<Damageable>();
-            if (dmg != null) dmg.HpRegenPerSecond += ue.value1;
-        }
-    }
-
-    private static void ApplyBulletSpeed(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.BulletSpeedBonus += ue.value1;
-    }
-
-    private static void ApplyKnockback(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.KnockbackBonus += ue.value1;
     }
 
     // ═══ 进化兼容 ═══

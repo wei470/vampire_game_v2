@@ -38,6 +38,7 @@ public class PoisonPuddle : MonoBehaviour
 
     private void OnEnable()
     {
+        DotBulletBase.ActiveDotBullets.Add(this);
         _spawnTime = Time.time; _lastTick = Time.time - 0.5f;
         ApplyRadius();
         if (_cachedSr != null) _cachedSr.color = new Color(0.1f, 0.7f, 0.1f, 0.4f);
@@ -46,6 +47,7 @@ public class PoisonPuddle : MonoBehaviour
 
     private void OnDisable()
     {
+        DotBulletBase.ActiveDotBullets.Remove(this);
         DotEffectConfig.OnConfigChanged -= RefreshFromConfig;
     }
 

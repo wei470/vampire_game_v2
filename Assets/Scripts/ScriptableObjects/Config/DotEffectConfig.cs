@@ -13,6 +13,15 @@ using UnityEngine;
 public class DotEffectConfig : ScriptableObject
 {
     // ══════════════════════════════════════════════════════════════
+    // 通用子弹参数
+    // ══════════════════════════════════════════════════════════════
+    [Header("通用子弹参数")]
+    [Tooltip("弹幕散射角度（单位：度）。\n" +
+             "多发子弹时每发之间的角度间隔。\n" +
+             "默认值：15")]
+    public float BarrageSpreadAngle = 15f;
+
+    // ══════════════════════════════════════════════════════════════
     // 燃烧子弹（BurnBullet）
     // 命中敌人后叠加燃烧层数，每层缩短 tick 间隔（最低 0.2 秒），
     // 造成持续火焰伤害。与风化效果触发"燃烧扩散"元素反应。
@@ -40,11 +49,11 @@ public class DotEffectConfig : ScriptableObject
              "默认值：3")]
     public float BurnDuration = 3f;
 
-    [Tooltip("燃烧 tick 间隔的最小值（单位：秒）。\n" +
-             "层数越高 tick 越频繁，但不会低于此值。\n" +
-             "公式：tick间隔 = max(BurnMinTickInterval, 1/层数)\n" +
-             "默认值：0.2")]
-    public float BurnMinTickInterval = 0.2f;
+    [Tooltip("燃烧效果的固定 tick 间隔（单位：秒）。\n" +
+             "无论层数多少，每隔此时间造成一次伤害。\n" +
+             "层数越高，每次 tick 伤害越高（而非频率越快）。\n" +
+             "默认值：0.5")]
+    public float BurnBaseTickInterval = 0.5f;
 
     // ══════════════════════════════════════════════════════════════
     // 毒液子弹（PoisonBullet）
@@ -329,14 +338,14 @@ public class DotEffectConfig : ScriptableObject
 
     // ══════════════════════════════════════════════════════════════
     // 风蚀子弹（WindBullet）
-    // 以 30° 扇形散射 5 发子弹，命中叠加风化层数，
+    // 高速单发，固定向鼠标方向，命中叠加风化层数，
     // 每层增加伤害和击退距离。与燃烧效果触发"燃烧扩散"元素反应。
     // ══════════════════════════════════════════════════════════════
     [Header("风蚀子弹（WindBullet）")]
     [Tooltip("风蚀子弹的飞行速度（单位：Unity 场景单位/秒）。\n" +
-             "风蚀子弹速度最快，配合散射可覆盖大范围。\n" +
-             "默认值：24")]
-    public float WindSpeed = 24f;
+             "高速子弹，快速命中目标。\n" +
+             "默认值：60")]
+    public float WindSpeed = 60f;
 
     [Tooltip("风蚀每命中几次敌人叠加一层风化效果。\n" +
              "例如 1 表示每次命中都叠加一层，2 表示每 2 次命中叠一层。\n" +
@@ -348,12 +357,6 @@ public class DotEffectConfig : ScriptableObject
              "命中敌人时将其推开的距离，可叠加层数增强。\n" +
              "默认值：0.6")]
     public float WindKnockbackDistance = 0.6f;
-
-    [Tooltip("风蚀子弹的散射角度数组（单位：度，相对于发射方向）。\n" +
-             "每个元素代表一发子弹的偏移角度。\n" +
-             "例如 {-15, -7.5, 0, 7.5, 15} 表示 5 发子弹呈扇形散射。\n" +
-             "0° 为中心线，负值偏左，正值偏右。")]
-    public float[] WindSpreadAngles = { -15f, -7.5f, 0f, 7.5f, 15f };
 
     [Tooltip("风蚀效果的实际击退距离（单位：Unity 场景单位）。\n" +
              "敌人被风蚀子弹命中后被推开的距离。\n" +

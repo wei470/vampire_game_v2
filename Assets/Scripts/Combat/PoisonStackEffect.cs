@@ -1,8 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// 中毒叠加效果 — 每tick掉2滴血，固定1秒间隔，每层+1伤害
-/// </summary>
 public class PoisonStackEffect : StackEffectBase
 {
     private int _stacks;
@@ -10,8 +7,6 @@ public class PoisonStackEffect : StackEffectBase
     private float _tickAccumulator;
     private DotColorBlender _blender;
     private float _baseTickInterval = 1f;
-    private float _tickDecay = 0.9f;
-    private float _minTickInterval = 0.2f;
     private int _damagePerTick = 2;
     private int _maxStacks = 20;
     private int _lastRegisteredStacks = -1;
@@ -42,8 +37,6 @@ public class PoisonStackEffect : StackEffectBase
     {
         var cfg = DotEffectConfig.GetDefault();
         _baseTickInterval = cfg.PoisonBaseTickInterval;
-        _tickDecay = cfg.PoisonTickDecay;
-        _minTickInterval = cfg.PoisonMinTickInterval;
         _damagePerTick = cfg.PoisonDamagePerTick;
         _maxStacks = cfg.PoisonMaxStacks;
     }
@@ -60,10 +53,9 @@ public class PoisonStackEffect : StackEffectBase
             _blender.RegisterDot("poison", DotColorBlender.POISON_GREEN, intensity, 6f);
         }
 
-        float tickInterval = Mathf.Max(_minTickInterval, _baseTickInterval * Mathf.Pow(_tickDecay, _stacks - 1));
         _tickAccumulator += Time.deltaTime;
-        if (_tickAccumulator < tickInterval) return;
-        _tickAccumulator -= tickInterval;
+        if (_tickAccumulator < _baseTickInterval) return;
+        _tickAccumulator -= _baseTickInterval;
 
         float dmg = _damagePerTick + (_stacks - 1);
         if (canCrit && Random.value < critChance) dmg *= critMult;

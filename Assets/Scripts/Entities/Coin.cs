@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 金币拾取物，敌人死亡后在地面生成，玩家靠近后自动拾取。
@@ -11,6 +12,7 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class Coin : MonoBehaviour
 {
+    public static readonly List<Coin> All = new List<Coin>();
     [Header("金币")]
     [SerializeField] private int _coinAmount = 5;
     [SerializeField] private float _magnetRange = 4f;
@@ -46,6 +48,7 @@ public class Coin : MonoBehaviour
 
     private void OnEnable()
     {
+        All.Add(this);
         _spawnTime = Time.time;
         _isBeingMagnetized = false;
 
@@ -82,6 +85,7 @@ public class Coin : MonoBehaviour
 
     private void OnDisable()
     {
+        All.Remove(this);
         OffScreenCuller.Untrack(gameObject);
     }
 

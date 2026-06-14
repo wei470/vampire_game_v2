@@ -16,6 +16,7 @@ public class WindErosionEffect : StackEffectBase
     private int _hitCount = 0;
     private int _windStacks = 0;
     private SpriteRenderer _sr;
+    private Rigidbody2D _rb;
     private Color _originalColor;
     private DotColorBlender _blender;
 
@@ -61,9 +62,6 @@ public class WindErosionEffect : StackEffectBase
 
         ApplyKnockback();
 
-        CombatManager.CreateExplosionEffect(transform.position, 0.6f + _windStacks * 0.15f,
-            new Color(0.7f, 0.85f, 1f, 0.6f), 0.3f);
-
         DebugHelper.Log($"[WindErosion] Stack added! Total={_windStacks}, Hits={_hitCount}, Knockback={GetKnockbackForce():F1}");
     }
 
@@ -79,6 +77,7 @@ public class WindErosionEffect : StackEffectBase
         _windStacks = 0;
         _lastRegisteredStacks = -1;
         _sr = GetComponent<SpriteRenderer>();
+        _rb = GetComponent<Rigidbody2D>();
         if (_sr != null) _originalColor = _sr.color;
         _blender = GetComponent<DotColorBlender>();
         RefreshFromConfig();
@@ -108,14 +107,10 @@ public class WindErosionEffect : StackEffectBase
 
         Vector2 knockDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
         float dist = GetKnockbackForce();
-        var rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-            rb.MovePosition(rb.position + knockDir * dist);
+        if (_rb != null)
+            _rb.MovePosition(_rb.position + knockDir * dist);
         else
             transform.position += (Vector3)(knockDir * dist);
-
-        CombatManager.CreateExplosionEffect(transform.position, 0.3f + _windStacks * 0.1f,
-            new Color(0.7f, 0.85f, 1f, 0.4f), 0.2f);
     }
 
     private void Cleanup()
@@ -134,16 +129,14 @@ public class WindErosionEffect : StackEffectBase
         base.OnDisable();
         UnregisterColor();
         _windStacks = 0;
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = _originalColor;
+        if (_sr != null) _sr.color = _originalColor;
     }
 
     protected override void OnDestroy()
     {
         base.OnDestroy();
         UnregisterColor();
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.color = _originalColor;
+        if (_sr != null) _sr.color = _originalColor;
     }
 
     protected override void RefreshFromConfig()

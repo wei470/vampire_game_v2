@@ -30,10 +30,8 @@ public class LevelUpOptionGenerator
     public struct UpgradeSlot
     {
         public bool isCustom;
-        public bool isSkillUpgrade;
         public GenericUpgradeType genericType;
         public CharacterUpgradeOption customOption;
-        public SkillUpgradeSlot skillUpgrade;
         public BuildRoute buildRoute;
         public bool isRecommended;
     }
@@ -41,11 +39,6 @@ public class LevelUpOptionGenerator
     /// <summary>
     /// 技能升级槽位
     /// </summary>
-    public struct SkillUpgradeSlot
-    {
-        public BaseSkill skill;
-    }
-
     public struct DotGunConfig
     {
         public StatusEffectType type; public Color color; public float cooldown;
@@ -202,15 +195,6 @@ public class LevelUpOptionGenerator
     /// </summary>
     private void GenerateWeaponOptions(List<UpgradeSlot> allSlots)
     {
-        var skillMgr = GameReferences.Player?.GetComponent<PlayerSkillManager>();
-        if (skillMgr == null) return;
-
-        foreach (var skill in skillMgr.ActiveSkills)
-        {
-            if (skill == null || skill.Data == null) continue;
-            if (skill.CurrentLevel >= skill.Data.maxLevel) continue;
-            allSlots.Add(new UpgradeSlot { isSkillUpgrade = true, skillUpgrade = new SkillUpgradeSlot { skill = skill } });
-        }
     }
 
     /// <summary>
@@ -290,19 +274,6 @@ public class LevelUpOptionGenerator
             string routeTag = GetBuildRouteTag(slot.buildRoute, slot.isRecommended);
             string tagPrefix = !string.IsNullOrEmpty(routeTag) ? $"{routeTag}\n" : "";
             return $"{tagPrefix}{opt.upgradeName}{stackText}\n{opt.description}";
-        }
-
-        if (slot.isSkillUpgrade)
-        {
-            var skill = slot.skillUpgrade.skill;
-            var data = skill.Data;
-            int nextLevel = skill.CurrentLevel + 1;
-            int newDmg = data.GetDamageAtLevel(nextLevel);
-            float newCd = data.GetCooldownAtLevel(nextLevel);
-            string desc = $"⬆ Lv.{nextLevel}\n";
-            if (newDmg > 0) desc += $"DMG: {data.GetDamageAtLevel(skill.CurrentLevel)} → {newDmg}\n";
-            desc += $"CD: {data.GetCooldownAtLevel(skill.CurrentLevel):F1}s → {newCd:F1}s";
-            return $"🔮 {data.skillName} {desc}";
         }
 
         return GetGenericDescription(slot.genericType);

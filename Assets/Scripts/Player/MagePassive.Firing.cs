@@ -1,10 +1,10 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-/// <summary>
-/// MagePassive partial — 子弹发射逻辑（Update循环 + 射击方向 + 子弹生成）
-/// </summary>
 public partial class MagePassive
 {
+    private float _lastFrameTime;
+
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
@@ -12,38 +12,52 @@ public partial class MagePassive
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameManager.GameState.Playing)
             return;
 
+        float deltaTime = Time.deltaTime;
+        if (deltaTime > 0.05f)
+        {
+            _lastFrameTime = Time.deltaTime;
+            return;
+        }
+
         Vector2 fireDir = GetFireDirection();
-        if (fireDir.sqrMagnitude < 0.01f) return;
+        bool hasTarget = fireDir.sqrMagnitude >= 0.01f;
 
         float dmgMult = _weaponController != null ? _weaponController.DamageMultiplier : 1f;
         float attackSpeedMult = GetAttackSpeedMultiplier();
 
+        if (Mathf.Abs(attackSpeedMult - _lastAttackSpeedMult) > 0.001f)
+        {
+            for (int j = 0; j < _dotGuns.Count; j++)
+            {
+                float oldRemaining = _dotGuns[j].nextAllowedFireTime - Time.time;
+                if (oldRemaining > 0f && _lastAttackSpeedMult > 0f)
+                    _dotGuns[j].nextAllowedFireTime = Time.time + oldRemaining * (attackSpeedMult / _lastAttackSpeedMult);
+            }
+            _lastAttackSpeedMult = attackSpeedMult;
+        }
+
         for (int i = 0; i < _dotGuns.Count; i++)
         {
             var gun = _dotGuns[i];
-            float effectiveCooldown = gun.cooldown * attackSpeedMult;
-            if (Time.time - gun.lastFireTime >= effectiveCooldown)
+            float effectiveCooldown = Mathf.Max(0.1f, gun.cooldown * attackSpeedMult);
+
+            if (hasTarget && Time.time >= gun.nextAllowedFireTime)
             {
-                gun.lastFireTime = Time.time;
-                _dotGuns[i] = gun;
+                gun.nextAllowedFireTime = Time.time + effectiveCooldown;
                 SpawnDotBullet(gun, fireDir, dmgMult);
 
-                // 光明子弹：用实际蓄力+扫射+延迟周期替代固定冷却，
-                // 避免激光扫射结束后还要等待固定冷却才能重新蓄力
                 if (gun.effectType == StatusEffectType.Light)
                 {
                     var config = DotEffectConfig.GetDefault();
                     float chargeDur = Mathf.Max(config.LightMinChargeDuration,
                         config.LightChargeDuration - (gun.upgradeLevel - 1) * config.LightChargeReductionPerLevel);
                     float actualCycle = chargeDur + config.LightSweepDuration + config.LightPostFireDelay;
-                    gun.lastFireTime = Time.time - effectiveCooldown + actualCycle;
-                    _dotGuns[i] = gun;
+                    gun.nextAllowedFireTime = Time.time + actualCycle;
                 }
             }
         }
+        _lastFrameTime = Time.deltaTime;
     }
-
-    // ── 子弹发射 ──
 
     private Vector2 GetFireDirection()
     {
@@ -62,23 +76,18 @@ public partial class MagePassive
             }
         }
 
-        var spawnMgr = GameReferences.SpawnManager;
-        if (spawnMgr != null && spawnMgr.ActiveEnemies != null)
+        float minDist = float.MaxValue;
+        Vector2 nearest = Vector2.zero;
+        var enemies = EnemyBase.AllAlive;
+        for (int i = 0; i < enemies.Count; i++)
         {
-            float minDist = float.MaxValue;
-            Vector2 nearest = Vector2.zero;
-            for (int i = 0; i < spawnMgr.ActiveEnemies.Count; i++)
-            {
-                var e = spawnMgr.ActiveEnemies[i];
-                if (e == null) continue;
-                var eb = e.GetComponent<EnemyBase>();
-                if (eb == null || !eb.Alive) continue;
-                float d = Vector2.Distance(transform.position, e.transform.position);
-                if (d < minDist) { minDist = d; nearest = e.transform.position; }
-            }
-            if (minDist < float.MaxValue)
-                return (nearest - (Vector2)transform.position).normalized;
+            var eb = enemies[i];
+            if (eb == null || !eb.Alive) continue;
+            float d = Vector2.Distance(transform.position, eb.transform.position);
+            if (d < minDist) { minDist = d; nearest = eb.transform.position; }
         }
+        if (minDist < float.MaxValue)
+            return (nearest - (Vector2)transform.position).normalized;
 
         return (Vector2)transform.right;
     }
@@ -87,8 +96,7 @@ public partial class MagePassive
     {
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
-        float bulletSpeedMult = GetBulletSpeedMultiplier();
-        int bulletCount = gun.effectType == StatusEffectType.WindErosion ? 3 : 1 + _bulletCountBonus;
+        int bulletCount = Mathf.Min(1 + _bulletCountBonus, 3);
         float spreadAngle = 15f;
 
         for (int b = 0; b < bulletCount; b++)
@@ -100,7 +108,7 @@ public partial class MagePassive
                 float rad = angle * Mathf.Deg2Rad;
                 fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
             }
-            GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, bulletSpeedMult, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+            GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
             ApplyBulletSizeBonus(bullet);
             ApplyUpgradeVisual(bullet, gun);
         }
@@ -115,18 +123,37 @@ public partial class MagePassive
         if (sr != null) { float brightness = Mathf.Min(0.3f, (gun.upgradeLevel - 1) * 0.1f); sr.color = Color.Lerp(sr.color, Color.white, brightness); }
         if (gun.upgradeLevel >= 3)
         {
-            var glow = new GameObject("Glow");
+            var glow = GetOrCreateGlow();
             glow.transform.SetParent(bullet.transform);
             glow.transform.localPosition = Vector3.zero;
             glow.transform.localScale = Vector3.one * 1.8f;
-            var glowSr = glow.AddComponent<SpriteRenderer>();
-            glowSr.sprite = sr?.sprite;
-            glowSr.color = new Color(gun.color.r, gun.color.g, gun.color.b, 0.25f);
-            glowSr.sortingOrder = 14;
+            var glowSr = glow.GetComponent<SpriteRenderer>();
+            if (glowSr != null)
+            {
+                glowSr.sprite = sr?.sprite;
+                glowSr.color = new Color(gun.color.r, gun.color.g, gun.color.b, 0.25f);
+                glowSr.sortingOrder = 14;
+            }
+            glow.SetActive(true);
         }
         var col = bullet.GetComponent<Collider2D>();
         if (col != null && col is BoxCollider2D box) box.size *= scaleBonus;
         else if (col != null && col is CircleCollider2D circle) circle.radius *= scaleBonus;
+    }
+
+    private static readonly Stack<GameObject> _glowPool = new Stack<GameObject>(16);
+
+    private static GameObject GetOrCreateGlow()
+    {
+        while (_glowPool.Count > 0)
+        {
+            var g = _glowPool.Pop();
+            if (g != null) return g;
+        }
+        var glow = new GameObject("Glow");
+        var glowSr = glow.AddComponent<SpriteRenderer>();
+        glowSr.sortingOrder = 14;
+        return glow;
     }
 
     private void ApplyBulletSizeBonus(GameObject bullet)
@@ -138,13 +165,11 @@ public partial class MagePassive
         else if (col != null && col is CircleCollider2D circle) circle.radius *= (1f + _bulletSizeBonus);
     }
 
-    /// <summary>
-    /// Glow 对象池回收（供 GlowReturnHelper 调用）
-    /// </summary>
     public static void ReturnGlowToPool(GameObject glow)
     {
         if (glow == null) return;
         glow.SetActive(false);
         glow.transform.SetParent(null);
+        _glowPool.Push(glow);
     }
 }

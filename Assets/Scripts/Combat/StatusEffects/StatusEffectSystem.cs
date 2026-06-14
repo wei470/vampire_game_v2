@@ -22,6 +22,8 @@ public class StatusEffectManager : MonoBehaviour
     private DotParticleVFX _dotVFX;
     private EnemyDotResistance _dotResistance;
     private DotComboSystem _comboSystem;
+    private MeltEffect _cachedMeltEffect;
+    private Rigidbody2D _cachedRb;
     private HashSet<StatusEffectType> _seenTypesCache = new HashSet<StatusEffectType>();
 
     // ═══ P0-2: 全局 DOT 伤害倍率版本号（懒更新机制）═══
@@ -30,21 +32,8 @@ public class StatusEffectManager : MonoBehaviour
     /// 每个 StatusEffectManager 在下次 tick 时检测版本变化并自动更新倍率。
     /// 替代之前遍历所有敌人 GetComponent 的 O(n) 开销。
     /// </summary>
-    public static int GlobalDmgMultVersion = 0;
+    public static int GlobalDmgMultVersion { get; private set; } = 0;
     private int _localDmgMultVersion = 0;
-
-    // DOT 频率加成（痛苦升级）
-    public float DotFrequencyBonus
-    {
-        get => _dotFrequencyBonus;
-        set { _dotFrequencyBonus = Mathf.Clamp01(value); RecalcTickInterval(); }
-    }
-    private float _dotFrequencyBonus = 0f;
-
-    private void RecalcTickInterval()
-    {
-        _tickInterval = Mathf.Max(0.15f, BASE_TICK_INTERVAL * (1f - _dotFrequencyBonus));
-    }
 
     // 全局属性（由 MagePassive 设置）
     public float DotDurationMultiplier { get; set; } = 1f;
@@ -70,10 +59,6 @@ public class StatusEffectManager : MonoBehaviour
     public float ToxicologyCritBonus { get; set; } = 0f;
     /// <summary>腐化之触：DOT命中时降低敌人攻击力的百分比</summary>
     public float CorruptTouchDebuff { get; set; } = 0f;
-    /// <summary>永恒痛苦：DOT单次伤害倍率（默认1.0，激活时0.85）</summary>
-    public float EternalAgonyDamageMult { get; set; } = 1f;
-    /// <summary>凋零暴击：DOT暴击时额外伤害倍率</summary>
-    public float DotCritBurstChance { get; set; } = 0f;
 
     public List<StatusEffect> ActiveEffects => _activeEffects;
     public bool HasAnyDot => _activeEffects.Count > 0;
@@ -91,6 +76,8 @@ public class StatusEffectManager : MonoBehaviour
         if (_sr != null) _originalColor = _sr.color;
         _dotResistance = GetComponent<EnemyDotResistance>();
         _comboSystem = new DotComboSystem();
+        _cachedMeltEffect = GetComponent<MeltEffect>();
+        _cachedRb = GetComponent<Rigidbody2D>();
     }
 
     private void OnEnable()
@@ -99,6 +86,8 @@ public class StatusEffectManager : MonoBehaviour
         _lastTickTime = Time.time;
         _erosionDotHitCount = 0;
         if (_sr != null) _originalColor = _sr.color;
+        if (_cachedMeltEffect == null) _cachedMeltEffect = GetComponent<MeltEffect>();
+        if (_cachedRb == null) _cachedRb = GetComponent<Rigidbody2D>();
         var entity = GetComponent<BaseEntity>();
         if (entity != null) entity.OnDeath += OnDeathHandler;
     }
@@ -142,7 +131,11 @@ public class StatusEffectManager : MonoBehaviour
         }
 
         if (CorrosionArmorReduction > 0 && _damageable != null)
-            _damageable.SetArmor(Mathf.Max(0, _damageable.Armor - Mathf.RoundToInt(CorrosionArmorReduction)));
+        {
+            int currentArmor = _damageable.Armor;
+            int reducedArmor = Mathf.FloorToInt(currentArmor * (1f - CorrosionArmorReduction));
+            _damageable.SetArmor(Mathf.Max(0, reducedArmor));
+        }
     }
 
     public void ApplyEffect(StatusEffectType type, float dps, float duration)
@@ -212,11 +205,6 @@ public class StatusEffectManager : MonoBehaviour
                 tickDmg *= effect.critMultiplier;
                 tickCrit = true;
             }
-            if (DotCritBurstChance > 0 && Random.value < DotCritBurstChance)
-            {
-                tickDmg *= 2f;
-                tickCrit = true;
-            }
             if (effect.type == StatusEffectType.Wither) WitherActive = true;
             if (effect.type == StatusEffectType.Radiate && RadiateRange > 0) { hasRadiate = true; radiateDmg = tickDmg * RadiateDamagePercent; }
             totalTickDamage += tickDmg;
@@ -228,9 +216,8 @@ public class StatusEffectManager : MonoBehaviour
         _comboSystem.CheckComboEffects(_activeEffects, gameObject, _sr, _originalColor, transform.position);
 
         // 融化反应：灼烧期间 DOT 伤害翻倍
-        var meltEffect = GetComponent<MeltEffect>();
-        if (meltEffect != null && meltEffect.IsActive)
-            totalTickDamage *= meltEffect.DamageMultiplier;
+        if (_cachedMeltEffect != null && _cachedMeltEffect.IsActive)
+            totalTickDamage *= _cachedMeltEffect.DamageMultiplier;
 
         totalTickDamage *= DebugConfigPanel.DebugDotDamageMultiplier;
 
@@ -267,11 +254,10 @@ public class StatusEffectManager : MonoBehaviour
         // 风蚀击退
         if (WindErosionKnockback > 0)
         {
-            var rb = GetComponent<Rigidbody2D>();
-            if (rb != null)
+            if (_cachedRb != null)
             { var player = GameReferences.Player; if (player != null)
               { Vector2 dir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
-                rb.linearVelocity += dir * WindErosionKnockback; } }
+                _cachedRb.linearVelocity += dir * WindErosionKnockback; } }
             TrySpawnVortex();
         }
 
@@ -305,7 +291,7 @@ public class StatusEffectManager : MonoBehaviour
               case StatusEffectType.Burn: burnS += eff.stackCount; result.hadBurn = true; break;
               case StatusEffectType.Bleed: bleedS += eff.stackCount; break;
               case StatusEffectType.Frostbite: frostS += eff.stackCount; result.hadFrost = true; break; }
-            float baseDmg = eff.damagePerSecond * eff.remainingDuration * multiplier;
+            float baseDmg = eff.damagePerSecond * 5f * multiplier;
             if (eff.type == StatusEffectType.Poison && eff.stackCount > 1) baseDmg *= 1f + (eff.stackCount - 1) * 0.05f;
             if (eff.type == StatusEffectType.Bleed && eff.stackCount > 1) baseDmg *= 1f + (eff.stackCount - 1) * 0.03f;
             if (RendDamageBonus > 0) baseDmg *= (1f + RendDamageBonus);
@@ -316,7 +302,7 @@ public class StatusEffectManager : MonoBehaviour
         }
         result.poisonStacks = poisonS; result.burnStacks = burnS; result.bleedStacks = bleedS; result.frostStacks = frostS;
         _activeEffects.Clear();
-        float finalDmg = Mathf.Max(0.01f, totalDmg);
+        float finalDmg = Mathf.Min(800f, Mathf.Max(0.01f, totalDmg));
         if (_damageable != null && _damageable.CurrentHp > 0) _damageable.TakeDamage(finalDmg);
         result.totalDamage = finalDmg; return finalDmg;
     }

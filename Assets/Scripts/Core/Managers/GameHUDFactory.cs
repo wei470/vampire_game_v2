@@ -40,15 +40,10 @@ public class GameHUDFactory
         if (_hostObject.GetComponent<BossHealthBarHUD>() == null)
             _hostObject.AddComponent<BossHealthBarHUD>();
 
-        // 左下角 - 技能冷却与操作提示
-        if (_hostObject.GetComponent<SkillHUD>() == null)
-            _hostObject.AddComponent<SkillHUD>();
+        // 右下角 - Mage引爆冷却显示
+        if (_hostObject.GetComponent<DetonateHUD>() == null)
+            _hostObject.AddComponent<DetonateHUD>();
 
-        // 右下角 - Mage引爆冷却显示（已移除，不显示）
-        // if (_hostObject.GetComponent<DetonateHUD>() == null)
-        //     _hostObject.AddComponent<DetonateHUD>();
-
-        // #1 Mage 专属 HUD 统计面板（仅 Mage 角色显示）
         if (currentCharacter != null &&
             (currentCharacter.characterId == "mage" || currentCharacter.characterName.ToLower().Contains("mage")))
         {

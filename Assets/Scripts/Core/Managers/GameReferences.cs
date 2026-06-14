@@ -42,7 +42,6 @@ public static class GameReferences
     private static MagePassive _cachedMagePassive;
     private static ICharacterPassive _cachedCharacterPassive;
     private static DetonateSystem _cachedDetonateSystem;
-    private static PlayerSkillManager _cachedSkillManager;
     private static PlayerLevelSystem _cachedLevelSystem;
     private static WeaponController _cachedWeaponController;
     private static Damageable _cachedDamageable;
@@ -84,19 +83,6 @@ public static class GameReferences
             if (_cachedDetonateSystem == null && Player != null)
                 _cachedDetonateSystem = Player.GetComponent<DetonateSystem>();
             return _cachedDetonateSystem;
-        }
-    }
-
-    /// <summary>
-    /// 获取玩家的 PlayerSkillManager 组件（懒缓存）
-    /// </summary>
-    public static PlayerSkillManager SkillManager
-    {
-        get
-        {
-            if (_cachedSkillManager == null && Player != null)
-                _cachedSkillManager = Player.GetComponent<PlayerSkillManager>();
-            return _cachedSkillManager;
         }
     }
 
@@ -147,7 +133,6 @@ public static class GameReferences
         _cachedMagePassive = null;
         _cachedCharacterPassive = null;
         _cachedDetonateSystem = null;
-        _cachedSkillManager = null;
         _cachedLevelSystem = null;
         _cachedWeaponController = null;
         _cachedDamageable = null;

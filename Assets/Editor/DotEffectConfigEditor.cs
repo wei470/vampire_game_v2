@@ -203,8 +203,7 @@ public class DotEffectConfigEditor : EditorWindow
             $"伤害={_config.LightLaserDamage}, 扫角={_config.LightSweepAngle}°");
 
         DrawDpsRow("风蚀 (Wind)", WindColor,
-            $"速度={_config.WindSpeed}, 击退={_config.WindKnockbackDistance}, " +
-            $"散射={_config.WindSpreadAngles.Length}发");
+            $"速度={_config.WindSpeed}, 击退={_config.WindKnockbackDistance}");
 
         EditorGUILayout.EndVertical();
     }
@@ -395,9 +394,6 @@ public class DotEffectConfigEditor : EditorWindow
         EditorGUI.indentLevel++;
         DrawParamRow("每次命中叠层", _config.WindHitsPerStack, "F0", "WindHitsPerStack");
         DrawParamRow("击退距离", _config.WindKnockbackDistance, "F2", "WindKnockbackDistance");
-        string angles = _config.WindSpreadAngles != null ?
-            string.Join(", ", _config.WindSpreadAngles) : "null";
-        EditorGUILayout.LabelField($"  散射角度: [{angles}]", EditorStyles.miniLabel);
         EditorGUI.indentLevel--;
 
         EditorGUILayout.Space(5);

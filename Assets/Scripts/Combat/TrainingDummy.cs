@@ -7,7 +7,9 @@ public class TrainingDummy : MonoBehaviour
 {
     private Damageable _damageable;
     private SpriteRenderer _sr;
-    private long _maxHp = 2000000000;
+    private Rigidbody2D _rb;
+    private Vector3 _spawnPos;
+    private long _maxHp = 2000000;
     private int _armor = 0;
     private float _regen = 0f;
     private bool _invincible = false;
@@ -49,7 +51,7 @@ public class TrainingDummy : MonoBehaviour
         }
 
         gameObject.tag = "Enemy";
-        gameObject.layer = LayerMask.NameToLayer("Default");
+        gameObject.layer = LayerMask.NameToLayer("Enemy");
 
         var col = GetComponent<BoxCollider2D>();
         if (col == null)
@@ -58,16 +60,20 @@ public class TrainingDummy : MonoBehaviour
             col.size = new Vector2(1.5f, 1.5f);
         }
 
-        var rb = GetComponent<Rigidbody2D>();
-        if (rb == null)
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb == null)
         {
-            rb = gameObject.AddComponent<Rigidbody2D>();
-            rb.gravityScale = 0f;
-            rb.freezeRotation = true;
-            rb.bodyType = RigidbodyType2D.Kinematic;
+            _rb = gameObject.AddComponent<Rigidbody2D>();
+            _rb.gravityScale = 0f;
+            _rb.freezeRotation = true;
         }
+        // 绝对刚体：不可被任何力推动
+        _rb.bodyType = RigidbodyType2D.Static;
 
-        transform.localScale = Vector3.one * 1.5f;
+        // 记录出生位置，每帧锁定
+        _spawnPos = transform.position;
+
+        // 不重写外部设置的缩放（DPS 木桩由 SpawnDpsTestDummy 控制大小）
 
         // 设置 HP
         _damageable.SetMaxHp((int)Mathf.Min(_maxHp, int.MaxValue));
@@ -87,6 +93,10 @@ public class TrainingDummy : MonoBehaviour
 
     private void Update()
     {
+        // 锁定位置：绝对不可被推动
+        if (transform.position != _spawnPos)
+            transform.position = _spawnPos;
+
         if (_dead)
         {
             if (Time.time - _deathTime >= _respawnDelay)

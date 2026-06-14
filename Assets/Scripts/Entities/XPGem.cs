@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 经验宝石，敌人死亡后在地面生成，玩家靠近后自动拾取。
@@ -10,6 +11,7 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class XPGem : MonoBehaviour
 {
+    public static readonly List<XPGem> All = new List<XPGem>();
     [Header("经验宝石")]
     [SerializeField] private int _xpAmount = 10;
     [SerializeField] private float _magnetRange = 3f;      // 磁铁吸引范围
@@ -40,6 +42,7 @@ public class XPGem : MonoBehaviour
 
     private void OnEnable()
     {
+        All.Add(this);
         _spawnTime = Time.time;
         _isBeingMagnetized = false;
 
@@ -81,6 +84,7 @@ public class XPGem : MonoBehaviour
 
     private void OnDisable()
     {
+        All.Remove(this);
         OffScreenCuller.Untrack(gameObject);
     }
 
