@@ -22,6 +22,17 @@ public class DarkBullet : MonoBehaviour
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
         _cachedPenetrate = GetComponent<PenetrateHandler>();
+
+        // 池回收时重置颜色
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = new Color(0.4f, 0.1f, 0.6f);
+        var trail = GetComponent<TrailRenderer>();
+        if (trail != null)
+        {
+            trail.startColor = new Color(0.4f, 0.1f, 0.6f, 0.7f);
+            trail.endColor = new Color(0.4f, 0.1f, 0.6f, 0f);
+            trail.Clear();
+        }
     }
     private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
     private void FixedUpdate() { if (_rb != null) _rb.linearVelocity = _direction * _speed; }

@@ -14,6 +14,8 @@ public class PoisonBullet : DotBulletBase
     private bool _exploded;
 
     protected override StatusEffectType EffectType => StatusEffectType.Poison;
+    protected override Color DefaultBulletColor => new Color(0.1f, 0.9f, 0.2f);
+    protected override Color DefaultTrailStartColor => new Color(0.1f, 0.9f, 0.2f, 0.6f);
 
     public void SetupPoison(float speed, float poisonDps, float poisonDuration, float explosionRadius,
         float dmgMult, bool canCrit, float critChance, float critMult)

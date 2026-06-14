@@ -11,6 +11,7 @@ public class BurnBullet : DotBulletBase
     private float _burnDuration = 3f;
 
     protected override StatusEffectType EffectType => StatusEffectType.Burn;
+    protected override Color DefaultBulletColor => new Color(1f, 0.4f, 0f);
 
     /// <summary>
     /// 燃烧子弹专属参数设置

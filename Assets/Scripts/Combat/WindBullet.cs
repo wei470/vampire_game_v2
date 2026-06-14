@@ -3,6 +3,8 @@ using UnityEngine;
 public class WindBullet : DotBulletBase
 {
     protected override StatusEffectType EffectType => StatusEffectType.WindErosion;
+    protected override Color DefaultBulletColor => new Color(0.7f, 0.85f, 1f);
+    protected override Color DefaultTrailStartColor => new Color(0.7f, 0.85f, 1f, 0.6f);
 
     protected override void OnHitEnemy(GameObject enemy)
     {

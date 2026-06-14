@@ -11,6 +11,8 @@ public class FrostBullet : DotBulletBase
     private float _slowPercent = 0.3f;
 
     protected override StatusEffectType EffectType => StatusEffectType.Frostbite;
+    protected override Color DefaultBulletColor => new Color(0.3f, 0.6f, 1f);
+    protected override Color DefaultTrailStartColor => new Color(0.5f, 0.8f, 1f, 0.7f);
 
     /// <summary>
     /// 霜冻子弹专属参数设置
