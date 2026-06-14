@@ -70,13 +70,7 @@ public class PauseMenuUI : MonoBehaviour
 
         Time.timeScale = 1f;
 
-        // 最小化清理：只清事件和静态引用，不做任何 Destroy/DestroyImmediate。
-        // LoadScene 会自动销毁当前场景所有对象。
-        // DontDestroyOnLoad 单例由 MenuScene 重新初始化时自然覆盖。
-        EventManager.ClearAll();
-        GameReferences.Reset();
-        GameSceneBootstrap.ResetCharacter();
-        DotEffectRegistry.ClearAll();
+        GameStateResetter.FullReset();
 
         SceneManager.LoadScene("MenuScene");
     }
