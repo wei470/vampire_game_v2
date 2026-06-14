@@ -205,10 +205,11 @@ public class DarkMarkEffect : MonoBehaviour, IStackEffect
     /// </summary>
     private static void CreateDarkChain(Vector3 from, Vector3 to)
     {
-        var lineObj = new GameObject("DarkChain");
+        var lineObj = VFXPool.Get("DarkChain");
         lineObj.transform.position = from;
-        var lr = lineObj.AddComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        var lr = lineObj.GetComponent<LineRenderer>();
+        if (lr == null) lr = lineObj.AddComponent<LineRenderer>();
+        lr.material = MaterialCache.GetDefault();
         lr.startColor = new Color(0.5f, 0.1f, 0.8f, 0.9f);
         lr.endColor = new Color(0.3f, 0.05f, 0.5f, 0f);
         lr.startWidth = 0.15f;
@@ -217,7 +218,7 @@ public class DarkMarkEffect : MonoBehaviour, IStackEffect
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 25;
-        Object.Destroy(lineObj, 0.6f);
+        VFXPool.Return(lineObj, 0.6f);
     }
 
     private void RestoreVisual()

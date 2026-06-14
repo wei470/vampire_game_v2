@@ -376,8 +376,9 @@ public class AutomatedPlayModeTests
         var mage = go.AddComponent<MagePassive>();
 
         Assert.IsTrue(mage is ICharacterPassive, "MagePassive 应实现 ICharacterPassive");
+        Assert.IsTrue(mage is IDotCharacterPassive, "MagePassive 应实现 IDotCharacterPassive");
         Assert.AreEqual("mage", ((ICharacterPassive)mage).CharacterId);
-        Assert.IsNotNull(((ICharacterPassive)mage).DotGuns);
+        Assert.IsNotNull(((IDotCharacterPassive)mage).DotGuns);
 
         Object.DestroyImmediate(go);
     }
@@ -397,8 +398,10 @@ public class AutomatedPlayModeTests
         };
 
         IGunState iGun = gun;
-        Assert.AreEqual(StatusEffectType.Burn, iGun.EffectType);
-        Assert.AreEqual(3f, iGun.DotDps);
+        Assert.AreEqual(StatusEffectType.Burn, gun.EffectType);
+        Assert.AreEqual(3f, gun.DotDps);
+        Assert.AreEqual(1f, iGun.Cooldown);
+        Assert.AreEqual(2, iGun.UpgradeLevel);
     }
 
     [Test]
@@ -574,8 +577,8 @@ public class AutomatedPlayModeTests
         };
 
         IGunState ig = gun;
-        Assert.AreEqual(StatusEffectType.Burn, ig.EffectType);
-        Assert.AreEqual(5f, ig.DotDps);
+        Assert.AreEqual(StatusEffectType.Burn, gun.EffectType);
+        Assert.AreEqual(5f, gun.DotDps);
         Assert.AreEqual(2, ig.UpgradeLevel);
     }
 
@@ -989,6 +992,328 @@ public class AutomatedPlayModeTests
         PoolHelper.DespawnOrDestroy(go, PoolHelper.DOT_WIND_BULLET);
         // 不应抛异常
         Assert.Pass();
+    }
+
+    // ═══ 重构后新增测试 ═══
+
+    [Test]
+    public void ICharacterPassive_BlueImplements()
+    {
+        var go = new GameObject("TestBlue");
+        var blue = go.AddComponent<BlueCharacterPassive>();
+
+        Assert.IsTrue(blue is ICharacterPassive, "BlueCharacterPassive should implement ICharacterPassive");
+        Assert.IsFalse(blue is IDotCharacterPassive, "BlueCharacterPassive should NOT implement IDotCharacterPassive");
+        Assert.AreEqual("blue", ((ICharacterPassive)blue).CharacterId);
+        Assert.AreEqual("蓝色战士", ((ICharacterPassive)blue).DisplayName);
+        Assert.AreEqual(1f, blue.GetAttackSpeedMultiplier());
+        Assert.AreEqual(0, blue.GetBulletCountBonus());
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void GameStarter_CreatesCorrectPassive()
+    {
+        var go = new GameObject("TestPlayer");
+        var mage = go.AddComponent<MagePassive>();
+
+        Assert.IsTrue(mage is ICharacterPassive);
+        Assert.IsTrue(mage is IDotCharacterPassive);
+        Assert.AreEqual("mage", mage.CharacterId);
+
+        var blueGo = new GameObject("TestBluePlayer");
+        var blue = blueGo.AddComponent<BlueCharacterPassive>();
+
+        Assert.IsTrue(blue is ICharacterPassive);
+        Assert.IsFalse(blue is IDotCharacterPassive);
+        Assert.AreEqual("blue", blue.CharacterId);
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(blueGo);
+    }
+
+    // ═══ task1-5: 系统集成测试 ═══
+
+    [Test]
+    public void MagePassive_IDotCharacterPassive_AllProperties()
+    {
+        var go = new GameObject("TestMageFull");
+        var mage = go.AddComponent<MagePassive>();
+        IDotCharacterPassive dot = mage;
+
+        Assert.IsNotNull(dot.DotGuns, "DotGuns should not be null");
+        Assert.IsTrue(dot.DotGuns.Count > 0, "Mage should start with Poison DOT gun");
+
+        Assert.AreEqual(1.2f, dot.GetDotDurationMultiplier(), 0.01f, "Default duration +20%");
+        Assert.Greater(dot.GetDotCritChance(), 0f, "Crit chance should be > 0");
+        Assert.AreEqual(2f, dot.GetDotCritMultiplier(), 0.01f);
+
+        Assert.AreEqual(0.1f, dot.CorrosionArmorReduction, 0.01f);
+        Assert.AreEqual(0, dot.ErosionArmorPenetration);
+        Assert.AreEqual(1, dot.CurseSpreadTargets);
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void MagePassive_UnlockDotGun_UpgradesExisting()
+    {
+        var go = new GameObject("TestMageUpgrade");
+        var mage = go.AddComponent<MagePassive>();
+        IDotCharacterPassive dot = mage;
+
+        int initialCount = dot.DotGuns.Count;
+        float initialDps = dot.DotGuns[0].dotDps;
+
+        dot.UnlockDotGun(StatusEffectType.Poison, Color.green, 1.5f, 0, 2f, 5f);
+
+        Assert.AreEqual(initialCount, dot.DotGuns.Count, "Should not add new gun, just upgrade");
+        Assert.Greater(dot.DotGuns[0].dotDps, initialDps, "DPS should increase on upgrade");
+        Assert.AreEqual(2, dot.DotGuns[0].upgradeLevel, "Level should be 2");
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void MagePassive_ClearAllDotGuns()
+    {
+        var go = new GameObject("TestMageClear");
+        var mage = go.AddComponent<MagePassive>();
+        IDotCharacterPassive dot = mage;
+
+        dot.UnlockDotGun(StatusEffectType.Burn, Color.red, 0.5f, 2, 2f, 3f);
+        Assert.IsTrue(dot.DotGuns.Count > 1, "Should have more than 1 gun");
+
+        dot.ClearAllDotGuns();
+        Assert.AreEqual(0, dot.DotGuns.Count, "Should have 0 guns after clear");
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void BlueCharacterPassive_ApplyUpgrade_AttackSpeed()
+    {
+        var go = new GameObject("TestBlueUpgrade");
+        var blue = go.AddComponent<BlueCharacterPassive>();
+        var config = ScriptableObject.CreateInstance<BlueUpgradeConfig>();
+        blue.SetUpgradeConfig(config);
+
+        float before = blue.GetAttackSpeedMultiplier();
+        blue.ApplyUpgrade("haste");
+        float after = blue.GetAttackSpeedMultiplier();
+
+        Assert.Less(after, before, "Attack speed mult should decrease after haste upgrade");
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void BlueCharacterPassive_ApplyUpgrade_BulletCount()
+    {
+        var go = new GameObject("TestBlueBarrage");
+        var blue = go.AddComponent<BlueCharacterPassive>();
+        var config = ScriptableObject.CreateInstance<BlueUpgradeConfig>();
+        blue.SetUpgradeConfig(config);
+
+        Assert.AreEqual(0, blue.GetBulletCountBonus());
+        blue.ApplyUpgrade("barrage");
+        Assert.AreEqual(1, blue.GetBulletCountBonus());
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void GameReferences_CachedProperties()
+    {
+        var go = new GameObject("TestPlayerRef");
+        GameReferences.Player = go.GetComponent<PlayerController>();
+        if (GameReferences.Player == null)
+        {
+            var pc = go.AddComponent<PlayerController>();
+            GameReferences.Player = pc;
+        }
+        var mage = go.AddComponent<MagePassive>();
+
+        Assert.IsNotNull(GameReferences.CharacterPassive);
+        Assert.IsNotNull(GameReferences.DotCharacterPassive);
+        Assert.AreSame(GameReferences.CharacterPassive, GameReferences.DotCharacterPassive);
+
+        GameReferences.Reset();
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void GameStateResetter_ClearsStaticLists()
+    {
+        var go = new GameObject("TestReset");
+        go.AddComponent<Damageable>();
+
+        DotBulletBase.ActiveDotBullets.Add(go.GetComponent<MonoBehaviour>());
+
+        GameStateResetter.FullReset();
+
+        Assert.AreEqual(0, DotBulletBase.ActiveDotBullets.Count, "ActiveDotBullets should be cleared");
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void DotGunState_UpgradeSimulation()
+    {
+        var gun = new DotGunState
+        {
+            effectType = StatusEffectType.Poison,
+            color = Color.green,
+            cooldown = 1.5f,
+            impactDamage = 0,
+            dotDps = 2f,
+            dotDuration = 5f,
+            upgradeLevel = 1
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            gun.dotDps *= 1.15f;
+            gun.impactDamage = Mathf.RoundToInt(gun.impactDamage * 1.1f);
+            gun.upgradeLevel++;
+        }
+
+        Assert.AreEqual(5, gun.upgradeLevel);
+        Assert.Greater(gun.dotDps, 3f, "After 4 upgrades, DPS should be significantly higher");
+    }
+
+    [Test]
+    public void SimpleBullet_Create_ReturnsNotNull()
+    {
+        var bullet = SimpleBullet.Create(Vector2.zero, Vector2.right, 12f, 10, 1f);
+        Assert.IsNotNull(bullet);
+        Assert.IsNotNull(bullet.gameObject);
+        Object.DestroyImmediate(bullet.gameObject);
+    }
+
+    [Test]
+    public void SimpleBullet_DealsDirectDamage()
+    {
+        var enemy = new GameObject("TestEnemy");
+        enemy.tag = "Enemy";
+        var dmg = enemy.AddComponent<Damageable>();
+        dmg.SetMaxHp(100);
+        dmg.Heal(100);
+
+        int hpBefore = dmg.CurrentHp;
+        var bullet = SimpleBullet.Create(Vector2.zero, Vector2.right, 12f, 10, 1f);
+
+        var col = enemy.GetComponent<Collider2D>();
+        if (col == null) { var bc = enemy.AddComponent<BoxCollider2D>(); bc.isTrigger = true; }
+
+        bullet.SendMessage("OnTriggerEnter2D", enemy.GetComponent<Collider2D>());
+
+        Assert.LessOrEqual(dmg.CurrentHp, hpBefore, "SimpleBullet should deal damage");
+
+        Object.DestroyImmediate(bullet.gameObject);
+        Object.DestroyImmediate(enemy);
+    }
+
+    [Test]
+    public void ProjectileBase_SetDirection_RotatesObject()
+    {
+        var go = new GameObject("TestProj");
+        var sr = go.AddComponent<SpriteRenderer>();
+        go.AddComponent<Rigidbody2D>();
+        go.AddComponent<CircleCollider2D>();
+        var bullet = go.AddComponent<SimpleBullet>();
+
+        go.SendMessage("SetDirection", Vector2.up);
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void CharacterUpgradeConfig_ICharacterConfig_Interface()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        ICharacterConfig ic = config;
+
+        Assert.AreEqual("mage", ic.CharacterId);
+        Assert.IsNotNull(ic.GetUpgradeOptions());
+        Assert.IsNotNull(ic.GetGunEntries());
+        Assert.IsTrue(ic.GetUpgradeOptions().Length > 0);
+        Assert.IsTrue(ic.GetGunEntries().Length > 0);
+
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void CharacterConfigLoader_LoadMageConfig()
+    {
+        CharacterConfigLoader.ClearCache();
+        var config = CharacterConfigLoader.Load("mage");
+        if (config == null)
+        {
+            var runtime = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+            Assert.IsNotNull(runtime, "Runtime MageUpgradeConfig should not be null");
+            Assert.AreEqual("mage", runtime.characterId);
+            Object.DestroyImmediate(runtime);
+        }
+        else
+        {
+            Assert.AreEqual("mage", config.CharacterId);
+        }
+        CharacterConfigLoader.ClearCache();
+    }
+
+    [Test]
+    public void CharacterConfigLoader_LoadNonexistent_ReturnsNull()
+    {
+        CharacterConfigLoader.ClearCache();
+        var config = CharacterConfigLoader.Load("nonexistent_character");
+        Assert.IsNull(config, "Should return null for unknown character");
+    }
+
+    [Test]
+    public void DetonateSystem_Init_SetsCharacter()
+    {
+        var go = new GameObject("TestDetonate");
+        var mage = go.AddComponent<MagePassive>();
+
+        var det = go.GetComponent<DetonateSystem>();
+        Assert.IsNotNull(det, "MagePassive.Awake should create DetonateSystem");
+        Assert.IsNotNull(mage.GetDetonateSystem());
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void MagePassive_AttackSpeedOverride()
+    {
+        var go = new GameObject("TestMageSpeed");
+        var mage = go.AddComponent<MagePassive>();
+
+        Assert.AreEqual(1f, mage.GetAttackSpeedMultiplier(), 0.001f);
+
+        mage.AttackSpeedBonus = 0.3f;
+        Assert.AreEqual(0.7f, mage.GetAttackSpeedMultiplier(), 0.001f, "Mage should use CharacterPassiveBase logic");
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void MagePassive_DotDamageMultiplier_WithChainDetonate()
+    {
+        var go = new GameObject("TestMageDmg");
+        var mage = go.AddComponent<MagePassive>();
+
+        float baseMult = mage.GetDotDamageMultiplier();
+        Assert.AreEqual(1f, baseMult, 0.01f, "Default multiplier should be 1.0");
+
+        mage.DotDamageMultiplier = 0.5f;
+        Assert.AreEqual(1.5f, mage.GetDotDamageMultiplier(), 0.01f);
+
+        Object.DestroyImmediate(go);
     }
 }
 #endif

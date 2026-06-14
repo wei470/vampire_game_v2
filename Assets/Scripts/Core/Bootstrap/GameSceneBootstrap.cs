@@ -155,8 +155,7 @@ public class GameSceneBootstrap : MonoBehaviour
         int mageIndex = 0;
         for (int i = 0; i < characters.Length; i++)
         {
-            if (characters[i] != null &&
-                (characters[i].characterId == "mage" || characters[i].characterName.ToLower().Contains("mage")))
+            if (characters[i] != null && characters[i].characterId == "mage")
             {
                 mageIndex = i;
                 break;
@@ -199,10 +198,10 @@ public class GameSceneBootstrap : MonoBehaviour
 
     private void ApplyTestBulletsAndUpgrades(List<string> selectedBulletIds, Dictionary<string, int> selectedUpgrades)
     {
-        var magePassive = _player?.GetComponent<MagePassive>();
-        if (magePassive == null) return;
+        var dotPassive = _player?.GetComponent<IDotCharacterPassive>();
+        if (dotPassive == null) return;
 
-        magePassive.ClearAllDotGuns();
+        dotPassive.ClearAllDotGuns();
         var config = _dataLoader.MageUpgradeConfig;
         if (config != null && selectedBulletIds.Count > 0)
         {
@@ -212,7 +211,7 @@ public class GameSceneBootstrap : MonoBehaviour
                 if (entry.HasValue)
                 {
                     var dg = entry.Value;
-                    magePassive.UnlockDotGun(dg.effectType, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
+                    dotPassive.UnlockDotGun(dg.effectType, dg.color, dg.cooldown, dg.impactDmg, dg.dotDps, dg.dotDuration);
                     DebugHelper.Log($"[GameSceneBootstrap] TestMode: Added bullet '{dg.displayName}'");
                 }
             }
@@ -224,11 +223,15 @@ public class GameSceneBootstrap : MonoBehaviour
 
         if (selectedUpgrades != null && selectedUpgrades.Count > 0)
         {
+            var magePassive = dotPassive as MagePassive;
             foreach (var kvp in selectedUpgrades)
             {
                 for (int s = 0; s < kvp.Value; s++)
                 {
-                    MageUpgradeApplier.ApplyUpgrade(magePassive, kvp.Key);
+                    if (magePassive != null)
+                        MageUpgradeApplier.ApplyUpgrade(magePassive, kvp.Key);
+                    else
+                        dotPassive.ApplyUpgrade(kvp.Key);
                 }
                 DebugHelper.Log($"[GameSceneBootstrap] TestMode: Applied upgrade '{kvp.Key}' x{kvp.Value}");
             }

@@ -129,7 +129,7 @@ public class BurnBullet : DotBulletBase
         textMesh.fontStyle = FontStyle.Bold;
         textMesh.color = new Color(1f, 0.3f, 0f);
 
-        var ticker = textObj.AddComponent<ReactionTextTicker>();
+        var ticker = textObj.AddComponent<FloatingText>();
         ticker.Lifetime = 1.0f;
     }
 
@@ -151,7 +151,7 @@ public class BurnBullet : DotBulletBase
         textMesh.fontStyle = FontStyle.Bold;
         textMesh.color = new Color(1f, 0.5f, 0f);
 
-        var ticker = textObj.AddComponent<BurnSpreadTextTicker>();
+        var ticker = textObj.AddComponent<FloatingText>();
         ticker.Lifetime = 1.0f;
     }
 

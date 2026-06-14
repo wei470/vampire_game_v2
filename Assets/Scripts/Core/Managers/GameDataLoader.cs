@@ -45,7 +45,7 @@ public class GameDataLoader
         // ── 为 Mage 角色运行时注入专属升级和描述 ──
         foreach (var c in Characters)
         {
-            if (c != null && (c.characterId == "mage" || c.characterName.ToLower().Contains("mage")))
+            if (c != null && c.characterId == "mage")
             {
                 // 从配置读取描述和颜色
                 c.description = MageUpgradeConfig.description;

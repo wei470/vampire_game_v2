@@ -400,12 +400,16 @@ public class EliteModifierSystem : MonoBehaviour
         }
     }
 
+    private const float LABEL_CHARACTER_SIZE = 0.15f;
+    private const int LABEL_FONT_SIZE = 40;
+    private const int SUMMON_COUNT = 3;
+    private const float SUMMON_RADIUS = 2f;
+
     private void CreateModifierLabel()
     {
-        if (_cachedFont == null)
-            _cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (_modifierLabel != null) return;
 
-        var labelGo = new GameObject("EliteModifierLabel");
+        var labelGo = new GameObject("ModifierLabel");
         labelGo.transform.SetParent(transform);
         labelGo.transform.localPosition = new Vector3(0f, 1.2f, 0f);
 
@@ -413,8 +417,8 @@ public class EliteModifierSystem : MonoBehaviour
         _modifierLabel.font = _cachedFont;
         _modifierLabel.alignment = TextAlignment.Center;
         _modifierLabel.anchor = TextAnchor.MiddleCenter;
-        _modifierLabel.characterSize = 0.15f;
-        _modifierLabel.fontSize = 40;
+        _modifierLabel.characterSize = LABEL_CHARACTER_SIZE;
+        _modifierLabel.fontSize = LABEL_FONT_SIZE;
 
         // 显示词缀名称
         var names = new List<string>();
@@ -444,9 +448,9 @@ public class EliteModifierSystem : MonoBehaviour
     {
         if (GameReferences.SpawnManager == null) return;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < SUMMON_COUNT; i++)
         {
-            Vector2 offset = Random.insideUnitCircle * 2f;
+            Vector2 offset = Random.insideUnitCircle * SUMMON_RADIUS;
             Vector3 spawnPos = transform.position + new Vector3(offset.x, offset.y, 0);
             GameReferences.SpawnManager.SpawnSingleEnemy(spawnPos);
         }

@@ -115,13 +115,8 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyEvolutionEffect(EvolutionMilestone milestone)
     {
-        // 优先分发到角色专属处理器
         var character = FindCharacterPassive();
-        if (character is IEvolutionHandler handler)
-        {
-            handler.ApplyEvolution(milestone, character);
-            return;
-        }
+        if (character == null) return;
 
         // 回退：通用进化效果
         switch (milestone.effectType)
@@ -176,10 +171,11 @@ public class EvolutionSystem : MonoBehaviour
     private void ApplyDotDurationBonus(float bonus)
     {
         var character = FindCharacterPassive();
-        if (character is MagePassive mage)
+        var dotChar = character as IDotCharacterPassive;
+        if (dotChar != null)
         {
-            mage.AddDotDurationBonus(bonus);
-            DebugHelper.Log($"[EvolutionSystem] DOT Duration +{bonus * 100:F0}% (total mult: {character.GetDotDurationMultiplier()})");
+            dotChar.AddDotDurationBonus(bonus);
+            DebugHelper.Log($"[EvolutionSystem] DOT Duration +{bonus * 100:F0}% (total mult: {dotChar.GetDotDurationMultiplier()})");
         }
     }
 
@@ -198,7 +194,7 @@ public class EvolutionSystem : MonoBehaviour
     /// </summary>
     private void ApplyDetonateTriggerAllCombos()
     {
-        var detonate = GameReferences.Player?.GetComponent<DetonateSystem>();
+        var detonate = GameReferences.DetonateSystem;
         if (detonate != null)
         {
             detonate.TriggerAllCombosOnDetonate = true;
@@ -212,10 +208,10 @@ public class EvolutionSystem : MonoBehaviour
     private void ApplyDotDamageBonus(float bonus)
     {
         var character = FindCharacterPassive();
-        if (character is MagePassive mage)
+        if (character != null)
         {
-            mage.DotDamageMultiplier += bonus;
-            DebugHelper.Log($"[EvolutionSystem] DOT Damage +{bonus * 100:F0}% (total mult: {character.GetDotDamageMultiplier()})");
+            character.DotDamageMultiplier += bonus;
+            DebugHelper.Log($"[EvolutionSystem] DOT Damage +{bonus * 100:F0}%");
         }
     }
 
@@ -259,9 +255,9 @@ public class EvolutionSystem : MonoBehaviour
     private void ApplyCritChanceBonus(float bonus)
     {
         var character = FindCharacterPassive();
-        if (character is MagePassive mage)
+        if (character != null)
         {
-            mage.CritChanceBonus += bonus;
+            character.CritChanceBonus += bonus;
             DebugHelper.Log($"[EvolutionSystem] Crit Chance +{bonus * 100:F1}%");
         }
     }
@@ -289,9 +285,9 @@ public class EvolutionSystem : MonoBehaviour
     private void ApplyAttackSpeedBonus(float bonus)
     {
         var character = FindCharacterPassive();
-        if (character is MagePassive mage)
+        if (character != null)
         {
-            mage.AttackSpeedBonus += bonus;
+            character.AttackSpeedBonus += bonus;
             DebugHelper.Log($"[EvolutionSystem] Attack Speed +{bonus * 100:F0}%");
         }
     }

@@ -1,30 +1,103 @@
-# 🧠 AI 速查手册 — Vampire Survivors Unity 移植版
+# AI 速查手册 — Vampire Survivors Unity 移植版
 
-> 每次开新 AI 窗口先读此文件。最后更新：2026-06-14
+> 每次开新 AI 对话先读此文件。
+> 最后更新：2026-06-14 | 218 个 CS 文件 | 178 个测试
 
-## 1. 项目概述
-- **引擎**：Unity 6 (URP) | **语言**：C# | **类型**：2D 俯视角射击生存
-- **场景**：`MenuScene`(MenuSceneBootstrap) → `GameScene`(GameSceneBootstrap)
-- **仓库**：https://github.com/wei470/vampire_game_v2.git
-- **当前角色系统**：8 种角色（warrior/mage/necromancer/berserker/ranger/paladin/vampire/assassin），全部使用 MagePassive
-- **Mage 为当前主角**，DOT 子弹系统是 Mage 专属机制
-- **已删除**：技能系统、难度选择系统、弹速升级、痛苦(DotFrequency)、凋零(DotCritBurst)
+---
 
-## 2. 核心架构
+## 1. 项目概况
 
-| 系统 | 文件 | 说明 |
+| 项 | 值 |
+|----|-----|
+| 引擎 | Unity 6 (URP) |
+| 语言 | C# |
+| 类型 | 2D 俯视角射击生存 |
+| 场景 | `MenuScene` → `GameScene` |
+| 角色 | Mage（DOT 法师）、Blue（蓝色战士） |
+| 测试 | CoreSystemTests 91 + AutomatedPlayModeTests 87 = 178 |
+
+---
+
+## 2. 核心文件索引
+
+### 角色系统
+
+| 文件 | 职责 |
+|------|------|
+| `Player/ICharacterPassive.cs` | `ICharacterPassive`（通用）+ `IDotCharacterPassive`（DOT 子接口） |
+| `Player/CharacterPassiveBase.cs` | 角色基类：攻速/弹数/穿透/进化属性 + `GetFireDirection()` |
+| `Player/MagePassive.cs` | Mage 专属：DOT 枪管理 + 属性，继承 CharacterPassiveBase，实现 IDotCharacterPassive |
+| `Player/MagePassive.Firing.cs` | Mage 射击逻辑：Update + SpawnDotBullet + 视觉 |
+| `Player/BlueCharacterPassive.cs` | 蓝色角色：继承 CharacterPassiveBase，只用 SimpleBullet |
+| `Player/CharacterFactory.cs` | 角色工厂：`Register("xxx", go => go.AddComponent<XXX>())` |
+| `Player/DetonateSystem.cs` | 引爆系统：蓄力/连锁/余烬/霜爆/末日审判 |
+| `Player/MageUpgradeApplier.cs` | Mage 升级应用：策略字典模式 |
+| `Player/EvolutionSystem.cs` | 进化系统：按等级解锁被动里程碑 |
+
+### 子弹系统
+
+| 文件 | 职责 |
+|------|------|
+| `Combat/ProjectileBase.cs` | 通用子弹基类：速度/方向/生命周期/穿透/反弹 |
+| `Combat/DotBulletBase.cs` | DOT 子弹基类：继承 ProjectileBase，命中调 `DotBulletHelper.EnsureStatusEffectManager()` |
+| `Combat/SimpleBullet.cs` | 蓝色子弹：继承 ProjectileBase，命中直接扣血 |
+| `Combat/DotBulletFactory.cs` | DOT 子弹工厂：7 种 DOT 子弹创建 |
+| `Combat/IGunState.cs` | `IGunState` 接口 + `GunState` + `DotGunState` |
+| `Combat/DotBulletHelpers.cs` | `DotBulletHelper`（EnsureStatusEffectManager + 腐蚀/侵蚀）+ `PenetrateHandler` + `CritParams` |
+
+### DOT 子弹类型（7 种，Mage 专属）
+
+| 类型 | 类名 | 特点 |
 |------|------|------|
-| `Damageable` | `Entities/Damageable.cs` | 伤害组件（float伤害/护甲减伤/HP回复） |
-| `EnemyBase` | `Enemies/EnemyBase.cs` | 敌人基类（AllAlive静态列表/缓存组件） |
-| `MagePassive` | `Player/MagePassive.cs` | Mage专属（DOT枪管理+属性，partial class） |
-| `MagePassive.Firing` | `Player/MagePassive.Firing.cs` | Update+子弹发射+视觉（DotGunState class，nextAllowedFireTime） |
-| `GameReferences` | `Core/Managers/GameReferences.cs` | 全局引用缓存（Player/DetonateSystem等） |
-| `AdminConfig` | `ScriptableObjects/Config/AdminConfig.cs` | 管理员配置（admin=0只显示Start，admin=1显示全部） |
-| `PlayerConfig` | `ScriptableObjects/Config/PlayerConfig.cs` | 角色配置（按characterId设置移速） |
-| `BGMManager` | `Audio/BGMManager.cs` | 背景音乐（PlayClip方法，DontDestroyOnLoad） |
-| `MapBoundary` | `Map/MapBoundary.cs` | 屏幕边界空气墙（跟随摄像机，FixedUpdate+LateUpdate钳制） |
+| 中毒 | `PoisonBullet` | 命中留毒液池，固定 1s tick |
+| 燃烧 | `BurnBullet` | 叠加层数，固定 0.5s tick |
+| 霜冻 | `FrostBullet` | 永久减速 + 叠层 |
+| 雷电 | `LightningBullet` | 连锁 3 敌人，叠静电层 |
+| 黑暗 | `DarkBullet` | 永久标记，死亡时 DOT 传播 |
+| 光明 | `LightBulletController` | 蓄力激光扫射 |
+| 风 | `WindBullet` | 高速 0.2s，随机 ±25° 偏射 |
 
-## 3. 护甲系统
+### 状态效果系统
+
+| 文件 | 职责 |
+|------|------|
+| `Combat/StatusEffects/StatusEffectSystem.cs` | StatusEffectManager + StatusEffectType 枚举 + StatusEffect 类 + DetonateResult + DotComboSystem |
+| `Combat/StatusEffects/CurseSpreadSystem.cs` | 诅咒传播：敌人死亡时 DOT 扩散 |
+| `Combat/StatusEffects/DotVisualEffectManager.cs` | DOT 视觉效果管理 |
+
+### 配置系统
+
+| 文件 | 职责 |
+|------|------|
+| `ScriptableObjects/Config/CharacterUpgradeConfig.cs` | 配置基类 + `ICharacterConfig` 接口 + `DotGunEntry`/`UpgradeEntry` 结构体 + `CharacterConfigLoader` |
+| `ScriptableObjects/Config/MageUpgradeConfig.cs` | Mage 升级配置：7 DOT 枪 + 10 增强 |
+| `ScriptableObjects/Config/BlueUpgradeConfig.cs` | 蓝色角色升级配置 |
+| `ScriptableObjects/Config/DotEffectConfig.cs` | DOT 效果配置：所有数值参数（595 行） |
+| `ScriptableObjects/Config/PlayerConfig.cs` | 角色移速配置 |
+| `ScriptableObjects/Config/AdminConfig.cs` | 管理员模式配置 |
+
+### 核心管理器
+
+| 文件 | 职责 |
+|------|------|
+| `Core/Managers/GameReferences.cs` | 全局引用缓存：`Player`/`CharacterPassive`/`DotCharacterPassive`/`DetonateSystem`/`LevelSystem`/`WeaponCtrl`/`PlayerDamageable` |
+| `Core/Managers/GameStateResetter.cs` | 场景重置：`FullReset()` 清理所有静态状态 + 单例销毁 |
+| `Core/Bootstrap/GameStarter.cs` | 游戏启动：加载配置 → 创建角色 → 开始波次 |
+| `Core/Bootstrap/GameSceneBootstrap.cs` | GameScene 引导 |
+
+### VFX / UI 工具
+
+| 文件 | 职责 |
+|------|------|
+| `Combat/VFXUtils.cs` | `MaterialCache` + `VFXPool` + `GlowReturnHelper` + `DotSpriteCache` + `DotBulletVisualEffects` + VFX MonoBehaviour 组件 |
+| `Combat/TextTickers.cs` | `FloatingText`：统一浮动文字组件 |
+| `UI/UIUtils.cs` | `UIFormatUtils` + `UIFontProvider` + `GUIScaleHelper` |
+
+---
+
+## 3. 关键公式
+
+### 护甲系统
 
 ```
 减伤% = min(护甲 × 2%, 90%)
@@ -32,158 +105,96 @@
 ```
 
 - 每波敌人 +1 护甲（EnemyScalingHelper）
-- 腐蚀：护甲 = Floor(护甲 × 90%)，最多8层
-- 侵蚀：护甲 = 护甲 - 侵蚀层数（无限叠加）
+- 腐蚀：`FloorToInt(护甲 × 0.9)`，最多 8 层
+- 侵蚀：`护甲 - 层数`，无限叠加
 - 计算顺序：先腐蚀 → 再侵蚀 → 结算伤害
 
-## 4. DOT 子弹系统（Mage 专属，7种）
-
-| 类型 | 类名 | 池键 | 特点 |
-|------|------|------|------|
-| 中毒 | PoisonBullet : DotBulletBase | DOT_POISON_BULLET | 命中留毒液池，固定1s tick |
-| 燃烧 | BurnBullet : DotBulletBase | DOT_BURN_BULLET | 叠加燃烧层数，固定0.5s tick，层数越高伤害越高 |
-| 霜冻 | FrostBullet : DotBulletBase | DOT_FROST_BULLET | 永久减速+叠层 |
-| 雷电 | LightningBullet | DOT_LIGHTNING_BULLET | 连锁3敌人，叠静电层 |
-| 黑暗 | DarkBullet | — | 永久标记，死亡时DOT传播 |
-| 光明 | LightBulletController | — | 蓄力激光扫射 |
-| 风 | WindBullet : DotBulletBase | DOT_WIND_BULLET | 高速单发0.25s，随机±25°偏射 |
-
-**DOT tick 公式**：
-- 燃烧：`dmg = baseDps × 0.5 × (1 + (stacks-1) × 10%)`，间隔固定0.5s
-- 毒素：`dmg = PoisonDamagePerTick + (stacks-1)`，间隔固定1.0s
-
-**元素反应**：
-- 燃烧×风化→燃烧扩散 | 霜冻×静电→冰场 | 霜冻×燃烧→融化(DOT×2)
-
-## 5. 引爆系统（E键）
+### DOT tick
 
 ```
-引爆伤害 = DPS × 5 × detonateMultiplier（上限800）
-detonateMultiplier = 3.0 × 1.15^辐射层数（最多10层）
-引爆冷却 = 12s × max(0.1, 1 - 污染层数×0.1)（最多6层）
+燃烧：dmg = baseDps × 0.5 × (1 + (stacks-1) × 10%)，间隔 0.5s
+毒素：dmg = PoisonDamagePerTick + (stacks-1)，间隔 1.0s
 ```
 
-- 蓄力 → 冲击波扩展 → 接触敌人触发引爆 → 时停 → 显示总伤害
-- 连锁引爆：10 × multiplier × chainRatio，每次衰减50%
-- 霜爆：50 × multiplier（上限800）
-- 末日审判：3种DOT + HP≤阈值 → 直接击杀
+### 引爆（E 键）
 
-## 6. 升级系统（MageUpgradeConfig）
+```
+引爆伤害 = DPS × 5 × multiplier（上限 800）
+multiplier = 3.0 × 1.15^辐射层数（最多 10 层）
+冷却 = 12s × max(0.1, 1 - 污染层数 × 0.1)（最多 6 层）
+```
 
-**DOT 增强**：
-- 腐蚀(Corrosion)：护甲×90%，最多8层
-- 侵蚀(Erosion)：无视1点护甲/层，无限叠加
+---
 
-**引爆增强**：
-- 辐射(Radiation)：引爆伤害×115%/层，最多10层
-- 污染(Contaminate)：引爆冷却-10%/层，最多6层
+## 4. 关键 Bug 与注意事项
 
-**子弹增强**：急速(攻速+15%) / 弹幕(子弹+1，上限3) / 贯穿弹(穿透+1)
+| 问题 | 说明 |
+|------|------|
+| **返回菜单卡死** | 禁止 `DestroyImmediate`，禁止 `OnGUI` 内 `LoadScene` |
+| **DOT 命中** | 必须调 `DotBulletHelper.EnsureStatusEffectManager()` |
+| **腐蚀计算** | 用 `FloorToInt`（非 RoundToInt），否则 1 护甲无效 |
+| **护甲减伤** | 用 `RoundToInt`（非 CeilToInt），避免浮点误差 |
+| **场景重置** | 所有静态列表必须在 `GameStateResetter.FullReset()` 中清理 |
+| **MagePassive.Awake** | 自动创建 DetonateSystem + 解锁 Poison DOT 枪 |
+| **GameReferences** | Player 赋值时自动失效所有缓存，使用 `CharacterPassive` 而非 `MagePassive` |
 
-**协同强化**：光明审判 / 静电领域 / 霜爆 / 末日审判 / 暗影标记
+---
 
-**一般强化**：移速+10%（全角色通用）
+## 5. 新角色开发流程
 
-## 7. 射击系统（MagePassive.Firing.cs）
+```
+1. 创建 XXXCharacterPassive : CharacterPassiveBase
+     - 实现 CharacterId / DisplayName
+     - 实现 Update() 中的射击逻辑
+     - 重写 ApplyUpgrade() 处理升级
+
+2. 创建 XXXUpgradeConfig : CharacterUpgradeConfig
+     - 在 OnEnable() 中设置 characterId / upgradeEntries
+
+3. 复用 SimpleBullet 或创建 XXXBullet : ProjectileBase
+     - 重写 OnHitEnemy() 定义命中效果
+
+4. CharacterFactory.Register("xxx", go => go.AddComponent<XXXCharacterPassive>())
+
+5. 创建 XXXCharacterData.asset（Unity Editor 中）
+```
+
+---
+
+## 6. 代码规范
+
+### 接口使用
 
 ```csharp
-// DotGunState 是 class（非struct），无写回
-float effectiveCooldown = Mathf.Max(0.01f, gun.cooldown * attackSpeedMult);
-if (hasTarget && Time.time >= gun.nextAllowedFireTime)
-{
-    gun.nextAllowedFireTime = Time.time + effectiveCooldown;
-    SpawnDotBullet(gun, fireDir, dmgMult);
-}
+// 通用角色能力
+ICharacterPassive passive = GameReferences.CharacterPassive;
+passive.GetAttackSpeedMultiplier();
+passive.ApplyUpgrade("haste");
+
+// DOT 专属能力（仅 Mage 等 DOT 角色）
+IDotCharacterPassive dot = GameReferences.DotCharacterPassive;
+dot?.DotGuns.Count;
+dot?.GetDotDamageMultiplier();
+dot?.CorrosionArmorReduction;
 ```
 
-- 弹幕上限 3 发（`Mathf.Min(1 + _bulletCountBonus, 3)`）
-- 散射角度从 `DotEffectConfig.BarrageSpreadAngle` 读取
-- 攻速变化时按比例缩放 nextAllowedFireTime
-- 帧率雪崩保护：`deltaTime > 0.05f` 跳过射击
-- Glow 对象池化（`_glowPool`）
+### VFX 工具
 
-## 8. 敌人系统
+```csharp
+Material mat = MaterialCache.GetDefault();          // 缓存的 Sprites/Default Material
+var go = VFXPool.Get("CurseLine");                  // 从池获取 VFX
+VFXPool.Return(go, 0.5f);                          // 延迟回收
+var glow = GlowReturnHelper.GetOrCreate();          // Glow 对象池
+Sprite s = DotSpriteCache.Get();                    // 椭圆 Sprite
+Sprite c = DotSpriteCache.CircleSprite();           // 圆形 Sprite
+```
 
-- 14种 + 4种Boss变体
-- 每波护甲+1（EnemyScalingHelper）
-- 精英词缀：EliteModifierSystem，第5波起概率生成
-- `EnemyBase.AllAlive` 静态列表（替代 FindObjectsByType）
-- SpawnManager.StartFromWave(int wave) 支持指定波次开始
+### 测试
 
-## 9. 空气墙系统（MapBoundary）
+```csharp
+// EditMode 测试（纯计算，无 GameObject）
+Tests/Editor/CoreSystemTests.cs — 91 个
 
-- 4面 BoxCollider2D + Static Rigidbody2D，Environment层
-- 跟随摄像机（FixedUpdate + LateUpdate 更新位置）
-- margin = -1（屏幕内侧 1 单位）
-- 双重钳制：FixedUpdate + LateUpdate 强制所有实体在屏幕内
-- 敌人刷新位置钳制在屏幕内（距边缘 2 单位）
-
-## 10. BGM 系统
-
-- 主菜单：`BGMManager.Instance.PlayClip("music1")`（music1.ogg）
-- 游戏内：`BGMManager.Instance.PlayClip("music2")`（music2.ogg）
-- BGMManager 使用 DontDestroyOnLoad 跨场景
-- 音频文件在 `Assets/Resources/Audio/`（.ogg 格式）
-
-## 11. AdminConfig 管理员模式
-
-- `admin=0`：主菜单只显示 Start Game
-- `admin=1`：显示全部按钮（Shop/Test/BossTest/Daily）和快捷键（T/B/G/D）
-- 菜单 `Mage → Create AdminConfig Asset` 创建配置
-
-## 12. PlayerConfig 角色配置
-
-- `GetMoveSpeed(characterId)` 按角色查询移速
-- 默认 mage 移速 10f（原20f的50%）
-- 菜单 `Mage → Create PlayerConfig Asset` 创建配置
-
-## 13. Test 模式
-
-- 主菜单按 T 进入 Test 模式
-- 三个标签页：子弹 / 一般强化 / 专属强化
-- 底部可选择起始波次（默认1）
-- DPS 测试模式按 G，木桩 200 万 HP，Static 刚体
-
-## 14. 关键 Bug 注意
-
-**返回菜单卡死**：禁止 `DestroyImmediate`，禁止 `OnGUI` 内 `LoadScene`
-
-**DOT 效果**：命中必须调 `DotBulletHelper.EnsureStatusEffectManager()`
-
-**GameReferences.Player**：GameStarter 构造函数中赋值
-
-**腐蚀计算**：用 `FloorToInt`（非 RoundToInt），否则 1 护甲无效
-
-**护甲减伤**：用 `RoundToInt`（非 CeilToInt），避免浮点误差
-
-## 15. 测试规范
-
-| 文件 | 说明 |
-|------|------|
-| `Tests/Editor/CoreSystemTests.cs` | EditMode 单元测试（纯计算） |
-| `Tests/Editor/AutomatedPlayModeTests.cs` | PlayMode 集成测试（GameObject 交互） |
-
-当前测试数量：CoreSystemTests 42 个 + AutomatedPlayModeTests 68 个 = 110 个
-
-## 16. 关键文件索引
-
-| 文件 | 说明 |
-|------|------|
-| `Player/MagePassive.cs` | DOT枪管理+属性 |
-| `Player/MagePassive.Firing.cs` | Update+子弹发射 |
-| `Player/DetonateSystem.cs` | 引爆系统 |
-| `Player/MageUpgradeApplier.cs` | 升级应用（策略字典） |
-| `Combat/DotBulletFactory.cs` | DOT子弹工厂 |
-| `Combat/DotBulletBase.cs` | DOT子弹基类 |
-| `Combat/StatusEffects/StatusEffectSystem.cs` | DOT管理+引爆 |
-| `Combat/DotBulletHelpers.cs` | EnsureStatusEffectManager + 腐蚀/侵蚀计算 |
-| `Combat/BurnStackEffect.cs` | 燃烧叠加（固定0.5s tick） |
-| `Combat/PoisonStackEffect.cs` | 毒素叠加（固定1.0s tick） |
-| `Combat/WindBullet.cs` | 风子弹（继承DotBulletBase） |
-| `Enemies/SpawnManager.cs` | 波次管理+StartFromWave |
-| `Enemies/EnemyBase.cs` | 敌人基类+AllAlive列表 |
-| `Map/MapBoundary.cs` | 屏幕空气墙 |
-| `ScriptableObjects/Config/MageUpgradeConfig.cs` | 升级配置 |
-| `ScriptableObjects/Config/DotEffectConfig.cs` | DOT效果配置 |
-| `ScriptableObjects/Config/AdminConfig.cs` | 管理员配置 |
-| `ScriptableObjects/Config/PlayerConfig.cs` | 角色配置 |
+// PlayMode 测试（GameObject 交互）
+Tests/Editor/AutomatedPlayModeTests.cs — 87 个
+```

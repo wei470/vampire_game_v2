@@ -121,7 +121,7 @@ public class PoisonBullet : DotBulletBase
         textMesh.fontStyle = FontStyle.Bold;
         textMesh.color = new Color(0.4f, 0.1f, 0.6f);
 
-        var ticker = textObj.AddComponent<PoisonBurstTextTicker>();
+        var ticker = textObj.AddComponent<FloatingText>();
         ticker.Lifetime = 1.0f;
     }
 

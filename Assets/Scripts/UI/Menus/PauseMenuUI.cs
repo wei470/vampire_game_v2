@@ -232,13 +232,13 @@ public class PauseMenuUI : MonoBehaviour
     private void DrawUpgrades(ref float y, float x, float w, GUIStyle labelStyle, GUIStyle valueStyle, GUIStyle sectionStyle)
     {
         var player = GameReferences.Player;
-        var magePassive = player?.GetComponent<MagePassive>();
-        if (magePassive == null) return;
+        var dotPassive = GameReferences.DotCharacterPassive;
+        if (dotPassive == null) return;
 
         GUI.Label(new Rect(x, y, w, 22), "── MAGE DOT BUILD ──", sectionStyle);
         y += 24;
 
-        var dotGuns = magePassive.DotGuns;
+        var dotGuns = dotPassive.DotGuns;
         if (dotGuns != null && dotGuns.Count > 0)
         {
             foreach (var gun in dotGuns)
@@ -255,14 +255,19 @@ public class PauseMenuUI : MonoBehaviour
         }
 
         y += 6;
-        DrawStatRow(x, y, w, labelStyle, valueStyle, "Crit Rate", $"{magePassive.CritChance * 100:F0}%");
+        DrawStatRow(x, y, w, labelStyle, valueStyle, "Crit Rate", $"{dotPassive.GetDotCritChance() * 100:F0}%");
         y += 22;
-        DrawStatRow(x, y, w, labelStyle, valueStyle, "Crit Mult", $"×{magePassive.CritMultiplier:F1}");
+        DrawStatRow(x, y, w, labelStyle, valueStyle, "Crit Mult", $"×{dotPassive.GetDotCritMultiplier():F1}");
         y += 22;
-        DrawStatRow(x, y, w, labelStyle, valueStyle, "DOT Duration+", $"+{(magePassive.DotDurationMultiplier - 1f) * 100:F0}%");
+        DrawStatRow(x, y, w, labelStyle, valueStyle, "DOT Duration+", $"+{(dotPassive.GetDotDurationMultiplier() - 1f) * 100:F0}%");
         y += 22;
-        DrawStatRow(x, y, w, labelStyle, valueStyle, "Detonate Mult", $"×{magePassive.DetonateMultiplier:F1}");
-        y += 22;
+
+        var det = dotPassive.GetDetonateSystem();
+        if (det != null)
+        {
+            DrawStatRow(x, y, w, labelStyle, valueStyle, "Detonate Mult", $"×{det.DetonateMultiplier:F1}");
+            y += 22;
+        }
     }
 
     private void DrawStatRow(float x, float y, float w, GUIStyle labelStyle, GUIStyle valueStyle, string label, string value)

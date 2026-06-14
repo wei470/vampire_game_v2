@@ -7,6 +7,11 @@ using System.Collections.Generic;
 /// </summary>
 public static class CurseSpreadSystem
 {
+    private const float BASE_SPREAD_RATIO = 0.1f;
+    private const float DEFAULT_CONTAMINATE_RANGE = 5f;
+    private const float POISON_SPREAD_DPS = 2f;
+    private const float FROST_SPREAD_FREEZE_DURATION = 0.3f;
+
     // ── Mage 专属强化静态字段 ──
     /// <summary>蔓延：DOT传播效率加成（默认0，每层+0.15）</summary>
     public static float PandemicEfficiencyBonus = 0f;
@@ -18,6 +23,7 @@ public static class CurseSpreadSystem
     }
 
     private static Material _lineMaterial;
+    private static readonly List<GameObject> _reusableTargets = new List<GameObject>(32);
 
     private static Material GetLineMaterial()
     {
@@ -34,12 +40,12 @@ public static class CurseSpreadSystem
     /// </summary>
     public static void SpreadContaminate(StatusEffectManager source)
     {
-        var player = GameReferences.Player;
-        if (player == null || !player.TryGetComponent<MagePassive>(out var magePassive)) return;
-        int spreadTargets = magePassive.CurseSpreadTargets;
+        var dotPassive = GameReferences.DotCharacterPassive;
+        if (dotPassive == null) return;
+        int spreadTargets = dotPassive.CurseSpreadTargets;
         if (spreadTargets <= 1) return;
 
-        float range = source.ContaminateRange > 0 ? source.ContaminateRange : 5f;
+        float range = source.ContaminateRange > 0 ? source.ContaminateRange : DEFAULT_CONTAMINATE_RANGE;
         var go = source.gameObject;
 
         // 缓存源DOT组件并检查是否有任何DOT效果
@@ -56,7 +62,8 @@ public static class CurseSpreadSystem
             ? SpatialGrid.QueryRadius((Vector2)go.transform.position, range)
             : null;
 
-        var validTargets = new List<GameObject>(16);
+        var validTargets = _reusableTargets;
+        validTargets.Clear();
         if (nearbyEnemies != null)
         {
             for (int i = 0; i < nearbyEnemies.Count; i++)
@@ -76,7 +83,7 @@ public static class CurseSpreadSystem
                 otherManager = hit.gameObject.AddComponent<StatusEffectManager>();
 
             // 传播效率：基础10% + 蔓延加成（上限100%）
-            float spreadRatio = Mathf.Min(1f, 0.1f + PandemicEfficiencyBonus);
+            float spreadRatio = Mathf.Min(1f, BASE_SPREAD_RATIO + PandemicEfficiencyBonus);
 
             // 传播 StatusEffectManager 中的 DOT
             foreach (var effect in source.ActiveEffects)
@@ -108,13 +115,13 @@ public static class CurseSpreadSystem
                     otherPoison = hit.gameObject.AddComponent<PoisonStackEffect>();
                 int pStacks = Mathf.Max(1, Mathf.RoundToInt(srcPoison.StackCount * spreadRatio));
                 for (int s = 0; s < pStacks; s++)
-                    otherPoison.AddStack(2f, 0f, srcPoison.canCrit, srcPoison.critChance, srcPoison.critMult);
+                    otherPoison.AddStack(POISON_SPREAD_DPS, 0f, srcPoison.canCrit, srcPoison.critChance, srcPoison.critMult);
             }
             if (srcFrost != null)
             {
                 if (!hit.TryGetComponent<FrostEffect>(out var otherFrost))
                     otherFrost = hit.gameObject.AddComponent<FrostEffect>();
-                otherFrost.ApplyFreeze(0.3f, srcFrost.slowPercent * spreadRatio,
+                otherFrost.ApplyFreeze(FROST_SPREAD_FREEZE_DURATION, srcFrost.slowPercent * spreadRatio,
                     srcFrost.frostDps * spreadRatio, srcFrost.canCrit, srcFrost.critChance, srcFrost.critMult);
             }
         }
@@ -134,9 +141,10 @@ public static class CurseSpreadSystem
 
     private static void CreateSpreadLine(Vector3 from, Vector3 to)
     {
-        var lineObj = new GameObject("CurseLine");
+        var lineObj = VFXPool.Get("CurseLine");
         lineObj.transform.position = from;
-        var lr = lineObj.AddComponent<LineRenderer>();
+        var lr = lineObj.GetComponent<LineRenderer>();
+        if (lr == null) lr = lineObj.AddComponent<LineRenderer>();
         lr.material = GetLineMaterial();
         lr.startColor = new Color(0.5f, 0.5f, 0.5f, 0.8f);
         lr.endColor = new Color(0.5f, 0.5f, 0.5f, 0f);
@@ -146,6 +154,6 @@ public static class CurseSpreadSystem
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        Object.Destroy(lineObj, 0.5f);
+        VFXPool.Return(lineObj, 0.5f);
     }
 }

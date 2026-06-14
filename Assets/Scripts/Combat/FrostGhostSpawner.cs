@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 霜冻残影生成器
+/// 霜冻残影生成器 — 使用 VFXPool 减少 GC 压力
 /// </summary>
 public class FrostGhostSpawner : MonoBehaviour
 {
@@ -14,14 +14,17 @@ public class FrostGhostSpawner : MonoBehaviour
     {
         if (Time.time - _lastSpawn < _spawnInterval) return;
         _lastSpawn = Time.time;
-        var ghost = new GameObject("FrostGhost");
+        var ghost = VFXPool.Get("FrostGhost");
         ghost.transform.position = transform.position;
         ghost.transform.localScale = Vector3.one * 0.3f;
-        var sr = ghost.AddComponent<SpriteRenderer>();
+        var sr = ghost.GetComponent<SpriteRenderer>();
+        if (sr == null) sr = ghost.AddComponent<SpriteRenderer>();
         if (_ghostSprite == null) _ghostSprite = DotSpriteCache.Get();
         sr.sprite = _ghostSprite;
         sr.color = new Color(0.5f, 0.8f, 1f, 0.5f);
         sr.sortingOrder = 13;
-        ghost.AddComponent<GhostFadeOut>().Init(_ghostLifetime);
+        var fade = ghost.GetComponent<GhostFadeOut>();
+        if (fade == null) fade = ghost.AddComponent<GhostFadeOut>();
+        fade.Init(_ghostLifetime);
     }
 }

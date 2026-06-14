@@ -47,7 +47,7 @@ public static class SelectionDataLoader
         if (inspectorWeapons != null && inspectorWeapons.Length > 0 && inspectorWeapons[0] != null)
             return inspectorWeapons;
 
-        var wc = GameReferences.Player?.GetComponent<WeaponController>();
+        var wc = GameReferences.WeaponCtrl;
         if (wc != null)
             return wc.GetAllWeaponData();
 

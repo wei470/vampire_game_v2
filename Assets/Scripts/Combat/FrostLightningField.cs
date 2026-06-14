@@ -158,7 +158,7 @@ public class FrostLightningField : MonoBehaviour
         textMesh.fontStyle = FontStyle.Bold;
         textMesh.color = new Color(0.4f, 0.7f, 1f);
 
-        var ticker = textObj.AddComponent<ReactionTextTicker>();
+        var ticker = textObj.AddComponent<FloatingText>();
         ticker.Lifetime = 1.5f;
     }
 }

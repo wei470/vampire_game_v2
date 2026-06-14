@@ -88,10 +88,11 @@ public class GameStarter
 
         {
             var wc = _player?.GetComponent<WeaponController>();
-            bool isMage = GameSceneBootstrap.CurrentCharacter != null &&
-                (GameSceneBootstrap.CurrentCharacter.characterId == "mage" ||
-                 GameSceneBootstrap.CurrentCharacter.characterName.ToLower().Contains("mage"));
-            if (isMage)
+            ICharacterPassive existingPassive = _player?.GetComponent<ICharacterPassive>();
+            if (existingPassive == null && GameSceneBootstrap.CurrentCharacter != null)
+                existingPassive = CharacterFactory.Create(GameSceneBootstrap.CurrentCharacter.characterId, _player.gameObject);
+            bool isDotCharacter = existingPassive is IDotCharacterPassive;
+            if (isDotCharacter)
             {
                 if (wc != null) wc.enabled = false;
             }
@@ -121,10 +122,8 @@ public class GameStarter
     {
         EventManager.TriggerSelectionComplete(cd, wd, null);
 
-        bool isMageChar = GameSceneBootstrap.CurrentCharacter != null &&
-            (GameSceneBootstrap.CurrentCharacter.characterId == "mage" ||
-             GameSceneBootstrap.CurrentCharacter.characterName.ToLower().Contains("mage"));
-        UIColorTheme.SetTheme(isMageChar ? "mage" : "default");
+        string charId = GameSceneBootstrap.CurrentCharacter?.characterId ?? "default";
+        UIColorTheme.SetTheme(charId);
 
         if (GameManager.Instance != null)
             GameManager.Instance.ChangeState(GameManager.GameState.Playing);

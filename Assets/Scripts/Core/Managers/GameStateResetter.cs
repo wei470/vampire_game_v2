@@ -19,9 +19,21 @@ public static class GameStateResetter
         MagnetMultiplierSystem.Reset();
         DotComboSystem.ResetEvolutionComboMultiplier();
         DotEffectRegistry.ClearAll();
+        CurseSpreadSystem.ResetStaticState();
         GameReferences.Reset();
         GameSceneBootstrap.ResetCharacter();
         DamagePopup.FullCleanup();
+        CharacterFactory.Clear();
+        CharacterConfigLoader.ClearCache();
+        VFXPool.ClearAll();
+
+        // 清理静态列表（防止场景重载泄漏）
+        DotBulletBase.ActiveDotBullets.Clear();
+        SimpleBullet.ActiveBullets.Clear();
+        Coin.All.Clear();
+        XPGem.All.Clear();
+        EnvironmentZone.All.Clear();
+        Backpack.Clear();
 
         // 用 Destroy（延迟）而非 DestroyImmediate —— 避免 OnDestroy 回调级联
         // LoadScene 会销毁所有场景对象，DontDestroyOnLoad 对象在帧末延迟销毁

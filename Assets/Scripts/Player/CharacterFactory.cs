@@ -75,6 +75,7 @@ public static class CharacterFactory
         _initialized = true;
 
         Register("mage", go => go.AddComponent<MagePassive>());
+        Register("blue", go => go.AddComponent<BlueCharacterPassive>());
         Register("warrior", go => go.AddComponent<MagePassive>());
         Register("ranger", go => go.AddComponent<MagePassive>());
         Register("vampire", go => go.AddComponent<MagePassive>());

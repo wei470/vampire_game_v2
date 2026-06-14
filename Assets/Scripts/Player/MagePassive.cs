@@ -9,13 +9,13 @@ using System.Collections.Generic;
 /// - MageUpgradeApplier: 升级效果应用 + 协同 + 进化 + 里程碑
 /// - MagePassive: DOT枪管理 + 属性访问 + 子弹发射
 /// </summary>
-/// sk-s5z5mqdqlkxevsh71gupiig11v61rca4rg92lovb1ifg5g1i
-public partial class MagePassive : MonoBehaviour, ICharacterPassive
+public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
 {
-    // ── ICharacterPassive 实现 ──
-    public string CharacterId => "mage";
-    public string DisplayName => "DOT 法师";
+    // ── IDotCharacterPassive 实现 ──
+    public override string CharacterId => "mage";
+    public override string DisplayName => "DOT 法师";
     public DetonateSystem GetDetonateSystem() => _detonateSystem;
+
     [Header("Mage 被动参数")]
     [SerializeField] private float _dotDurationBonus = 0.2f;
     [SerializeField] private float _dotCritMultiplier = 2f;
@@ -25,39 +25,31 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     [SerializeField] private int _erosionArmorPenetration = 0;
     [SerializeField] private int _curseSpreadTargets = 1;
 
-    [Header("子弹增强属性")]
-    [SerializeField] private float _attackSpeedBonus = 0f;
-    [SerializeField] private int _bulletCountBonus = 0;
-    [SerializeField] private float _bulletSizeBonus = 0f;
-    [SerializeField] private float _knockbackBonus = 0f;
-
     [Header("P1 深度玩法属性")]
-    [SerializeField] private float _pandemicBonus = 0f;        // [已弃用]蔓延：传播效率加成
-    [SerializeField] private float _dualWieldBonus = 0f;       // [已弃用]双持：射速加成
-    [SerializeField] private float _chargeSpeedBonus = 0f;     // 引爆蓄力速度加成
-    [SerializeField] private float _chargeDamageBonus = 0f;    // 引爆蓄力伤害加成
+    [SerializeField] private float _pandemicBonus = 0f;
+    [SerializeField] private float _dualWieldBonus = 0f;
+    [SerializeField] private float _chargeSpeedBonus = 0f;
+    [SerializeField] private float _chargeDamageBonus = 0f;
 
     [Header("P2 协同/趣味属性")]
-    [SerializeField] private float _toxicologyCritBonus = 0f;  // [已弃用]剧毒天赋
-    [SerializeField] private float _lightJudgmentBonus = 0f;   // 光明审判：每层加成提升
-    [SerializeField] private int _staticFieldStacks = 0;       // 静电领域：层数
-    [SerializeField] private float _frostExplosionPct = 0f;    // 霜爆：最大生命百分比
+    [SerializeField] private float _toxicologyCritBonus = 0f;
+    [SerializeField] private float _lightJudgmentBonus = 0f;
+    [SerializeField] private int _staticFieldStacks = 0;
+    [SerializeField] private float _frostExplosionPct = 0f;
 
     [Header("子弹增强扩展属性")]
-    [SerializeField] private float _ammoSpeedBonus = 0f;       // 弹药精通：子弹速度加成
-    [SerializeField] private float _ammoRangeBonus = 0f;       // 弹药精通：范围加成
-    [SerializeField] private int _penetrateCount = 0;          // 贯穿弹：穿透数
+    [SerializeField] private float _ammoSpeedBonus = 0f;
+    [SerializeField] private float _ammoRangeBonus = 0f;
 
     [Header("生存向属性")]
-    [SerializeField] private float _elementalShieldHp = 0f;    // 元素护盾：额外最大生命
+    [SerializeField] private float _elementalShieldHp = 0f;
 
     [Header("P3 终极/高级属性")]
-    [SerializeField] private float _doomsdayThreshold = 0f;    // 末日审判：HP阈值
-    [SerializeField] private int _shatterBoostFragments = 0;   // [已弃用]碎裂强化：碎片数量
-    [SerializeField] private float _shatterBoostDmg = 0f;      // [已弃用]碎裂强化：碎片伤害
+    [SerializeField] private float _doomsdayThreshold = 0f;
+    [SerializeField] private int _shatterBoostFragments = 0;
+    [SerializeField] private float _shatterBoostDmg = 0f;
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
-    private WeaponController _weaponController;
 
     // ── 里程碑系统 ──
     private bool _elementMasterTriggered = false;
@@ -93,11 +85,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     public float CorrosionArmorReduction { get => _corrosionArmorReduction; set => _corrosionArmorReduction = value; }
     public int ErosionArmorPenetration { get => _erosionArmorPenetration; set => _erosionArmorPenetration = value; }
     public int CurseSpreadTargets { get => _curseSpreadTargets; set => _curseSpreadTargets = value; }
-    public float AttackSpeedBonus { get => _attackSpeedBonus; set => _attackSpeedBonus = value; }
-    public int BulletCountBonus { get => _bulletCountBonus; set => _bulletCountBonus = value; }
-    public int PiercingBonus { get; set; } = 0;
-    public float BulletSizeBonus { get => _bulletSizeBonus; set => _bulletSizeBonus = value; }
-    public float KnockbackBonus { get => _knockbackBonus; set => _knockbackBonus = value; }
 
     // ── P1 深度玩法属性访问器 ──
     public float PandemicBonus { get => _pandemicBonus; set => _pandemicBonus = value; }
@@ -114,7 +101,6 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     // ── 子弹增强扩展访问器 ──
     public float AmmoSpeedBonus { get => _ammoSpeedBonus; set => _ammoSpeedBonus = value; }
     public float AmmoRangeBonus { get => _ammoRangeBonus; set => _ammoRangeBonus = value; }
-    public int PenetrateCount { get => _penetrateCount; set => _penetrateCount = value; }
 
     // ── 生存向属性访问器 ──
     public float ElementalShieldHp { get => _elementalShieldHp; set => _elementalShieldHp = value; }
@@ -125,18 +111,13 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     public float ShatterBoostDmg { get => _shatterBoostDmg; set => _shatterBoostDmg = value; }
 
     // ── 综合查询方法 ──
-    /// <summary>获取DOT暴击总几率（含凋零+剧毒天赋）</summary>
     public float GetTotalDotCritChance() => GetDotCritChance() + _toxicologyCritBonus;
-    /// <summary>获取贯穿数</summary>
     public int GetTotalPenetrate() => _penetrateCount;
-    /// <summary>获取双持后攻速倍率（叠加原有急速）</summary>
     public float GetDualWieldMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus - _dualWieldBonus);
 
     // ── 进化系统新增属性 ──
-    /// <summary>进化系统提供的DOT伤害额外加成</summary>
-    public float DotDamageMultiplier { get; set; } = 0f;
-    /// <summary>进化系统提供的暴击率额外加成</summary>
-    public float CritChanceBonus { get; set; }
+    public override float DotDamageMultiplier { get; set; } = 0f;
+    public override float CritChanceBonus { get; set; }
 
     public float GetDotDurationMultiplier() => 1f + _dotDurationBonus;
     public float DotDurationMultiplier => GetDotDurationMultiplier();
@@ -159,11 +140,10 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
         return baseCrit;
     }
 
-    private const float MIN_ATTACK_SPEED_MULT = 0.2f;
     private float _lastAttackSpeedMult = 1f;
 
     public float GetDotCritMultiplier() => _dotCritMultiplier;
-    public float GetAttackSpeedMultiplier() => Mathf.Max(MIN_ATTACK_SPEED_MULT, 1f - _attackSpeedBonus);
+    public override float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus);
 
     public float GetChargeMoveSpeedMultiplier()
     {
@@ -196,9 +176,9 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     public void SetUpgradeConfig(MageUpgradeConfig config) { _upgradeConfig = config; }
     public MageUpgradeConfig GetUpgradeConfig() => _upgradeConfig;
 
-    private void Awake()
+    protected override void Awake()
     {
-        _weaponController = GetComponent<WeaponController>();
+        base.Awake();
         _detonateSystem = gameObject.AddComponent<DetonateSystem>();
         _detonateSystem.Init(this);
         UnlockDotGun(StatusEffectType.Poison, new Color(0.1f, 0.8f, 0.2f), 1.5f, 0, 2f, 5f);
@@ -251,10 +231,9 @@ public partial class MagePassive : MonoBehaviour, ICharacterPassive
     // ═══ 升级应用（委托给 MageUpgradeApplier）═══
     // Update/GetFireDirection/SpawnDotBullet/ApplyUpgradeVisual/ApplyBulletSizeBonus → MagePassive.Firing.cs
 
-    public bool ApplyUpgrade(string upgradeId)
+    public override bool ApplyUpgrade(string upgradeId)
     {
         return MageUpgradeApplier.ApplyUpgrade(this, upgradeId);
     }
 
 }
-// DotGunState 已提取为独立结构体，见 Combat/IGunState.cs

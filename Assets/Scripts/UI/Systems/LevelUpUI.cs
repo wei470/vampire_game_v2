@@ -60,7 +60,11 @@ public class LevelUpUI : MonoBehaviour
     {
         if (_characterPassive is MagePassive mage)
             _mageUpgradeConfig = mage.GetUpgradeConfig();
-        // Resources fallback for builds
+        if (_mageUpgradeConfig == null)
+        {
+            var config = CharacterConfigLoader.Load(_characterPassive?.CharacterId ?? "mage");
+            _mageUpgradeConfig = config as MageUpgradeConfig;
+        }
         if (_mageUpgradeConfig == null)
             _mageUpgradeConfig = Resources.Load<MageUpgradeConfig>("Configs/MageUpgradeConfig");
 #if UNITY_EDITOR
@@ -101,9 +105,9 @@ public class LevelUpUI : MonoBehaviour
     private void ShowLevelUpUI()
     {
         if (_playerController == null) _playerController = GameReferences.Player;
-        if (_levelSystem == null) _levelSystem = GameReferences.Player?.GetComponent<PlayerLevelSystem>();
-        if (_weaponController == null) _weaponController = GameReferences.Player?.GetComponent<WeaponController>();
-        if (_characterPassive == null) _characterPassive = GameReferences.Player?.GetComponent<ICharacterPassive>();
+        if (_levelSystem == null) _levelSystem = GameReferences.LevelSystem;
+        if (_weaponController == null) _weaponController = GameReferences.WeaponCtrl;
+        if (_characterPassive == null) _characterPassive = GameReferences.CharacterPassive;
         if (_mageUpgradeConfig == null && _characterPassive is MagePassive mage2)
             _mageUpgradeConfig = mage2.GetUpgradeConfig();
 

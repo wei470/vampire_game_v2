@@ -33,12 +33,12 @@ public static class BuildPathRecommender
     /// <summary>
     /// 计算 Build 路线完成度并标记推荐选项
     /// </summary>
-    public static void CalculateRecommendations(MagePassive magePassive, Dictionary<string, int> upgradeStacks,
+    public static void CalculateRecommendations(IDotCharacterPassive dotPassive, Dictionary<string, int> upgradeStacks,
         List<LevelUpOptionGenerator.UpgradeSlot> slots)
     {
-        if (magePassive == null) return;
+        if (dotPassive == null) return;
 
-        int dotGunCount = magePassive.DotGuns.Count;
+        int dotGunCount = dotPassive.DotGuns.Count;
         int dotEnhanceTypes = 0;
         if (upgradeStacks.ContainsKey("corrosion")) dotEnhanceTypes++;
         if (upgradeStacks.ContainsKey("curse")) dotEnhanceTypes++;

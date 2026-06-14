@@ -24,7 +24,7 @@ public class Bullet : Projectile
         _trail.time = _trailLength;
         _trail.startWidth = 0.15f;
         _trail.endWidth = 0f;
-        _trail.material = new Material(Shader.Find("Sprites/Default"));
+        _trail.material = MaterialCache.GetDefault();
         _trail.startColor = _trailColor;
         _trail.endColor = new Color(_trailColor.r, _trailColor.g, _trailColor.b, 0f);
         _trail.sortingOrder = 14;

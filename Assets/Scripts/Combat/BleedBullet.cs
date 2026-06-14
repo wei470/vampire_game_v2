@@ -1,80 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 流血子弹 — 已弃用（V7 从游戏中移除，config 中无 bleed 条目）
-/// BleedEffect 组件仍被 DarkBullet/CurseSpreadSystem/DetonateSystem 引用，保留
-/// </summary>
-[System.Obsolete("流血子弹已从游戏中移除，BleedEffect 组件仍活跃")]
-public class BleedBullet : MonoBehaviour
-{
-    private float _speed = 14f;
-    private float _lifetime = 3f;
-    private int _impactDamage = 3;
-    private float _bleedDps = 2f;
-    private float _bleedDuration = 4f;
-    private float _damageMultiplier = 1f;
-    private bool _canCrit;
-    private float _critChance, _critMultiplier;
-    private Vector2 _direction;
-    private float _spawnTime;
-
-    public void Setup(float speed, int impactDmg, float bleedDps, float bleedDuration,
-        float dmgMult, bool canCrit, float critChance, float critMult)
-    {
-        _speed = speed; _impactDamage = impactDmg; _bleedDps = bleedDps;
-        _bleedDuration = bleedDuration; _damageMultiplier = dmgMult;
-        _canCrit = canCrit; _critChance = critChance; _critMultiplier = critMult;
-    }
-
-    public void SetDirection(Vector2 dir) { _direction = dir.normalized; RotateToDirection(); }
-    private void RotateToDirection() { float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg; transform.rotation = Quaternion.Euler(0, 0, angle); }
-
-    private void Start() { _spawnTime = Time.time; }
-    private void Update() { if (Time.time - _spawnTime > _lifetime) Destroy(gameObject); }
-    private Rigidbody2D _rb;
-    private void Awake() { _rb = GetComponent<Rigidbody2D>(); }
-    private void FixedUpdate() { _rb.linearVelocity = _direction * _speed; }
-
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        if (!other.CompareTag("Enemy")) return;
-        var dmg = other.GetComponent<Damageable>();
-        if (dmg != null && dmg.CurrentHp > 0)
-        {
-            // DOT子弹命中不造成直接伤害，只施加DOT效果
-            DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
-            var bleed = other.GetComponent<BleedEffect>();
-            if (bleed == null) bleed = other.gameObject.AddComponent<BleedEffect>();
-            bleed.Refresh(_bleedDps * _damageMultiplier, _bleedDuration, _canCrit, _critChance, _critMultiplier);
-        }
-        var penetrate = GetComponent<PenetrateHandler>();
-        if (penetrate != null && penetrate.TryPenetrate(other)) return;
-        var ricochet = GetComponent<RicochetHandler>();
-        if (ricochet != null && ricochet.TryRicochet(transform.position, other)) return;
-        Destroy(gameObject);
-    }
-
-    public static BleedBullet Create(Vector2 pos, Vector2 dir, float speed, int impactDmg,
-        float bleedDps, float bleedDuration, float dmgMult, bool canCrit, float critChance, float critMult)
-    {
-        var go = new GameObject("BleedBullet");
-        go.transform.position = pos;
-        go.tag = "Untagged";
-        PhysicsLayerSetup.SetAsBullet(go);
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = DotSpriteCache.Get(); sr.color = new Color(0.9f, 0.1f, 0.1f); sr.sortingOrder = 15;
-        go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-        var col = go.AddComponent<BoxCollider2D>(); col.isTrigger = true; col.size = new Vector2(0.5f, 0.25f);
-        DotBulletVisualEffects.AttachTrail(go, new Color(0.9f, 0.1f, 0.1f, 0.8f), 0.6f, 0.04f);
-        var b = go.AddComponent<BleedBullet>();
-        b.Setup(speed, impactDmg, bleedDps, bleedDuration, dmgMult, canCrit, critChance, critMult);
-        b.SetDirection(dir);
-        return b;
-    }
-}
-
-/// <summary>
 /// 流血被动效果 — 挂载到敌人身上，敌人移动时受伤
+/// BleedBullet（流血子弹）已从游戏中移除，BleedEffect 组件仍被 DarkBullet/CurseSpreadSystem/DetonateSystem 引用。
 /// </summary>
 public class BleedEffect : MonoBehaviour
 {
@@ -95,7 +23,7 @@ public class BleedEffect : MonoBehaviour
     public void Refresh(float dps, float duration, bool canCrit, float critChance, float critMult)
     {
         this.dps = Mathf.Max(this.dps, dps);
-        this.duration = duration; // 保留参数兼容，但不用于超时判断
+        this.duration = duration;
         _startTime = Time.time;
         this.canCrit = canCrit; this.critChance = critChance; this.critMult = critMult;
     }
@@ -109,7 +37,6 @@ public class BleedEffect : MonoBehaviour
 
     private void Update()
     {
-        // 永久持续，直到敌人死亡
         if (_damageable == null || _damageable.CurrentHp <= 0) { Destroy(this); return; }
 
         float moved = Vector3.Distance(transform.position, _lastPosition);

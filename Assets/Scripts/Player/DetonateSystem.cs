@@ -90,14 +90,12 @@ public class DetonateSystem : MonoBehaviour
 
     #region Init & Config
     // ── 引用 ──
-    private ICharacterPassive _character;
-    private MagePassive _mage; // Mage-specific cast for properties not on ICharacterPassive
+    private IDotCharacterPassive _character;
     private ScreenShake _cachedScreenShake;
 
-    public void Init(ICharacterPassive character)
+    public void Init(IDotCharacterPassive character)
     {
         _character = character;
-        _mage = character as MagePassive;
         CacheScreenShake();
         RefreshFromConfig();
         DotEffectConfig.OnConfigChanged += RefreshFromConfig;
@@ -111,8 +109,8 @@ public class DetonateSystem : MonoBehaviour
     private void RefreshFromConfig()
     {
         var cfg = DotEffectConfig.GetDefault();
-        var mage = _character as MagePassive;
-        float reduction = mage != null ? mage.DetonateCooldownReduction : 0f;
+        var dotChar = _character;
+        float reduction = _character != null ? _character.DetonateCooldownReduction : 0f;
         float mult = Mathf.Max(0.1f, 1f - reduction);
         _detonateCooldown = cfg.DetonateCooldown * mult;
         _detonateMultiplier = cfg.DetonateMultiplier;
@@ -193,9 +191,9 @@ public class DetonateSystem : MonoBehaviour
 
     private float GetChargeMultiplier(float chargeTime)
     {
-        float speedBonus = _mage != null ? _mage.ChargeSpeedBonus : 0f;
+        float speedBonus = _character != null ? _character.ChargeSpeedBonus : 0f;
         float effectiveTime = chargeTime * (1f + speedBonus);
-        float extraDmg = _mage != null ? _mage.ChargeDamageBonus : 0f;
+        float extraDmg = _character != null ? _character.ChargeDamageBonus : 0f;
         if (effectiveTime >= 3f) return 3f + extraDmg;
         if (effectiveTime >= 2f) return 2f + extraDmg * 0.5f;
         if (effectiveTime >= 1f) return 1.5f;
@@ -310,7 +308,7 @@ public class DetonateSystem : MonoBehaviour
                 if (!enemy.TryGetComponent<Damageable>(out var d) || d.CurrentHp <= 0) continue;
 
                 // 霜爆
-                if (_mage != null && _mage.FrostExplosionPct > 0
+                if (_character != null && _character.FrostExplosionPct > 0
                     && enemy.TryGetComponent<FrostEffect>(out var frost) && frost.slowPercent >= _frostShatterThreshold)
                 {
                     float frostDmg = Mathf.Min(800f, Mathf.Max(0.01f, 50f * _detonateMultiplier));
@@ -321,13 +319,13 @@ public class DetonateSystem : MonoBehaviour
                 }
 
                 // 末日审判
-                if (_mage != null && _mage.DoomsdayThreshold > 0
+                if (_character != null && _character.DoomsdayThreshold > 0
                     && enemy.TryGetComponent<StatusEffectManager>(out var sem))
                 {
                     int dotTypes = 0;
                     foreach (var eff in sem.ActiveEffects)
                         if (eff.type != StatusEffectType.Radiate && eff.type != StatusEffectType.Wither) dotTypes++;
-                    if (dotTypes >= 3 && d.HpPercent <= _mage.DoomsdayThreshold)
+                    if (dotTypes >= 3 && d.HpPercent <= _character.DoomsdayThreshold)
                     {
                         int killDmg = d.CurrentHp;
                         d.TakeDamage(killDmg, new Color(1f, 0.1f, 0.1f));
@@ -352,7 +350,7 @@ public class DetonateSystem : MonoBehaviour
         if (enemiesHit > _highHitThreshold)
         {
             _chainDetonateEndTime = Time.time + _highHitWindow;
-            _mage.SyncDotDamageMultiplierToAll();
+            if (_character != null) _character.SyncDotDamageMultiplierToAll();
         }
 
         if (enemiesHit > 0)

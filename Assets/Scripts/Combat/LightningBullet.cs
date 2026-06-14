@@ -16,6 +16,7 @@ public class LightningBullet : MonoBehaviour
     private int _maxChainCount = 3;
     private float _chainRadius = 8f;
     private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
+    private readonly List<(GameObject enemy, float dist)> _chainCandidates = new List<(GameObject, float)>(16);
     private bool _consumed = false;
     private Rigidbody2D _cachedRb;
     private PenetrateHandler _cachedPenetrate;
@@ -77,7 +78,8 @@ public class LightningBullet : MonoBehaviour
 
         float chainRadiusSqr = _chainRadius * _chainRadius;
         Vector2 originPos = origin.transform.position;
-        var candidates = new List<(GameObject enemy, float dist)>();
+        var candidates = _chainCandidates;
+        candidates.Clear();
 
         for (int i = 0; i < enemies.Count; i++)
         {
@@ -119,10 +121,11 @@ public class LightningBullet : MonoBehaviour
     private void CreateChainLine(Vector2 from, Vector2 to)
     {
         CombatManager.CreateExplosionEffect(from, 0.15f, new Color(0.5f, 0.8f, 1f, 0.9f), 0.3f);
-        var lineObj = new GameObject("ChainLine");
+        var lineObj = VFXPool.Get("ChainLine");
         lineObj.transform.position = from;
-        var lr = lineObj.AddComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        var lr = lineObj.GetComponent<LineRenderer>();
+        if (lr == null) lr = lineObj.AddComponent<LineRenderer>();
+        lr.material = MaterialCache.GetDefault();
         lr.startColor = new Color(0.5f, 0.8f, 1f, 0.9f);
         lr.endColor = new Color(0.3f, 0.6f, 1f, 0f);
         lr.startWidth = 0.15f;
@@ -131,7 +134,7 @@ public class LightningBullet : MonoBehaviour
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        Object.Destroy(lineObj, 0.3f);
+        VFXPool.Return(lineObj, 0.3f);
     }
 
     private void DespawnSelf()

@@ -167,7 +167,7 @@ public class GridBackground : MonoBehaviour
         // 设置材质
         if (_lineMaterial == null)
         {
-            _lineMaterial = new Material(Shader.Find("Sprites/Default"));
+            _lineMaterial = MaterialCache.GetDefault();
         }
         lr.material = _lineMaterial;
 

@@ -49,15 +49,11 @@ public class DetonateHUD : MonoBehaviour
     {
         InitStyles();
 
-        if (GameSceneBootstrap.CurrentCharacter == null) return;
-        var cc = GameSceneBootstrap.CurrentCharacter;
-        bool isMage = cc.characterId == "mage" || cc.characterName.ToLower().Contains("mage");
-        if (!isMage) return;
+        var dotPassive = GameReferences.DotCharacterPassive;
+        if (dotPassive == null) return;
 
-        var player = GameReferences.Player;
-        if (player == null) return;
-        var mage = player.GetComponent<MagePassive>();
-        if (mage == null) return;
+        var det = dotPassive.GetDetonateSystem();
+        if (det == null) return;
 
         float rightMargin = 20f;
         float bottomMargin = 80f;
@@ -69,7 +65,7 @@ public class DetonateHUD : MonoBehaviour
 
         GUI.Label(new Rect(x, y, width, 30f), "[E] 引爆", _labelStyle);
 
-        if (mage.DetonateReady)
+        if (det.DetonateReady)
         {
             if (!_wasReady)
             {
@@ -95,8 +91,8 @@ public class DetonateHUD : MonoBehaviour
         {
             _wasReady = false;
 
-            float remaining = mage.DetonateCooldownRemaining;
-            float totalCd = mage.DetonateCooldown;
+            float remaining = det.DetonateCooldownRemaining;
+            float totalCd = det.DetonateCooldown;
             string cdText = $"{remaining:F1}s";
             GUI.Label(new Rect(x, y + 28f, width, 35f), cdText, _cooldownStyle);
 

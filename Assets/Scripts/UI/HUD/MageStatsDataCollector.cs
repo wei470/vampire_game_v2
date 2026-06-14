@@ -27,7 +27,8 @@ public static class MageStatsDataCollector
     /// </summary>
     public static float CalculateCurrentDPS(ICharacterPassive passive)
     {
-        if (passive == null) return 0f;
+        var dotPassive = passive as IDotCharacterPassive;
+        if (dotPassive == null) return 0f;
 
         // 缓存 DPS 计算，避免每帧开销
         if (Time.time - _lastDpsCalcTime < DPS_CALC_INTERVAL)
@@ -36,12 +37,12 @@ public static class MageStatsDataCollector
         _lastDpsCalcTime = Time.time;
         _cachedTotalDps = 0f;
 
-        var guns = passive.DotGuns;
+        var guns = dotPassive.DotGuns;
         if (guns == null) return 0f;
 
-        float dmgMult = passive.GetDotDamageMultiplier();
-        float critChance = passive.GetDotCritChance();
-        float critMult = passive.GetDotCritMultiplier();
+        float dmgMult = dotPassive.GetDotDamageMultiplier();
+        float critChance = dotPassive.GetDotCritChance();
+        float critMult = dotPassive.GetDotCritMultiplier();
 
         for (int i = 0; i < guns.Count; i++)
         {

@@ -1,51 +1,38 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
-/// DOT 子弹通用工具类 — 确保 StatusEffectManager 存在
-/// 从 DotProjectile.cs 拆分而来
+/// DOT 子弹通用工具类 — 确保 StatusEffectManager 存在，应用腐蚀/侵蚀。
 /// </summary>
 public static class DotBulletHelper
 {
-    /// <summary>
-    /// 确保敌人有 DotColorBlender（颜色混合系统）
-    /// </summary>
     public static DotColorBlender EnsureColorBlender(GameObject enemy)
     {
         var blender = enemy.GetComponent<DotColorBlender>();
-        if (blender == null)
-            blender = enemy.AddComponent<DotColorBlender>();
+        if (blender == null) blender = enemy.AddComponent<DotColorBlender>();
         return blender;
     }
 
-    /// <summary>
-    /// 确保敌人有 StatusEffectManager（诅咒传播需要死亡事件注册）
-    /// </summary>
     public static void EnsureStatusEffectManager(GameObject enemy)
     {
         var sem = enemy.GetComponent<StatusEffectManager>();
-        if (sem == null)
-            sem = enemy.AddComponent<StatusEffectManager>();
+        if (sem == null) sem = enemy.AddComponent<StatusEffectManager>();
 
-        var magePassive = GameReferences.Player?.GetComponent<MagePassive>();
-        if (magePassive != null)
+        var dotPassive = GameReferences.DotCharacterPassive;
+        if (dotPassive != null)
         {
-            sem.DotDurationMultiplier = magePassive.GetDotDurationMultiplier();
-            sem.CorrosionArmorReduction = magePassive.CorrosionArmorReduction;
-            sem.WindErosionKnockback = magePassive.KnockbackBonus;
+            sem.DotDurationMultiplier = dotPassive.GetDotDurationMultiplier();
+            sem.CorrosionArmorReduction = dotPassive.CorrosionArmorReduction;
+            sem.WindErosionKnockback = dotPassive.GetKnockbackBonus();
 
             var dmg = enemy.GetComponent<Damageable>();
             if (dmg != null)
             {
                 int armor = dmg.Armor;
-
-                // 1. 腐蚀：护甲 × 90%
-                if (magePassive.CorrosionArmorReduction > 0)
-                    armor = Mathf.FloorToInt(armor * (1f - magePassive.CorrosionArmorReduction));
-
-                // 2. 侵蚀：无视 N 点护甲
-                if (magePassive.ErosionArmorPenetration > 0)
-                    armor -= magePassive.ErosionArmorPenetration;
-
+                if (dotPassive.CorrosionArmorReduction > 0)
+                    armor = Mathf.FloorToInt(armor * (1f - dotPassive.CorrosionArmorReduction));
+                if (dotPassive.ErosionArmorPenetration > 0)
+                    armor -= dotPassive.ErosionArmorPenetration;
                 dmg.SetArmor(Mathf.Max(0, armor));
             }
         }
@@ -53,153 +40,57 @@ public static class DotBulletHelper
 }
 
 /// <summary>
-/// DOT 子弹 Sprite 缓存 — 运行时生成椭圆/圆形 Sprite
+/// 穿透处理器 — 挂在子弹上，命中敌人后可继续穿透
 /// </summary>
-public static class DotSpriteCache
+public class PenetrateHandler : MonoBehaviour
 {
-    private static Sprite _cachedSprite;
-    private static Sprite _cachedCircle;
+    private int _remaining;
+    private HashSet<Collider2D> _hitEnemies = new HashSet<Collider2D>();
 
-    public static Sprite Get()
+    public void Setup(int penetrateCount)
     {
-        if (_cachedSprite != null) return _cachedSprite;
-        int w = 16, h = 8;
-        var tex = new Texture2D(w, h);
-        for (int x = 0; x < w; x++)
-            for (int y = 0; y < h; y++)
-            {
-                float cx = (x - 7.5f) / 7.5f;
-                float cy = (y - 3.5f) / 3.5f;
-                tex.SetPixel(x, y, cx * cx + cy * cy <= 1f ? Color.white : new Color(0, 0, 0, 0));
-            }
-        tex.Apply();
-        _cachedSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 10f);
-        return _cachedSprite;
+        _remaining = penetrateCount;
+        _hitEnemies.Clear();
     }
 
-    public static Sprite CircleSprite()
+    public bool TryPenetrate(Collider2D hitEnemy)
     {
-        if (_cachedCircle != null) return _cachedCircle;
-        int size = 64;
-        var tex = new Texture2D(size, size);
-        float center = size / 2f;
-        for (int x = 0; x < size; x++)
-            for (int y = 0; y < size; y++)
-            {
-                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center)) / center;
-                tex.SetPixel(x, y, dist <= 1f ? new Color(1, 1, 1, 1f - dist) : new Color(0, 0, 0, 0));
-            }
-        tex.Apply();
-        _cachedCircle = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 10f);
-        return _cachedCircle;
+        if (_hitEnemies.Contains(hitEnemy)) return false;
+        _hitEnemies.Add(hitEnemy);
+        if (_remaining <= 0) return false;
+        _remaining--;
+        return true;
     }
 }
 
 /// <summary>
-/// #8 DOT 子弹视觉特效组件
+/// 暴击参数结构体 — 替代散落在 10+ 文件中的 _canCrit/_critChance/_critMult 三字段。
 /// </summary>
-public static class DotBulletVisualEffects
+[System.Serializable]
+public struct CritParams
 {
-    private static Material _cachedDefaultMaterial;
-    private static Material DefaultMaterial
+    public bool canCrit;
+    public float critChance;
+    public float critMult;
+
+    public CritParams(bool canCrit, float critChance, float critMult)
     {
-        get { if (_cachedDefaultMaterial == null) _cachedDefaultMaterial = new Material(Shader.Find("Sprites/Default")); return _cachedDefaultMaterial; }
+        this.canCrit = canCrit;
+        this.critChance = critChance;
+        this.critMult = critMult;
     }
 
-    public static void AttachTrail(GameObject go, Color trailColor, float trailTime, float startWidth)
+    public float Apply(float damage)
     {
-        var trail = go.AddComponent<TrailRenderer>();
-        trail.time = trailTime;
-        trail.startWidth = startWidth;
-        trail.endWidth = 0f;
-        trail.material = DefaultMaterial;
-        trail.startColor = trailColor;
-        trail.endColor = new Color(trailColor.r, trailColor.g, trailColor.b, 0f);
-        trail.numCapVertices = 2;
-        trail.minVertexDistance = 0.05f;
-        trail.sortingOrder = 14;
+        if (canCrit && Random.value < critChance)
+            return damage * critMult;
+        return damage;
     }
 
-    public static void AttachFlameEffect(GameObject go)
+    public bool Roll()
     {
-        var glow = new GameObject("FlameGlow");
-        glow.transform.SetParent(go.transform);
-        glow.transform.localPosition = Vector3.zero;
-        glow.transform.localScale = Vector3.one * 1.8f;
-        var glowSr = glow.AddComponent<SpriteRenderer>();
-        glowSr.sprite = DotSpriteCache.CircleSprite();
-        glowSr.color = new Color(1f, 0.6f, 0f, 0.3f);
-        glowSr.sortingOrder = 14;
-        var pulse = glow.AddComponent<FlamePulseEffect>();
-        pulse.Init(glowSr);
+        return canCrit && Random.value < critChance;
     }
 
-    public static void AttachFrostTrail(GameObject go)
-    {
-        var trail = go.AddComponent<TrailRenderer>();
-        trail.time = 0.3f;
-        trail.startWidth = 0.2f;
-        trail.endWidth = 0.05f;
-        trail.material = DefaultMaterial;
-        trail.startColor = new Color(0.5f, 0.8f, 1f, 0.7f);
-        trail.endColor = new Color(0.5f, 0.8f, 1f, 0f);
-        trail.numCapVertices = 3;
-        trail.minVertexDistance = 0.03f;
-        trail.sortingOrder = 14;
-        go.AddComponent<FrostGhostSpawner>();
-    }
-
-    public static void AttachSpinEffect(GameObject go, float spinSpeed)
-    {
-        go.AddComponent<SpinEffect>().Init(spinSpeed);
-    }
-
-    public static void AttachWindTrail(GameObject go)
-    {
-        var trail = go.AddComponent<TrailRenderer>();
-        trail.time = 0.15f;
-        trail.startWidth = 0.1f;
-        trail.endWidth = 0.02f;
-        trail.material = DefaultMaterial;
-        trail.startColor = new Color(0.7f, 0.85f, 1f, 0.6f);
-        trail.endColor = new Color(0.7f, 0.85f, 1f, 0f);
-        trail.numCapVertices = 2;
-        trail.minVertexDistance = 0.03f;
-        trail.sortingOrder = 14;
-
-        // 风粒子光晕
-        var glow = new GameObject("WindGlow");
-        glow.transform.SetParent(go.transform);
-        glow.transform.localPosition = Vector3.zero;
-        glow.transform.localScale = Vector3.one * 1.3f;
-        var glowSr = glow.AddComponent<SpriteRenderer>();
-        glowSr.sprite = DotSpriteCache.CircleSprite();
-        glowSr.color = new Color(0.7f, 0.85f, 1f, 0.2f);
-        glowSr.sortingOrder = 14;
-    }
-
-    public static void AttachLightningTrail(GameObject go)
-    {
-        var trail = go.AddComponent<TrailRenderer>();
-        trail.time = 0.2f;
-        trail.startWidth = 0.15f;
-        trail.endWidth = 0.02f;
-        trail.material = DefaultMaterial;
-        trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
-        trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
-        trail.numCapVertices = 2;
-        trail.minVertexDistance = 0.03f;
-        trail.sortingOrder = 14;
-
-        var glow = new GameObject("StaticGlow");
-        glow.transform.SetParent(go.transform);
-        glow.transform.localPosition = Vector3.zero;
-        glow.transform.localScale = Vector3.one * 1.5f;
-        var glowSr = glow.AddComponent<SpriteRenderer>();
-        glowSr.sprite = DotSpriteCache.CircleSprite();
-        glowSr.color = new Color(0.3f, 0.7f, 1f, 0.25f);
-        glowSr.sortingOrder = 14;
-        var pulse = glow.AddComponent<FlamePulseEffect>();
-        pulse.Init(glowSr);
-    }
+    public static CritParams None => new CritParams(false, 0f, 0f);
 }

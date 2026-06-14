@@ -162,10 +162,10 @@ public static class DotBulletFactory
     private static void AttachRicochetIfAvailable(GameObject bullet)
     {
         if (bullet == null) return;
-        var mage = GameReferences.MagePassive;
-        if (mage == null) return;
+        var passive = GameReferences.CharacterPassive;
+        if (passive == null) return;
 
-        int pierce = mage.PiercingBonus;
+        int pierce = passive.GetPenetrateCount();
         if (pierce > 0)
         {
             var ph = bullet.GetComponent<PenetrateHandler>();

@@ -44,8 +44,7 @@ public class GameHUDFactory
         if (_hostObject.GetComponent<DetonateHUD>() == null)
             _hostObject.AddComponent<DetonateHUD>();
 
-        if (currentCharacter != null &&
-            (currentCharacter.characterId == "mage" || currentCharacter.characterName.ToLower().Contains("mage")))
+        if (currentCharacter != null && currentCharacter.characterId == "mage")
         {
             if (_hostObject.GetComponent<MageStatsHUD>() == null)
             {
@@ -80,8 +79,7 @@ public class GameHUDFactory
             var keyHintObj = new GameObject("KeyHintHUD");
             var keyHint = keyHintObj.AddComponent<KeyHintHUD>();
             // Mage 角色使用专属键位（含 E 引爆）
-            if (currentCharacter != null &&
-                (currentCharacter.characterId == "mage" || currentCharacter.characterName.ToLower().Contains("mage")))
+            if (currentCharacter != null && currentCharacter.characterId == "mage")
             {
                 keyHint.SetMageKeys();
             }

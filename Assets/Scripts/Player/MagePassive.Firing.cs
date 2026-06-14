@@ -59,39 +59,6 @@ public partial class MagePassive
         _lastFrameTime = Time.deltaTime;
     }
 
-    private Vector2 GetFireDirection()
-    {
-        var mouse = UnityEngine.InputSystem.Mouse.current;
-        if (mouse != null)
-        {
-            var cam = GameReferences.MainCamera;
-            if (cam == null) cam = Camera.main;
-            if (cam != null)
-            {
-                Vector3 screenPos = mouse.position.ReadValue();
-                screenPos.z = Mathf.Abs(cam.transform.position.z);
-                Vector3 worldPos = cam.ScreenToWorldPoint(screenPos);
-                Vector2 dir = ((Vector2)worldPos - (Vector2)transform.position);
-                if (dir.sqrMagnitude > 0.01f) return dir.normalized;
-            }
-        }
-
-        float minDist = float.MaxValue;
-        Vector2 nearest = Vector2.zero;
-        var enemies = EnemyBase.AllAlive;
-        for (int i = 0; i < enemies.Count; i++)
-        {
-            var eb = enemies[i];
-            if (eb == null || !eb.Alive) continue;
-            float d = Vector2.Distance(transform.position, eb.transform.position);
-            if (d < minDist) { minDist = d; nearest = eb.transform.position; }
-        }
-        if (minDist < float.MaxValue)
-            return (nearest - (Vector2)transform.position).normalized;
-
-        return (Vector2)transform.right;
-    }
-
     private void SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)
     {
         float durMult = GetDotDurationMultiplier();
@@ -141,19 +108,9 @@ public partial class MagePassive
         else if (col != null && col is CircleCollider2D circle) circle.radius *= scaleBonus;
     }
 
-    private static readonly Stack<GameObject> _glowPool = new Stack<GameObject>(16);
-
     private static GameObject GetOrCreateGlow()
     {
-        while (_glowPool.Count > 0)
-        {
-            var g = _glowPool.Pop();
-            if (g != null) return g;
-        }
-        var glow = new GameObject("Glow");
-        var glowSr = glow.AddComponent<SpriteRenderer>();
-        glowSr.sortingOrder = 14;
-        return glow;
+        return GlowReturnHelper.GetOrCreate();
     }
 
     private void ApplyBulletSizeBonus(GameObject bullet)
@@ -167,9 +124,6 @@ public partial class MagePassive
 
     public static void ReturnGlowToPool(GameObject glow)
     {
-        if (glow == null) return;
-        glow.SetActive(false);
-        glow.transform.SetParent(null);
-        _glowPool.Push(glow);
+        GlowReturnHelper.ReturnToPool(glow);
     }
 }

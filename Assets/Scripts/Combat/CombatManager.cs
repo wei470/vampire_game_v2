@@ -221,31 +221,33 @@ public class CombatManager : Singleton<CombatManager>
     /// <summary>
     /// 绘制闪电视觉效果（两段之间的连线）
     /// </summary>
+    private const float LIGHTNING_LINE_START_WIDTH = 0.1f;
+    private const float LIGHTNING_LINE_END_WIDTH = 0.05f;
+    private const int LIGHTNING_LINE_SEGMENTS = 5;
+    private const float LIGHTNING_LINE_JITTER = 0.3f;
+
     public static void CreateLightningLine(Vector2 from, Vector2 to, float duration = 0.15f)
     {
         var go = new GameObject("LightningLine");
         var lr = go.AddComponent<LineRenderer>();
-        lr.startWidth = 0.1f;
-        lr.endWidth = 0.05f;
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.startWidth = LIGHTNING_LINE_START_WIDTH;
+        lr.endWidth = LIGHTNING_LINE_END_WIDTH;
+        lr.material = MaterialCache.GetDefault();
         lr.startColor = new Color(0.8f, 0.8f, 1f, 1f);
         lr.endColor = new Color(0.5f, 0.5f, 1f, 0.5f);
         lr.sortingOrder = 20;
 
-        // 锯齿形闪电路径
-        int segments = 5;
-        lr.positionCount = segments + 1;
+        lr.positionCount = LIGHTNING_LINE_SEGMENTS + 1;
         lr.SetPosition(0, from);
-        for (int i = 1; i < segments; i++)
+        for (int i = 1; i < LIGHTNING_LINE_SEGMENTS; i++)
         {
-            float t = (float)i / segments;
+            float t = (float)i / LIGHTNING_LINE_SEGMENTS;
             Vector2 point = Vector2.Lerp(from, to, t);
-            point += Random.insideUnitCircle * 0.3f;
+            point += Random.insideUnitCircle * LIGHTNING_LINE_JITTER;
             lr.SetPosition(i, point);
         }
-        lr.SetPosition(segments, to);
+        lr.SetPosition(LIGHTNING_LINE_SEGMENTS, to);
 
-        // 自动销毁
         Destroy(go, duration);
     }
 

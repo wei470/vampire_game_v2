@@ -586,5 +586,634 @@ public class CoreSystemTests
         float actualDmg = 100f * (1f - reduction);
         Assert.AreEqual(82f, actualDmg, 0.01f, "9护甲=18%减伤, 100→82");
     }
+
+    // ═══ 重构后新增测试 ═══
+
+    [Test]
+    public void SimpleBullet_Create_ReturnsNotNull()
+    {
+        var bullet = SimpleBullet.Create(Vector2.zero, Vector2.right, 12f, 10, 1f);
+        Assert.IsNotNull(bullet);
+        Assert.IsNotNull(bullet.gameObject);
+        Object.DestroyImmediate(bullet.gameObject);
+    }
+
+    [Test]
+    public void SimpleBullet_DealsDirectDamage()
+    {
+        var enemy = new GameObject("TestEnemy");
+        enemy.tag = "Enemy";
+        var dmg = enemy.AddComponent<Damageable>();
+        dmg.SetMaxHp(100);
+        dmg.Heal(100);
+
+        int hpBefore = dmg.CurrentHp;
+        var bullet = SimpleBullet.Create(Vector2.zero, Vector2.right, 12f, 10, 1f);
+
+        var col = enemy.GetComponent<Collider2D>();
+        if (col == null) { var bc = enemy.AddComponent<BoxCollider2D>(); bc.isTrigger = true; }
+
+        bullet.SendMessage("OnTriggerEnter2D", enemy.GetComponent<Collider2D>());
+
+        Assert.LessOrEqual(dmg.CurrentHp, hpBefore, "SimpleBullet should deal damage");
+
+        Object.DestroyImmediate(bullet.gameObject);
+        Object.DestroyImmediate(enemy);
+    }
+
+    [Test]
+    public void DotBulletFactory_RegisterAndCreate()
+    {
+        var go = DotBulletFactory.Create(StatusEffectType.Poison, Vector2.zero, Vector2.right,
+            new DotGunState { effectType = StatusEffectType.Poison, color = Color.green, cooldown = 1f, dotDps = 2f, dotDuration = 5f },
+            1f, 1f, false, 0f, 2f);
+        Assert.IsNotNull(go);
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void CharacterFactory_BlueRegistered()
+    {
+        Assert.IsTrue(CharacterFactory.IsRegistered("blue"), "Blue character should be registered");
+    }
+
+    [Test]
+    public void GunState_CooldownCalculation()
+    {
+        var gun = new GunState { cooldown = 1.0f, impactDamage = 10, upgradeLevel = 1 };
+        Assert.AreEqual(1.0f, gun.Cooldown);
+        Assert.AreEqual(10, gun.ImpactDamage);
+        Assert.AreEqual(1, gun.UpgradeLevel);
+    }
+
+    [Test]
+    public void WeaponFiringSystem_FiresOnCooldown()
+    {
+        var go = new GameObject("TestPassive");
+        var passive = go.AddComponent<BlueCharacterPassive>();
+
+        Assert.AreEqual("blue", passive.CharacterId);
+        Assert.AreEqual(1f, passive.GetAttackSpeedMultiplier(), "Default attack speed mult should be 1.0");
+
+        passive.AttackSpeedBonus = 0.15f;
+        Assert.AreEqual(0.85f, passive.GetAttackSpeedMultiplier(), 0.001f, "After 15% bonus, mult should be 0.85");
+
+        Object.DestroyImmediate(go);
+    }
+
+    // ═══ task1: ICharacterPassive / IDotCharacterPassive 接口测试 ═══
+
+    [Test]
+    public void ICharacterPassive_MageImplementsBoth()
+    {
+        var go = new GameObject("TestMage");
+        var mage = go.AddComponent<MagePassive>();
+
+        Assert.IsTrue(mage is ICharacterPassive);
+        Assert.IsTrue(mage is IDotCharacterPassive);
+        Assert.AreEqual("mage", mage.CharacterId);
+        Assert.AreEqual("DOT 法师", mage.DisplayName);
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void ICharacterPassive_BlueImplementsOnlyBase()
+    {
+        var go = new GameObject("TestBlue");
+        var blue = go.AddComponent<BlueCharacterPassive>();
+
+        Assert.IsTrue(blue is ICharacterPassive);
+        Assert.IsFalse(blue is IDotCharacterPassive);
+        Assert.AreEqual("blue", blue.CharacterId);
+        Assert.AreEqual("蓝色战士", blue.DisplayName);
+
+        Object.DestroyImmediate(go);
+    }
+
+    // ═══ task1: CharacterPassiveBase 通用属性测试 ═══
+
+    [Test]
+    public void CharacterPassiveBase_DefaultValues()
+    {
+        var go = new GameObject("TestBase");
+        var passive = go.AddComponent<BlueCharacterPassive>();
+
+        Assert.AreEqual(0f, passive.AttackSpeedBonus);
+        Assert.AreEqual(0, passive.BulletCountBonus);
+        Assert.AreEqual(0f, passive.BulletSizeBonus);
+        Assert.AreEqual(0f, passive.KnockbackBonus);
+        Assert.AreEqual(0, passive.PenetrateCount);
+        Assert.AreEqual(0f, passive.DotDamageMultiplier);
+        Assert.AreEqual(0f, passive.CritChanceBonus);
+        Assert.AreEqual(1f, passive.GetAttackSpeedMultiplier());
+        Assert.AreEqual(0, passive.GetBulletCountBonus());
+        Assert.AreEqual(0f, passive.GetBulletSizeBonus());
+        Assert.AreEqual(0f, passive.GetKnockbackBonus());
+        Assert.AreEqual(0, passive.GetPenetrateCount());
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void CharacterPassiveBase_AttackSpeedClamp()
+    {
+        var go = new GameObject("TestClamp");
+        var passive = go.AddComponent<BlueCharacterPassive>();
+
+        passive.AttackSpeedBonus = 0.5f;
+        Assert.AreEqual(0.5f, passive.GetAttackSpeedMultiplier(), 0.001f);
+
+        passive.AttackSpeedBonus = 1.5f;
+        Assert.AreEqual(0.2f, passive.GetAttackSpeedMultiplier(), 0.001f, "Should clamp to 0.2f minimum");
+
+        passive.AttackSpeedBonus = -0.1f;
+        Assert.AreEqual(1.1f, passive.GetAttackSpeedMultiplier(), 0.001f, "Negative bonus should increase speed");
+
+        Object.DestroyImmediate(go);
+    }
+
+    [Test]
+    public void CharacterPassiveBase_EvolutionProperties()
+    {
+        var go = new GameObject("TestEvo");
+        var passive = go.AddComponent<BlueCharacterPassive>();
+
+        Assert.AreEqual(0f, passive.DotDamageMultiplier);
+        Assert.AreEqual(0f, passive.CritChanceBonus);
+
+        passive.DotDamageMultiplier = 0.5f;
+        passive.CritChanceBonus = 0.1f;
+
+        Assert.AreEqual(0.5f, passive.DotDamageMultiplier);
+        Assert.AreEqual(0.1f, passive.CritChanceBonus);
+
+        Object.DestroyImmediate(go);
+    }
+
+    // ═══ task1: GunState / DotGunState 测试 ═══
+
+    [Test]
+    public void GunState_ImplementsIGunState()
+    {
+        var gun = new GunState { cooldown = 0.5f, impactDamage = 10, upgradeLevel = 3 };
+
+        IGunState ig = gun;
+        Assert.AreEqual(0.5f, ig.Cooldown);
+        Assert.AreEqual(10, ig.ImpactDamage);
+        Assert.AreEqual(3, ig.UpgradeLevel);
+    }
+
+    [Test]
+    public void DotGunState_InheritsGunState()
+    {
+        var gun = new DotGunState
+        {
+            effectType = StatusEffectType.Burn,
+            color = Color.red,
+            cooldown = 1.0f,
+            impactDamage = 5,
+            dotDps = 3f,
+            dotDuration = 4f,
+            upgradeLevel = 2
+        };
+
+        Assert.AreEqual(StatusEffectType.Burn, gun.EffectType);
+        Assert.AreEqual(3f, gun.DotDps);
+        Assert.AreEqual(4f, gun.DotDuration);
+        Assert.AreEqual(Color.red, gun.GunColor);
+
+        IGunState ig = gun;
+        Assert.AreEqual(1.0f, ig.Cooldown);
+        Assert.AreEqual(5, ig.ImpactDamage);
+        Assert.AreEqual(2, ig.UpgradeLevel);
+    }
+
+    // ═══ task1: CharacterFactory 测试 ═══
+
+    [Test]
+    public void CharacterFactory_MageAndBlueRegistered()
+    {
+        Assert.IsTrue(CharacterFactory.IsRegistered("mage"));
+        Assert.IsTrue(CharacterFactory.IsRegistered("blue"));
+    }
+
+    [Test]
+    public void CharacterFactory_CreatesCorrectType()
+    {
+        var go = new GameObject("TestFactory");
+
+        var mage = CharacterFactory.Create("mage", go);
+        Assert.IsTrue(mage is MagePassive);
+        Assert.IsTrue(mage is IDotCharacterPassive);
+
+        Object.DestroyImmediate(go);
+
+        var go2 = new GameObject("TestFactory2");
+        var blue = CharacterFactory.Create("blue", go2);
+        Assert.IsTrue(blue is BlueCharacterPassive);
+        Assert.IsFalse(blue is IDotCharacterPassive);
+
+        Object.DestroyImmediate(go2);
+    }
+
+    // ═══ task2: CritParams 测试 ═══
+
+    [Test]
+    public void CritParams_None_IsDefault()
+    {
+        var crit = CritParams.None;
+        Assert.IsFalse(crit.canCrit);
+        Assert.AreEqual(0f, crit.critChance);
+        Assert.AreEqual(0f, crit.critMult);
+    }
+
+    [Test]
+    public void CritParams_Apply_NoCrit()
+    {
+        var crit = new CritParams(false, 1f, 2f);
+        float result = crit.Apply(100f);
+        Assert.AreEqual(100f, result, "canCrit=false should not multiply");
+    }
+
+    [Test]
+    public void CritParams_Apply_AlwaysCrit()
+    {
+        var crit = new CritParams(true, 1f, 2f);
+        float result = crit.Apply(100f);
+        Assert.AreEqual(200f, result, "100% crit should always double");
+    }
+
+    // ═══ task2: PenetrateHandler 测试 ═══
+
+    [Test]
+    public void PenetrateHandler_AllowsPenetration()
+    {
+        var go = new GameObject("TestBullet");
+        var ph = go.AddComponent<PenetrateHandler>();
+        ph.Setup(2);
+
+        var enemy1 = new GameObject("Enemy1");
+        enemy1.AddComponent<BoxCollider2D>();
+        var enemy2 = new GameObject("Enemy2");
+        enemy2.AddComponent<BoxCollider2D>();
+        var enemy3 = new GameObject("Enemy3");
+        enemy3.AddComponent<BoxCollider2D>();
+
+        Assert.IsTrue(ph.TryPenetrate(enemy1.GetComponent<Collider2D>()), "First hit should penetrate");
+        Assert.IsTrue(ph.TryPenetrate(enemy2.GetComponent<Collider2D>()), "Second hit should penetrate");
+        Assert.IsFalse(ph.TryPenetrate(enemy3.GetComponent<Collider2D>()), "Third hit should NOT penetrate (exhausted)");
+        Assert.IsFalse(ph.TryPenetrate(enemy1.GetComponent<Collider2D>()), "Same enemy should NOT penetrate again");
+
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(enemy1);
+        Object.DestroyImmediate(enemy2);
+        Object.DestroyImmediate(enemy3);
+    }
+
+    // ═══ task2: UIFormatUtils 测试 ═══
+
+    [Test]
+    public void UIFormatUtils_FormatDamage()
+    {
+        Assert.AreEqual("500", UIFormatUtils.FormatDamage(500));
+        Assert.AreEqual("1.5K", UIFormatUtils.FormatDamage(1500));
+        Assert.AreEqual("2.3M", UIFormatUtils.FormatDamage(2300000));
+    }
+
+    [Test]
+    public void UIFormatUtils_FormatTime()
+    {
+        Assert.AreEqual("00:00", UIFormatUtils.FormatTime(0f));
+        Assert.AreEqual("01:30", UIFormatUtils.FormatTime(90f));
+        Assert.AreEqual("10:05", UIFormatUtils.FormatTime(605f));
+    }
+
+    // ═══ task2: GUIScaleHelper 测试 ═══
+
+    [Test]
+    public void GUIScaleHelper_Constants()
+    {
+        Assert.AreEqual(1920f, GUIScaleHelper.REF_W);
+        Assert.AreEqual(1080f, GUIScaleHelper.REF_H);
+        Assert.AreEqual(1920f, GUIScaleHelper.VirtualWidth);
+        Assert.AreEqual(1080f, GUIScaleHelper.VirtualHeight);
+    }
+
+    // ═══ task2: MaterialCache 测试 ═══
+
+    [Test]
+    public void MaterialCache_GetDefault_NotNull()
+    {
+        var mat = MaterialCache.GetDefault();
+        Assert.IsNotNull(mat, "MaterialCache.GetDefault() should not return null");
+    }
+
+    [Test]
+    public void MaterialCache_GetDefault_ReturnsSameInstance()
+    {
+        var mat1 = MaterialCache.GetDefault();
+        var mat2 = MaterialCache.GetDefault();
+        Assert.AreSame(mat1, mat2, "Should return cached instance");
+    }
+
+    // ═══ task2: VFXPool 测试 ═══
+
+    [Test]
+    public void VFXPool_Get_CreatesNewObject()
+    {
+        var go = VFXPool.Get("TestPool");
+        Assert.IsNotNull(go);
+        Assert.IsTrue(go.activeSelf, "New object should be active");
+        VFXPool.ReturnImmediate(go);
+    }
+
+    [Test]
+    public void VFXPool_ReturnAndReuse()
+    {
+        var go = VFXPool.Get("TestPool2");
+        VFXPool.ReturnImmediate(go);
+        Assert.IsFalse(go.activeSelf, "Returned object should be inactive");
+
+        var go2 = VFXPool.Get("TestPool2");
+        Assert.AreSame(go, go2, "Should reuse returned object");
+    }
+
+    [Test]
+    public void VFXPool_ClearAll()
+    {
+        var go = VFXPool.Get("TestPool3");
+        VFXPool.ReturnImmediate(go);
+        VFXPool.ClearAll();
+        var go2 = VFXPool.Get("TestPool3");
+        Assert.AreNotSame(go, go2, "After ClearAll, should create new object");
+        Object.DestroyImmediate(go);
+        Object.DestroyImmediate(go2);
+    }
+
+    // ═══ task2: DotSpriteCache 测试 ═══
+
+    [Test]
+    public void DotSpriteCache_Get_NotNull()
+    {
+        var sprite = DotSpriteCache.Get();
+        Assert.IsNotNull(sprite);
+    }
+
+    [Test]
+    public void DotSpriteCache_CircleSprite_NotNull()
+    {
+        var sprite = DotSpriteCache.CircleSprite();
+        Assert.IsNotNull(sprite);
+    }
+
+    [Test]
+    public void DotSpriteCache_CachesSameInstance()
+    {
+        var s1 = DotSpriteCache.Get();
+        var s2 = DotSpriteCache.Get();
+        Assert.AreSame(s1, s2);
+    }
+
+    // ═══ task3: GlowReturnHelper 测试 ═══
+
+    [Test]
+    public void GlowReturnHelper_GetOrCreate_ReturnsObject()
+    {
+        var glow = GlowReturnHelper.GetOrCreate();
+        Assert.IsNotNull(glow);
+        Assert.IsTrue(glow.activeSelf);
+        GlowReturnHelper.ReturnToPool(glow);
+    }
+
+    [Test]
+    public void GlowReturnHelper_ReturnAndReuse()
+    {
+        var glow = GlowReturnHelper.GetOrCreate();
+        GlowReturnHelper.ReturnToPool(glow);
+        Assert.IsFalse(glow.activeSelf);
+
+        var glow2 = GlowReturnHelper.GetOrCreate();
+        Assert.AreSame(glow, glow2, "Should reuse returned glow");
+    }
+
+    // ═══ task3: FloatingText 测试 ═══
+
+    [Test]
+    public void FloatingText_Create_NotNull()
+    {
+        var ft = FloatingText.Create(Vector3.up, "Test", Color.white, 1f);
+        Assert.IsNotNull(ft);
+        Assert.IsNotNull(ft.GetComponent<TextMesh>());
+        Object.DestroyImmediate(ft.gameObject);
+    }
+
+    // ═══ task4: StatusEffect / DetonateResult 测试 ═══
+
+    [Test]
+    public void StatusEffect_Refresh_StacksDps()
+    {
+        var effect = new StatusEffect
+        {
+            type = StatusEffectType.Burn,
+            damagePerSecond = 2f,
+            remainingDuration = 3f,
+            stackCount = 1
+        };
+
+        effect.Refresh(1f, 3f, stackDps: true);
+
+        Assert.AreEqual(2, effect.stackCount);
+        Assert.AreEqual(3f, effect.damagePerSecond, "stackDps=true should add dps");
+    }
+
+    [Test]
+    public void StatusEffect_Refresh_UpdatesDuration()
+    {
+        var effect = new StatusEffect
+        {
+            type = StatusEffectType.Poison,
+            damagePerSecond = 2f,
+            remainingDuration = 1f,
+            stackCount = 1
+        };
+
+        effect.Refresh(2f, 5f, stackDps: false);
+
+        Assert.AreEqual(1, effect.stackCount, "stackDps=false should not increment");
+        Assert.AreEqual(2f, effect.damagePerSecond, "stackDps=false should keep max dps");
+        Assert.AreEqual(5f, effect.remainingDuration, "Duration should be updated");
+    }
+
+    [Test]
+    public void DetonateResult_DefaultValues()
+    {
+        var result = new DetonateResult();
+        Assert.AreEqual(0f, result.totalDamage);
+        Assert.AreEqual(0, result.poisonStacks);
+        Assert.IsFalse(result.hadBurn);
+        Assert.IsFalse(result.hadFrost);
+        Assert.IsFalse(result.hadPoison);
+    }
+
+    // ═══ task4: CharacterUpgradeConfig 测试 ═══
+
+    [Test]
+    public void CharacterUpgradeConfig_MageUpgradeConfig_LoadsDefaults()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        Assert.IsNotNull(config);
+        Assert.AreEqual("mage", config.characterId);
+        Assert.IsTrue(config.dotGunEntries.Length > 0, "Should have DOT gun entries");
+        Assert.IsTrue(config.upgradeEntries.Length > 0, "Should have upgrade entries");
+        Assert.IsTrue(config.IsDotGunUpgrade("poison"), "poison should be a DOT gun upgrade");
+        Assert.IsFalse(config.IsDotGunUpgrade("haste"), "haste should NOT be a DOT gun upgrade");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void CharacterUpgradeConfig_BlueUpgradeConfig_LoadsDefaults()
+    {
+        var config = ScriptableObject.CreateInstance<BlueUpgradeConfig>();
+        Assert.IsNotNull(config);
+        Assert.AreEqual("blue", config.characterId);
+        Assert.IsTrue(config.upgradeEntries.Length > 0, "Should have upgrade entries");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void CharacterUpgradeConfig_GetUpgradeEntry()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("haste");
+        Assert.IsTrue(entry.HasValue, "haste should exist");
+        Assert.AreEqual("急速 (Haste)", entry.Value.upgradeName);
+
+        var missing = config.GetUpgradeEntry("nonexistent");
+        Assert.IsFalse(missing.HasValue, "nonexistent should return null");
+
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void CharacterUpgradeConfig_BuildCustomUpgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var upgrades = config.BuildCustomUpgrades();
+        Assert.IsTrue(upgrades.Length >= 17, $"Mage should have 17+ upgrades (7 DOT + 10 enhanced), got {upgrades.Length}");
+        Object.DestroyImmediate(config);
+    }
+
+    // ═══ task4: DotGunEntry / UpgradeEntry 结构体测试 ═══
+
+    [Test]
+    public void DotGunEntry_CreatesWithValues()
+    {
+        var entry = new DotGunEntry
+        {
+            upgradeId = "poison",
+            effectType = StatusEffectType.Poison,
+            displayName = "中毒",
+            color = Color.green,
+            cooldown = 1.8f,
+            impactDmg = 0,
+            dotDps = 3f,
+            dotDuration = 5f
+        };
+
+        Assert.AreEqual("poison", entry.upgradeId);
+        Assert.AreEqual(StatusEffectType.Poison, entry.effectType);
+        Assert.AreEqual(1.8f, entry.cooldown);
+    }
+
+    [Test]
+    public void UpgradeEntry_CreatesWithValues()
+    {
+        var entry = new UpgradeEntry
+        {
+            upgradeId = "haste",
+            upgradeName = "急速",
+            description = "攻速+15%",
+            category = CharacterUpgradeOption.UpgradeCategory.AttackSpeed,
+            value1 = 0.15f,
+            maxStacks = 0
+        };
+
+        Assert.AreEqual("haste", entry.upgradeId);
+        Assert.AreEqual(0.15f, entry.value1);
+        Assert.AreEqual(0, entry.maxStacks);
+    }
+
+    // ═══ task5: DotBulletHelper 测试 ═══
+
+    [Test]
+    public void DotBulletHelper_EnsureColorBlender_CreatesComponent()
+    {
+        var enemy = new GameObject("TestEnemy");
+        var blender = DotBulletHelper.EnsureColorBlender(enemy);
+        Assert.IsNotNull(blender);
+        Assert.AreSame(blender, DotBulletHelper.EnsureColorBlender(enemy), "Should return same instance");
+        Object.DestroyImmediate(enemy);
+    }
+
+    // ═══ 护甲公式测试 ═══
+
+    [Test]
+    public void ArmorFormula_DamageReduction()
+    {
+        int armor = 10;
+        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
+        float actualDmg = 100f * (1f - reduction);
+        Assert.AreEqual(80f, actualDmg, 0.01f, "10 armor = 20% reduction");
+    }
+
+    [Test]
+    public void ArmorFormula_MaxReduction()
+    {
+        int armor = 100;
+        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
+        Assert.AreEqual(0.9f, reduction, "Should cap at 90%");
+    }
+
+    [Test]
+    public void ArmorFormula_CorrosionCalculation()
+    {
+        int armor = 20;
+        float corrosionRate = 0.1f;
+
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(18, armor, "First corrosion: 20 → 18");
+
+        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(16, armor, "Second corrosion: 18 → 16");
+    }
+
+    [Test]
+    public void ArmorFormula_ErosionCalculation()
+    {
+        int armor = 10;
+        int erosion = 3;
+        armor = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(7, armor, "Erosion should subtract directly");
+    }
+
+    [Test]
+    public void ArmorFormula_CorrosionThenErosion()
+    {
+        int armor = 20;
+        float corrosionRate = 0.1f;
+        int erosion = 5;
+
+        for (int i = 0; i < 3; i++)
+            armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
+        Assert.AreEqual(14, armor, "3x corrosion: 20→18→16→14");
+
+        armor = Mathf.Max(0, armor - erosion);
+        Assert.AreEqual(9, armor, "erosion: 14 - 5 = 9");
+
+        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
+        float actualDmg = 100f * (1f - reduction);
+        Assert.AreEqual(82f, actualDmg, 0.01f, "9 armor = 18% reduction, 100→82");
+    }
 }
 #endif

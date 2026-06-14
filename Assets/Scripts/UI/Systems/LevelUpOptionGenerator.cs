@@ -46,6 +46,7 @@ public class LevelUpOptionGenerator
     }
 
     private ICharacterPassive _characterPassive;
+    private IDotCharacterPassive _dotCharacterPassive;
     private MageUpgradeConfig _mageUpgradeConfig;
     private CharacterData _currentCharacter;
     private Dictionary<string, int> _customUpgradeStacks;
@@ -54,6 +55,7 @@ public class LevelUpOptionGenerator
         Dictionary<string, int> upgradeStacks)
     {
         _characterPassive = characterPassive;
+        _dotCharacterPassive = characterPassive as IDotCharacterPassive;
         _mageUpgradeConfig = config;
         _currentCharacter = character;
         _customUpgradeStacks = upgradeStacks;
@@ -158,11 +160,13 @@ public class LevelUpOptionGenerator
             }
 
             if (_characterPassive == null)
-                _characterPassive = GameReferences.Player?.GetComponent<ICharacterPassive>();
-            if (IsDotGunUpgrade(upgrade.upgradeId) && _characterPassive != null)
+                _characterPassive = GameReferences.CharacterPassive;
+            if (_dotCharacterPassive == null)
+                _dotCharacterPassive = _characterPassive as IDotCharacterPassive;
+            if (IsDotGunUpgrade(upgrade.upgradeId) && _dotCharacterPassive != null)
             {
                 bool alreadyOwned = false;
-                var dotGuns = _characterPassive.DotGuns;
+                var dotGuns = _dotCharacterPassive.DotGuns;
                 var dotGunConfig = GetDotGunForUpgrade(upgrade.upgradeId);
                 if (dotGunConfig.HasValue)
                 {
@@ -175,10 +179,10 @@ public class LevelUpOptionGenerator
             }
 
             var requiredType = GetRequiredDotGunType(upgrade.upgradeId);
-            if (requiredType.HasValue && _characterPassive != null)
+            if (requiredType.HasValue && _dotCharacterPassive != null)
             {
                 bool hasRequiredGun = false;
-                foreach (var gun in _characterPassive.DotGuns)
+                foreach (var gun in _dotCharacterPassive.DotGuns)
                 {
                     if (gun.effectType == requiredType.Value) { hasRequiredGun = true; break; }
                 }
@@ -221,9 +225,9 @@ public class LevelUpOptionGenerator
     /// </summary>
     public void CalculateRecommendations(List<UpgradeSlot> slots)
     {
-        if (_characterPassive == null) return;
+        if (_dotCharacterPassive == null) return;
 
-        int dotGunCount = _characterPassive.DotGuns.Count;
+        int dotGunCount = _dotCharacterPassive.DotGuns.Count;
         int dotEnhanceTypes = 0;
         if (_customUpgradeStacks.ContainsKey("corrosion")) dotEnhanceTypes++;
         if (_customUpgradeStacks.ContainsKey("curse")) dotEnhanceTypes++;

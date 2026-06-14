@@ -41,6 +41,7 @@ public static class GameReferences
     // ── #23: 常用组件懒缓存（Player 设置时自动重置）──
     private static MagePassive _cachedMagePassive;
     private static ICharacterPassive _cachedCharacterPassive;
+    private static IDotCharacterPassive _cachedDotCharacterPassive;
     private static DetonateSystem _cachedDetonateSystem;
     private static PlayerLevelSystem _cachedLevelSystem;
     private static WeaponController _cachedWeaponController;
@@ -60,8 +61,21 @@ public static class GameReferences
     }
 
     /// <summary>
+    /// 获取玩家的 IDotCharacterPassive 组件（DOT 角色专属接口）
+    /// </summary>
+    public static IDotCharacterPassive DotCharacterPassive
+    {
+        get
+        {
+            if (_cachedDotCharacterPassive == null && Player != null)
+                _cachedDotCharacterPassive = Player.GetComponent<IDotCharacterPassive>();
+            return _cachedDotCharacterPassive;
+        }
+    }
+
+    /// <summary>
     /// 获取玩家的 MagePassive 组件（懒缓存，Player 变更时自动失效）
-    /// 保留兼容性：新代码应使用 CharacterPassive
+    /// 保留兼容性：新代码应使用 CharacterPassive 或 DotCharacterPassive
     /// </summary>
     public static MagePassive MagePassive
     {
@@ -132,6 +146,7 @@ public static class GameReferences
     {
         _cachedMagePassive = null;
         _cachedCharacterPassive = null;
+        _cachedDotCharacterPassive = null;
         _cachedDetonateSystem = null;
         _cachedLevelSystem = null;
         _cachedWeaponController = null;

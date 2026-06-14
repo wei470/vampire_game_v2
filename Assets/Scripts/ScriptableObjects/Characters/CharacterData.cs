@@ -50,9 +50,6 @@ public class CharacterData : ScriptableObject
     [Tooltip("按等级解锁的被动进化里程碑，等级必须递增排列")]
     public EvolutionMilestone[] evolutionTree;  // 角色进化树
 
-    [Header("默认技能")]
-    [HideInInspector] public object defaultSkill;             // 已弃用
-
     [Header("角色专属升级")]
     [Tooltip("如果为空，使用默认升级选项池（攻击/生命/速度/护甲/磁铁）")]
     public CharacterUpgradeOption[] customUpgrades;  // 角色专属升级选项

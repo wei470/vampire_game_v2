@@ -188,7 +188,7 @@ public class LightningBolt : MonoBehaviour
         var lr = lineGo.AddComponent<LineRenderer>();
         lr.startWidth = 0.1f;
         lr.endWidth = 0.05f;
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.material = MaterialCache.GetDefault();
         lr.startColor = new Color(0.8f, 0.8f, 1f, 1f);
         lr.endColor = new Color(0.5f, 0.5f, 1f, 0.5f);
         lr.sortingOrder = 20;

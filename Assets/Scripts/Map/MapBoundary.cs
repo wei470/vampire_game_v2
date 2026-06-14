@@ -126,7 +126,7 @@ public class MapBoundary : MonoBehaviour
     private void DrawBoundaryLine()
     {
         var lr = gameObject.AddComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.material = MaterialCache.GetDefault();
         lr.startColor = _boundaryColor;
         lr.endColor = _boundaryColor;
         lr.startWidth = _lineWidth;

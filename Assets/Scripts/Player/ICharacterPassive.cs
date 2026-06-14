@@ -3,11 +3,10 @@ using System.Collections.Generic;
 /// <summary>
 /// 角色被动能力接口 — 所有角色共享的能力抽象。
 ///
-/// 替代 18 个文件中的 MagePassive 直接引用，
-/// 使 GameReferences / DetonateSystem / LevelUpUI / EvolutionSystem 等
-/// 系统可以服务于任意角色。
+/// 通用接口：攻速/弹数/弹体/击退/贯穿/升级
+/// DOT 子接口：IDotCharacterPassive（DOT枪/DOT倍率/引爆/腐蚀/侵蚀）
 ///
-/// MagePassive 实现此接口并保留所有 Mage 专属属性。
+/// MagePassive 实现 IDotCharacterPassive，新角色只需实现 ICharacterPassive。
 /// </summary>
 public interface ICharacterPassive
 {
@@ -15,22 +14,63 @@ public interface ICharacterPassive
     string CharacterId { get; }
     string DisplayName { get; }
 
-    // ── 武器系统 ──
+    // ── 通用武器属性 ──
+    float GetAttackSpeedMultiplier();
+    int GetBulletCountBonus();
+    float GetBulletSizeBonus();
+    float GetKnockbackBonus();
+    int GetPenetrateCount();
+
+    // ── 通用可写属性（升级/进化系统需要）──
+    float AttackSpeedBonus { get; set; }
+    int BulletCountBonus { get; set; }
+
+    // ── 进化系统 ──
+    float DotDamageMultiplier { get; set; }
+    float CritChanceBonus { get; set; }
+
+    // ── 升级系统 ──
+    bool ApplyUpgrade(string upgradeId);
+}
+
+/// <summary>
+/// DOT 角色被动子接口 — 仅 Mage 等 DOT 专属角色实现。
+/// 包含 DOT 枪管理、DOT 伤害倍率、引爆系统、腐蚀/侵蚀。
+/// </summary>
+public interface IDotCharacterPassive : ICharacterPassive
+{
+    // ── DOT 武器系统 ──
     List<DotGunState> DotGuns { get; }
     void UnlockDotGun(StatusEffectType type, UnityEngine.Color color,
         float cooldown, int impactDmg, float dotDps, float dotDuration);
     void ClearAllDotGuns();
 
-    // ── 伤害倍率 ──
+    // ── DOT 伤害倍率 ──
     float GetDotDamageMultiplier();
     float GetDotCritChance();
     float GetDotCritMultiplier();
     float GetDotDurationMultiplier();
-    float GetAttackSpeedMultiplier();
+
+    // ── DOT 增强属性（腐蚀/侵蚀/诅咒传播）──
+    float CorrosionArmorReduction { get; set; }
+    int ErosionArmorPenetration { get; set; }
+    int CurseSpreadTargets { get; set; }
 
     // ── 引爆系统 ──
     DetonateSystem GetDetonateSystem();
+    float DetonateMultiplier { get; set; }
+    float DetonateCooldownValue { get; set; }
+    float DetonateCooldownReduction { get; set; }
 
-    // ── 升级系统 ──
-    bool ApplyUpgrade(string upgradeId);
+    // ── 蓄力属性 ──
+    float ChargeSpeedBonus { get; set; }
+    float ChargeDamageBonus { get; set; }
+
+    // ── 协同/高级属性 ──
+    float DoomsdayThreshold { get; set; }
+    float FrostExplosionPct { get; set; }
+
+    // ── DOT 持续时间 ──
+    void AddDotDurationBonus(float bonus);
+    void SyncDotDamageMultiplierToAll();
 }

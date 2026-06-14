@@ -1,7 +1,44 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// StatusEffectType, StatusEffect, DetonateResult → 见 StatusEffectData.cs
+#region 状态效果数据类型
+
+public enum StatusEffectType
+{
+    Bleed, Poison, Burn, Frostbite, Corrosion, Curse, Agony, Wither,
+    Immolate, Radiate, Contaminate, Erosion, WindErosion, Rend, Static,
+    Dark, Light
+}
+
+[System.Serializable]
+public class StatusEffect
+{
+    public StatusEffectType type;
+    public float damagePerSecond;
+    public float remainingDuration;
+    public float totalDuration;
+    public int stackCount;
+    public bool canCrit;
+    public float critChance;
+    public float critMultiplier;
+
+    public void Refresh(float dps, float duration, bool stackDps = false)
+    {
+        if (stackDps) { stackCount++; damagePerSecond += dps; }
+        else { damagePerSecond = Mathf.Max(damagePerSecond, dps); }
+        remainingDuration = Mathf.Max(remainingDuration, duration);
+        totalDuration = remainingDuration;
+    }
+}
+
+public struct DetonateResult
+{
+    public float totalDamage;
+    public int poisonStacks, burnStacks, bleedStacks, frostStacks;
+    public bool hadBurn, hadFrost, hadPoison;
+}
+
+#endregion
 
 /// <summary>
 /// 状态效果管理器 — 挂载到敌人身上，管理所有活跃 DOT/Debuff
@@ -143,12 +180,12 @@ public class StatusEffectManager : MonoBehaviour
 
     private void Update()
     {
-        // P0-2: 懒更新 DOT 伤害倍率（仅在版本号变化时从 MagePassive 获取）
+        // P0-2: 懒更新 DOT 伤害倍率（仅在版本号变化时从 IDotCharacterPassive 获取）
         if (_localDmgMultVersion != GlobalDmgMultVersion)
         {
             _localDmgMultVersion = GlobalDmgMultVersion;
-            var mage = GameReferences.Player?.GetComponent<MagePassive>();
-            if (mage != null) DotDamageMultiplier = mage.GetDotDamageMultiplier();
+            var dotPassive = GameReferences.DotCharacterPassive;
+            if (dotPassive != null) DotDamageMultiplier = dotPassive.GetDotDamageMultiplier();
         }
 
         if (_activeEffects.Count == 0) return;
@@ -370,3 +407,28 @@ public class StatusEffectManager : MonoBehaviour
     { if (_sr != null) _sr.color = _originalColor;
       if (_dotVFX != null) { Destroy(_dotVFX); _dotVFX = null; } }
 }
+
+#region DOT 组合系统
+
+public class DotComboSystem
+{
+    public const float COMBO_SHATTER_BLEED_MULT = 0f;
+    public bool ShatterActive => false;
+    public float SuperconductMult => 1f;
+
+    private static float _evolutionComboDamageMultiplier = 0f;
+
+    public static void SetEvolutionComboMultiplier(float bonus) { _evolutionComboDamageMultiplier += bonus; }
+    public static float GetEvolutionComboMult() => 1f + _evolutionComboDamageMultiplier;
+    public static void ResetEvolutionComboMultiplier() { _evolutionComboDamageMultiplier = 0f; }
+
+    public void CheckComboEffects(List<StatusEffect> activeEffects, GameObject go, SpriteRenderer sr, Color originalColor, Vector3 enemyPos)
+    {
+        // 组合系统已清空，不再触发任何效果
+    }
+
+    public float GetBleedDamageMult() => 1f;
+    public float GetPoisonDamageMult() => 1f;
+}
+
+#endregion

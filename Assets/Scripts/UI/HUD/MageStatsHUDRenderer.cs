@@ -84,7 +84,9 @@ public static class MageStatsHUDRenderer
     private static void DrawDotGunIcons(ICharacterPassive passive, float x, float y, float maxW,
         Texture2D[] dotTextures, GUIStyle smallStyle)
     {
-        var guns = passive.DotGuns;
+        var dotPassive = passive as IDotCharacterPassive;
+        if (dotPassive == null) return;
+        var guns = dotPassive.DotGuns;
         if (guns == null || guns.Count == 0) return;
 
         float iconSize = 14f;
@@ -125,10 +127,11 @@ public static class MageStatsHUDRenderer
         GUIStyle smallStyle, GUIStyle titleStyle, GUIStyle milestoneLabelStyle)
     {
         float x = marginLeft;
+        var dotPassive = passive as IDotCharacterPassive;
         float baseY = Screen.height - marginBottom;
 
         // 计算面板高度（动态）
-        var guns = passive.DotGuns;
+        var guns = dotPassive?.DotGuns;
         int dotGunCount = guns != null ? guns.Count : 0;
         int lineCount = 6 + dotGunCount + 5;
         float panelH = panelPadding * 2 + headerHeight + lineCount * lineHeight + 20;
@@ -172,10 +175,10 @@ public static class MageStatsHUDRenderer
         cy = DrawSectionHeader(x, cy, panelW, "OVERVIEW", headerHeight, titleStyle);
         float totalDps = MageStatsDataCollector.CalculateCurrentDPS(passive);
         cy = DrawStatRow(x + 8, cy, panelW - 16, "Total DPS", $"{totalDps:F1}", AccentGold, lineHeight, labelStyle, valueStyle);
-        cy = DrawStatRow(x + 8, cy, panelW - 16, "Crit Chance", $"{passive.GetDotCritChance() * 100:F1}%",
+        cy = DrawStatRow(x + 8, cy, panelW - 16, "Crit Chance", $"{(dotPassive?.GetDotCritChance() ?? 0f) * 100:F1}%",
             Color.Lerp(TextPrimary, Color.red, 0.3f), lineHeight, labelStyle, valueStyle);
-        cy = DrawStatRow(x + 8, cy, panelW - 16, "Crit Multiplier", $"{passive.GetDotCritMultiplier():F1}x", TextPrimary, lineHeight, labelStyle, valueStyle);
-        cy = DrawStatRow(x + 8, cy, panelW - 16, "DOT Duration +", $"{(passive.GetDotDurationMultiplier() - 1f) * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
+        cy = DrawStatRow(x + 8, cy, panelW - 16, "Crit Multiplier", $"{dotPassive?.GetDotCritMultiplier() ?? 1f:F1}x", TextPrimary, lineHeight, labelStyle, valueStyle);
+        cy = DrawStatRow(x + 8, cy, panelW - 16, "DOT Duration +", $"{((dotPassive?.GetDotDurationMultiplier() ?? 1f) - 1f) * 100:F0}%", TextPrimary, lineHeight, labelStyle, valueStyle);
 
         cy = DrawDivider(x, cy, panelW, lineHeight, dividerTex);
 
