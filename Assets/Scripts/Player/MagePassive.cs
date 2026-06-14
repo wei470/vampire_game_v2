@@ -207,7 +207,7 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
             effectType = type, color = color, cooldown = cooldown,
             impactDamage = impactDmg, dotDps = dotDps, dotDuration = dotDuration,
             upgradeLevel = 1,
-            accumulator = Random.Range(0f, cooldown)
+            accumulator = 0f
         });
         DebugHelper.Log($"[MagePassive] Unlocked {type} DOT gun! (color={color})");
         MageUpgradeApplier.CheckMilestones(this);

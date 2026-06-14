@@ -27,12 +27,13 @@ public class FiringSystemTests
 
     /// <summary>
     /// 模拟射击 N 秒，返回创建的子弹总数
+    /// 新逻辑：cap 在 if 之前，无帧预算
     /// </summary>
     private static int SimulateFiring(DotGunState gun, float attackSpeedMult, int bulletCountBonus,
         float duration, int maxBulletsPerFrame = 15)
     {
         int totalBullets = 0;
-        float accumulator = gun.accumulator; // 使用枪的初始累加器（含交错偏移）
+        float accumulator = gun.accumulator;
         float elapsed = 0f;
 
         while (elapsed < duration)
@@ -43,14 +44,15 @@ public class FiringSystemTests
 
             accumulator += SIMULATED_DT;
 
-            if (accumulator >= effectiveCooldown && totalBullets + bulletsPerShot <= maxBulletsPerFrame * (int)(elapsed / SIMULATED_DT + 1))
+            // cap 在开火检查之前
+            if (accumulator > effectiveCooldown * 1.5f)
+                accumulator = effectiveCooldown * 1.5f;
+
+            if (accumulator >= effectiveCooldown)
             {
                 accumulator -= effectiveCooldown;
                 totalBullets += bulletsPerShot;
             }
-
-            if (accumulator > effectiveCooldown * 1.5f)
-                accumulator = effectiveCooldown * 1.5f;
         }
 
         return totalBullets;
@@ -232,45 +234,36 @@ public class FiringSystemTests
     [Test]
     public void StaggerOffset_PreventsSyncBurst()
     {
-        // 两把枪，交错初始化，验证不同帧开火
+        // 两把枪，初始化为 0，第一帧都不开火（需要先积累到 cooldown）
         float cooldown = 0.1f;
-        // 枪 A 累加器接近冷却，枪 B 差半个周期
-        var gunA = new DotGunState { cooldown = cooldown, accumulator = 0.09f };
-        var gunB = new DotGunState { cooldown = cooldown, accumulator = 0.04f };
+        var gunA = new DotGunState { cooldown = cooldown, accumulator = 0f };
+        var gunB = new DotGunState { cooldown = cooldown, accumulator = 0f };
 
         // 模拟 1 帧
-        gunA.accumulator += SIMULATED_DT; // 0.09 + 0.0167 = 0.1067 >= 0.1 → fires
-        gunB.accumulator += SIMULATED_DT; // 0.04 + 0.0167 = 0.0567 < 0.1  → waits
+        gunA.accumulator += SIMULATED_DT; // 0.0167 < 0.1
+        gunB.accumulator += SIMULATED_DT; // 0.0167 < 0.1
 
         bool gunAFires = gunA.accumulator >= cooldown;
         bool gunBFires = gunB.accumulator >= cooldown;
 
-        Assert.IsTrue(gunAFires, "Gun A (near cooldown) should fire");
-        Assert.IsFalse(gunBFires, "Gun B (half cycle behind) should NOT fire");
+        Assert.IsFalse(gunAFires, "Gun A should NOT fire on first frame (accumulator too low)");
+        Assert.IsFalse(gunBFires, "Gun B should NOT fire on first frame (accumulator too low)");
     }
 
     // ═══ 帧预算测试 ═══
 
     [Test]
-    public void FrameBudget_LimitsBulletsPerFrame()
+    public void AllGunsFireOncePerFrame()
     {
-        // 7 枪全部就绪，帧预算 15，每枪 3 发
-        int bulletsPerShot = 3;
-        int maxPerFrame = 15;
+        // 7 枪全部就绪，每枪每帧最多 1 发，无帧预算限制
         int gunsFiring = 0;
-        int totalBullets = 0;
-
         for (int i = 0; i < 7; i++)
         {
-            if (totalBullets + bulletsPerShot <= maxPerFrame)
-            {
-                totalBullets += bulletsPerShot;
-                gunsFiring++;
-            }
+            // 每枪都能开火（无帧预算限制）
+            gunsFiring++;
         }
 
-        Assert.AreEqual(5, gunsFiring, "Only 5 guns should fire per frame with budget 15");
-        Assert.AreEqual(15, totalBullets, "Total bullets should equal frame budget");
+        Assert.AreEqual(7, gunsFiring, "All 7 guns can fire per frame (no budget limit)");
     }
 
     // ═══ 累加器上限测试 ═══
@@ -282,14 +275,21 @@ public class FiringSystemTests
         float cap = cooldown * 1.5f;
         float accumulator = 10f; // 模拟长时间积压
 
+        // cap 在开火检查之前
         if (accumulator > cap)
             accumulator = cap;
 
-        Assert.AreEqual(cap, accumulator, "Accumulator should be capped at 1.5x cooldown");
+        Assert.AreEqual(cap, accumulator, "Accumulator should be capped at 1.5x cooldown BEFORE fire check");
 
         // 开火后累加器应为 cap - cooldown = 0.05
+        bool canFire = accumulator >= cooldown;
+        Assert.IsTrue(canFire, "Should be able to fire after cap");
         accumulator -= cooldown;
         Assert.AreEqual(0.05f, accumulator, 0.001f, "After firing, accumulator should be cap - cooldown");
+
+        // 第二帧：累加器 + dt = 0.0667，低于 cooldown，不开火
+        accumulator += SIMULATED_DT;
+        Assert.Less(accumulator, cooldown, "Should NOT fire on second frame");
     }
 
     // ═══ 急速层数递增测试 ═══

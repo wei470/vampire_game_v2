@@ -24,7 +24,7 @@ public class BlueCharacterPassive : CharacterPassiveBase
     protected override void Awake()
     {
         base.Awake();
-        _accumulator = Random.Range(0f, _baseCooldown);
+        _accumulator = 0f;
     }
 
     private void Update()
@@ -40,14 +40,15 @@ public class BlueCharacterPassive : CharacterPassiveBase
 
         _accumulator += Time.deltaTime;
 
+        // 上限放在开火检查之前
+        if (_accumulator > effectiveCooldown * 1.5f)
+            _accumulator = effectiveCooldown * 1.5f;
+
         if (hasTarget && _accumulator >= effectiveCooldown)
         {
             _accumulator -= effectiveCooldown;
             SpawnBullets(fireDir);
         }
-
-        if (_accumulator > effectiveCooldown * 1.5f)
-            _accumulator = effectiveCooldown * 1.5f;
     }
 
     private void SpawnBullets(Vector2 direction)

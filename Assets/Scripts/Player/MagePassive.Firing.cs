@@ -3,9 +3,6 @@ using System.Collections.Generic;
 
 public partial class MagePassive
 {
-    private const int MAX_BULLETS_PER_FRAME = 15;
-    private int _bulletsThisFrame;
-
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
@@ -19,24 +16,22 @@ public partial class MagePassive
         float dmgMult = _weaponController != null ? _weaponController.DamageMultiplier : 1f;
         float attackSpeedMult = GetAttackSpeedMultiplier();
 
-        _bulletsThisFrame = 0;
-
         for (int i = 0; i < _dotGuns.Count; i++)
         {
-            if (_bulletsThisFrame >= MAX_BULLETS_PER_FRAME) break;
-
             var gun = _dotGuns[i];
             float effectiveCooldown = Mathf.Max(0.1f, gun.cooldown * attackSpeedMult);
-            int bulletsPerShot = Mathf.Min(1 + _bulletCountBonus, 3);
 
             gun.accumulator += dt;
 
-            // 每枪每帧最多射 1 发（if，不是 while）
-            if (hasTarget && gun.accumulator >= effectiveCooldown && _bulletsThisFrame + bulletsPerShot <= MAX_BULLETS_PER_FRAME)
+            // 上限放在开火检查之前 — 防止大累加器导致连射爆发
+            if (gun.accumulator > effectiveCooldown * 1.5f)
+                gun.accumulator = effectiveCooldown * 1.5f;
+
+            // 每枪每帧最多 1 发
+            if (hasTarget && gun.accumulator >= effectiveCooldown)
             {
                 gun.accumulator -= effectiveCooldown;
                 SpawnDotBullet(gun, fireDir, dmgMult);
-                _bulletsThisFrame += bulletsPerShot;
 
                 if (gun.effectType == StatusEffectType.Light)
                 {
@@ -47,10 +42,6 @@ public partial class MagePassive
                     gun.accumulator = -actualCycle + effectiveCooldown;
                 }
             }
-
-            // 累加器上限 1.5 轮，防止积压爆发
-            if (gun.accumulator > effectiveCooldown * 1.5f)
-                gun.accumulator = effectiveCooldown * 1.5f;
         }
     }
 
