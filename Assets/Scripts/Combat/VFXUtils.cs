@@ -327,17 +327,37 @@ public class LaserFadeOut : MonoBehaviour
     public void Init(float duration)
     {
         _duration = duration;
-        _startTime = Time.time;
+        _startTime = Time.unscaledTime;
         _sr = GetComponent<SpriteRenderer>();
     }
 
     private void Update()
     {
         if (_sr == null) return;
-        float elapsed = Time.time - _startTime;
+        float elapsed = Time.unscaledTime - _startTime;
         float alpha = 1f - (elapsed / _duration);
         if (alpha <= 0f) { Destroy(gameObject); return; }
         _sr.color = new Color(1f, 1f, 1f, alpha * 0.7f);
+    }
+}
+
+/// <summary>
+/// 定时自毁 — 使用 unscaledTime，不受 timeScale 影响。
+/// 挂载到需要定时销毁的 VFX 对象上。
+/// </summary>
+public class TimedSelfDestruct : MonoBehaviour
+{
+    private float _destroyTime;
+
+    public void Setup(float delay)
+    {
+        _destroyTime = Time.unscaledTime + delay;
+    }
+
+    private void Update()
+    {
+        if (Time.unscaledTime >= _destroyTime)
+            Destroy(gameObject);
     }
 }
 

@@ -141,10 +141,9 @@ public static class CurseSpreadSystem
 
     private static void CreateSpreadLine(Vector3 from, Vector3 to)
     {
-        var lineObj = VFXPool.Get("CurseLine");
+        var lineObj = new GameObject("CurseLine");
         lineObj.transform.position = from;
-        var lr = lineObj.GetComponent<LineRenderer>();
-        if (lr == null) lr = lineObj.AddComponent<LineRenderer>();
+        var lr = lineObj.AddComponent<LineRenderer>();
         lr.material = GetLineMaterial();
         lr.startColor = new Color(0.5f, 0.5f, 0.5f, 0.8f);
         lr.endColor = new Color(0.5f, 0.5f, 0.5f, 0f);
@@ -154,6 +153,6 @@ public static class CurseSpreadSystem
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        Object.Destroy(lineObj, 0.5f);
+        lineObj.AddComponent<TimedSelfDestruct>().Setup(0.5f);
     }
 }

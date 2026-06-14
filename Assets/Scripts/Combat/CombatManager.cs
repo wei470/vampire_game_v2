@@ -248,7 +248,7 @@ public class CombatManager : Singleton<CombatManager>
         }
         lr.SetPosition(LIGHTNING_LINE_SEGMENTS, to);
 
-        Destroy(go, duration);
+        go.AddComponent<TimedSelfDestruct>().Setup(duration);
     }
 
     private static Sprite _cachedCircleSprite;

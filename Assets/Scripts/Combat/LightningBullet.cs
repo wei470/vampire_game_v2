@@ -144,7 +144,7 @@ public class LightningBullet : MonoBehaviour
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        Object.Destroy(lineObj, 0.3f);
+        lineObj.AddComponent<TimedSelfDestruct>().Setup(0.3f);
     }
 
     private void DespawnSelf()
