@@ -78,6 +78,9 @@ public class DebugOverlay : MonoBehaviour
         GUI.color = Color.cyan;
         GUILayout.Label("═══ Game Scene Status ═══");
 
+        GUI.color = new Color(0.7f, 0.9f, 1f);
+        GUILayout.Label($"FPS: {(1f / Time.unscaledDeltaTime):F2}");
+
         if (_player != null)
         {
             var dmg = _player.Damageable;
@@ -114,9 +117,6 @@ public class DebugOverlay : MonoBehaviour
             GUI.color = new Color(1f, 0.2f, 0.2f);
             GUILayout.Label("⚠ BOSS WAVE! ⚠");
         }
-
-        GUI.color = Color.gray;
-        GUILayout.Label("WASD=Move Mouse=Aim E=Detonate R=Restart ESC=Pause");
 
         GUILayout.EndArea();
     }
