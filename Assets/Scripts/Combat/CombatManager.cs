@@ -292,13 +292,13 @@ public class ExplosionVFX : MonoBehaviour
     {
         _maxRadius = maxRadius;
         _duration = duration;
-        _spawnTime = Time.time;
+        _spawnTime = Time.unscaledTime;
         _sr = GetComponent<SpriteRenderer>();
     }
 
     private void Update()
     {
-        float elapsed = Time.time - _spawnTime;
+        float elapsed = Time.unscaledTime - _spawnTime;
         if (elapsed > _duration)
         {
             gameObject.SetActive(false);
