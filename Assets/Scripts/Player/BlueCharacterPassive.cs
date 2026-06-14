@@ -40,14 +40,14 @@ public class BlueCharacterPassive : CharacterPassiveBase
 
         _accumulator += Time.deltaTime;
 
-        while (hasTarget && _accumulator >= effectiveCooldown)
+        if (hasTarget && _accumulator >= effectiveCooldown)
         {
             _accumulator -= effectiveCooldown;
             SpawnBullets(fireDir);
         }
 
-        if (_accumulator > effectiveCooldown * 3f)
-            _accumulator = effectiveCooldown * 3f;
+        if (_accumulator > effectiveCooldown * 1.5f)
+            _accumulator = effectiveCooldown * 1.5f;
     }
 
     private void SpawnBullets(Vector2 direction)
