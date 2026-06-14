@@ -34,6 +34,7 @@ public abstract class DotBulletBase : ProjectileBase
         var trail = GetComponent<TrailRenderer>();
         if (trail != null)
         {
+            trail.material = MaterialCache.GetDefault();
             trail.startColor = DefaultTrailStartColor;
             trail.endColor = DefaultTrailEndColor;
             trail.Clear();

@@ -44,6 +44,7 @@ public class LightningBullet : MonoBehaviour
         var trail = GetComponent<TrailRenderer>();
         if (trail != null)
         {
+            trail.material = MaterialCache.GetDefault();
             trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
             trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
             trail.Clear();

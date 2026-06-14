@@ -29,6 +29,7 @@ public class DarkBullet : MonoBehaviour
         var trail = GetComponent<TrailRenderer>();
         if (trail != null)
         {
+            trail.material = MaterialCache.GetDefault();
             trail.startColor = new Color(0.4f, 0.1f, 0.6f, 0.7f);
             trail.endColor = new Color(0.4f, 0.1f, 0.6f, 0f);
             trail.Clear();
