@@ -3,21 +3,12 @@ using System.Collections.Generic;
 
 public partial class MagePassive
 {
-    private float _lastFrameTime;
-
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
 
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameManager.GameState.Playing)
             return;
-
-        float deltaTime = Time.deltaTime;
-        if (deltaTime > 0.05f)
-        {
-            _lastFrameTime = Time.deltaTime;
-            return;
-        }
 
         Vector2 fireDir = GetFireDirection();
         bool hasTarget = fireDir.sqrMagnitude >= 0.01f;
@@ -56,7 +47,6 @@ public partial class MagePassive
                 }
             }
         }
-        _lastFrameTime = Time.deltaTime;
     }
 
     private void SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)

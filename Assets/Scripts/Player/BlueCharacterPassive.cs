@@ -31,9 +31,6 @@ public class BlueCharacterPassive : CharacterPassiveBase
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameManager.GameState.Playing)
             return;
 
-        float deltaTime = Time.deltaTime;
-        if (deltaTime > 0.05f) return;
-
         Vector2 fireDir = GetFireDirection();
         bool hasTarget = fireDir.sqrMagnitude >= 0.01f;
 
