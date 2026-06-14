@@ -218,7 +218,7 @@ public class DarkMarkEffect : MonoBehaviour, IStackEffect
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 25;
-        VFXPool.Return(lineObj, 0.6f);
+        Object.Destroy(lineObj, 0.6f);
     }
 
     private void RestoreVisual()

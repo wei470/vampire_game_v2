@@ -37,6 +37,17 @@ public class LightningBullet : MonoBehaviour
         if (_cachedRb == null) _cachedRb = GetComponent<Rigidbody2D>();
         if (_cachedRb != null) _cachedRb.linearVelocity = Vector2.zero;
         _cachedPenetrate = GetComponent<PenetrateHandler>();
+
+        // 重置拖尾颜色，防止池回收后残留旧颜色
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = new Color(0.3f, 0.8f, 1f);
+        var trail = GetComponent<TrailRenderer>();
+        if (trail != null)
+        {
+            trail.startColor = new Color(0.4f, 0.8f, 1f, 0.8f);
+            trail.endColor = new Color(0.2f, 0.5f, 1f, 0f);
+            trail.Clear();
+        }
     }
     private void Update() { if (Time.time - _spawnTime > _lifetime) DespawnSelf(); }
     private void FixedUpdate() { if (_cachedRb != null) _cachedRb.linearVelocity = _direction * _speed; }
@@ -121,10 +132,9 @@ public class LightningBullet : MonoBehaviour
     private void CreateChainLine(Vector2 from, Vector2 to)
     {
         CombatManager.CreateExplosionEffect(from, 0.15f, new Color(0.5f, 0.8f, 1f, 0.9f), 0.3f);
-        var lineObj = VFXPool.Get("ChainLine");
+        var lineObj = new GameObject("ChainLine");
         lineObj.transform.position = from;
-        var lr = lineObj.GetComponent<LineRenderer>();
-        if (lr == null) lr = lineObj.AddComponent<LineRenderer>();
+        var lr = lineObj.AddComponent<LineRenderer>();
         lr.material = MaterialCache.GetDefault();
         lr.startColor = new Color(0.5f, 0.8f, 1f, 0.9f);
         lr.endColor = new Color(0.3f, 0.6f, 1f, 0f);
@@ -134,7 +144,7 @@ public class LightningBullet : MonoBehaviour
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        VFXPool.Return(lineObj, 0.3f);
+        Object.Destroy(lineObj, 0.3f);
     }
 
     private void DespawnSelf()

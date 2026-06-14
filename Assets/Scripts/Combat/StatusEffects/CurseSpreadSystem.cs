@@ -154,6 +154,6 @@ public static class CurseSpreadSystem
         lr.SetPosition(0, from);
         lr.SetPosition(1, to);
         lr.sortingOrder = 20;
-        VFXPool.Return(lineObj, 0.5f);
+        Object.Destroy(lineObj, 0.5f);
     }
 }
