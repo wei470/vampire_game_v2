@@ -232,21 +232,21 @@ public class FiringSystemTests
     [Test]
     public void StaggerOffset_PreventsSyncBurst()
     {
-        // 两把枪，交错初始化，不应该在同一帧开火
+        // 两把枪，交错初始化，验证不同帧开火
         float cooldown = 0.1f;
-        float asMult = 1f;
-        var gunA = new DotGunState { cooldown = cooldown, accumulator = 0f };
-        var gunB = new DotGunState { cooldown = cooldown, accumulator = 0.05f }; // 半个周期偏移
+        // 枪 A 累加器接近冷却，枪 B 差半个周期
+        var gunA = new DotGunState { cooldown = cooldown, accumulator = 0.09f };
+        var gunB = new DotGunState { cooldown = cooldown, accumulator = 0.04f };
 
         // 模拟 1 帧
-        gunA.accumulator += SIMULATED_DT;
-        gunB.accumulator += SIMULATED_DT;
+        gunA.accumulator += SIMULATED_DT; // 0.09 + 0.0167 = 0.1067 >= 0.1 → fires
+        gunB.accumulator += SIMULATED_DT; // 0.04 + 0.0167 = 0.0567 < 0.1  → waits
 
         bool gunAFires = gunA.accumulator >= cooldown;
         bool gunBFires = gunB.accumulator >= cooldown;
 
-        // 第一帧只有一把枪开火
-        Assert.AreNotEqual(gunAFires, gunBFires, "Staggered guns should not fire on the same frame");
+        Assert.IsTrue(gunAFires, "Gun A (near cooldown) should fire");
+        Assert.IsFalse(gunBFires, "Gun B (half cycle behind) should NOT fire");
     }
 
     // ═══ 帧预算测试 ═══
