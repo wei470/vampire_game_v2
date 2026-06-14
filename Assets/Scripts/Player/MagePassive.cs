@@ -140,8 +140,6 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
         return baseCrit;
     }
 
-    private float _lastAttackSpeedMult = 1f;
-
     public float GetDotCritMultiplier() => _dotCritMultiplier;
     public override float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus);
 
@@ -208,7 +206,8 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
         {
             effectType = type, color = color, cooldown = cooldown,
             impactDamage = impactDmg, dotDps = dotDps, dotDuration = dotDuration,
-            upgradeLevel = 1
+            upgradeLevel = 1,
+            accumulator = Random.Range(0f, cooldown)
         });
         DebugHelper.Log($"[MagePassive] Unlocked {type} DOT gun! (color={color})");
         MageUpgradeApplier.CheckMilestones(this);

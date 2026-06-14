@@ -18,12 +18,13 @@ public class BlueCharacterPassive : CharacterPassiveBase
     public void SetUpgradeConfig(BlueUpgradeConfig config) { _upgradeConfig = config; }
     public BlueUpgradeConfig GetUpgradeConfig() => _upgradeConfig;
 
-    private float _lastFireTime;
+    private const int MAX_BULLETS_PER_FRAME = 15;
+    private float _accumulator;
 
     protected override void Awake()
     {
         base.Awake();
-        _lastFireTime = Time.time;
+        _accumulator = Random.Range(0f, _baseCooldown);
     }
 
     private void Update()
@@ -37,11 +38,16 @@ public class BlueCharacterPassive : CharacterPassiveBase
         float attackSpeedMult = GetAttackSpeedMultiplier();
         float effectiveCooldown = Mathf.Max(0.1f, _baseCooldown * attackSpeedMult);
 
-        if (hasTarget && Time.time >= _lastFireTime + effectiveCooldown)
+        _accumulator += Time.deltaTime;
+
+        while (hasTarget && _accumulator >= effectiveCooldown)
         {
-            _lastFireTime = Time.time;
+            _accumulator -= effectiveCooldown;
             SpawnBullets(fireDir);
         }
+
+        if (_accumulator > effectiveCooldown * 3f)
+            _accumulator = effectiveCooldown * 3f;
     }
 
     private void SpawnBullets(Vector2 direction)

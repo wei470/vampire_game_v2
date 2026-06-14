@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 public partial class MagePassive
 {
+    private const int MAX_BULLETS_PER_FRAME = 15;
+    private int _bulletsThisFrame;
+
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
@@ -10,32 +13,28 @@ public partial class MagePassive
         if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameManager.GameState.Playing)
             return;
 
+        float dt = Time.deltaTime;
         Vector2 fireDir = GetFireDirection();
         bool hasTarget = fireDir.sqrMagnitude >= 0.01f;
-
         float dmgMult = _weaponController != null ? _weaponController.DamageMultiplier : 1f;
         float attackSpeedMult = GetAttackSpeedMultiplier();
 
-        if (Mathf.Abs(attackSpeedMult - _lastAttackSpeedMult) > 0.001f)
-        {
-            for (int j = 0; j < _dotGuns.Count; j++)
-            {
-                float oldRemaining = _dotGuns[j].nextAllowedFireTime - Time.time;
-                if (oldRemaining > 0f && _lastAttackSpeedMult > 0f)
-                    _dotGuns[j].nextAllowedFireTime = Time.time + oldRemaining * (attackSpeedMult / _lastAttackSpeedMult);
-            }
-            _lastAttackSpeedMult = attackSpeedMult;
-        }
+        _bulletsThisFrame = 0;
 
         for (int i = 0; i < _dotGuns.Count; i++)
         {
+            if (_bulletsThisFrame >= MAX_BULLETS_PER_FRAME) break;
+
             var gun = _dotGuns[i];
             float effectiveCooldown = Mathf.Max(0.1f, gun.cooldown * attackSpeedMult);
 
-            if (hasTarget && Time.time >= gun.nextAllowedFireTime)
+            gun.accumulator += dt;
+
+            while (hasTarget && gun.accumulator >= effectiveCooldown && _bulletsThisFrame < MAX_BULLETS_PER_FRAME)
             {
-                gun.nextAllowedFireTime = Time.time + effectiveCooldown;
+                gun.accumulator -= effectiveCooldown;
                 SpawnDotBullet(gun, fireDir, dmgMult);
+                _bulletsThisFrame += Mathf.Min(1 + _bulletCountBonus, 3);
 
                 if (gun.effectType == StatusEffectType.Light)
                 {
@@ -43,9 +42,14 @@ public partial class MagePassive
                     float chargeDur = Mathf.Max(config.LightMinChargeDuration,
                         config.LightChargeDuration - (gun.upgradeLevel - 1) * config.LightChargeReductionPerLevel);
                     float actualCycle = chargeDur + config.LightSweepDuration + config.LightPostFireDelay;
-                    gun.nextAllowedFireTime = Time.time + actualCycle;
+                    gun.accumulator = -actualCycle + effectiveCooldown;
+                    break;
                 }
             }
+
+            // 防止长时间不射击后累加器积压过大（最多保留 3 轮）
+            if (gun.accumulator > effectiveCooldown * 3f)
+                gun.accumulator = effectiveCooldown * 3f;
         }
     }
 

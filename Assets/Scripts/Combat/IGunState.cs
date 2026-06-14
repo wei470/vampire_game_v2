@@ -36,6 +36,7 @@ public class DotGunState : GunState
     public Color color;
     public float dotDps;
     public float dotDuration;
+    public float accumulator;  // 时间累加器，替代 nextAllowedFireTime
 
     public StatusEffectType EffectType => effectType;
     public Color GunColor => color;
