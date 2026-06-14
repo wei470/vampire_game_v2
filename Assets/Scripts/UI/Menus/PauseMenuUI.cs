@@ -70,7 +70,15 @@ public class PauseMenuUI : MonoBehaviour
 
         Time.timeScale = 1f;
 
-        GameStateResetter.FullReset();
+        EventManager.ClearAll();
+        GameReferences.Reset();
+        GameSceneBootstrap.ResetCharacter();
+        DotEffectRegistry.ClearAll();
+        CurseSpreadSystem.ResetStaticState();
+        CharacterFactory.Clear();
+        CharacterConfigLoader.ClearCache();
+        DotBulletBase.ActiveDotBullets.Clear();
+        SimpleBullet.ActiveBullets.Clear();
 
         SceneManager.LoadScene("MenuScene");
     }
