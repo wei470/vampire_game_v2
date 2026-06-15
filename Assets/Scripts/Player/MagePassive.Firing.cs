@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public partial class MagePassive
 {
     private const int MAX_ACTIVE_BULLETS = 200;
-    private const int MAX_BARRAGE = 5;
+    private const int MAX_BARRAGE = 2;
     private const int MAX_BULLETS_PER_FRAME = 15;
     private const float MIN_COOLDOWN = 0.33f;
 
