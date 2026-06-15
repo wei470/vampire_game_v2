@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 public partial class MagePassive
 {
+    private const int MAX_ACTIVE_BULLETS = 200;
+    private const int MAX_BARRAGE = 5;
+
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
@@ -23,11 +26,9 @@ public partial class MagePassive
 
             gun.accumulator += dt;
 
-            // 上限放在开火检查之前 — 防止大累加器导致连射爆发
             if (gun.accumulator > effectiveCooldown * 1.5f)
                 gun.accumulator = effectiveCooldown * 1.5f;
 
-            // 每枪每帧最多 1 发
             if (hasTarget && gun.accumulator >= effectiveCooldown)
             {
                 gun.accumulator -= effectiveCooldown;
@@ -49,11 +50,15 @@ public partial class MagePassive
     {
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
-        int bulletCount = Mathf.Min(1 + _bulletCountBonus, 3);
+        int bulletCount = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
         float spreadAngle = 15f;
 
         for (int b = 0; b < bulletCount; b++)
         {
+            // 场上子弹过多时停止创建
+            if (DotBulletBase.ActiveDotBullets.Count >= MAX_ACTIVE_BULLETS)
+                break;
+
             Vector2 fireDir = direction;
             if (bulletCount > 1)
             {
@@ -62,6 +67,17 @@ public partial class MagePassive
                 fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
             }
             GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+            // 创建失败重试一次
+            if (bullet == null)
+                bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+            if (bullet == null)
+            {
+                DebugHelper.LogWarning($"[MagePassive] Bullet create failed for {gun.effectType}");
+                continue;
+            }
+
             ApplyBulletSizeBonus(bullet);
             ApplyUpgradeVisual(bullet, gun);
         }

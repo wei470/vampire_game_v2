@@ -70,12 +70,12 @@ public class FiringSystemTests
     }
 
     /// <summary>
-    /// 获取攻速乘数（模拟 N 层急速，每层 +15%）
+    /// 获取攻速乘数（模拟 N 层急速，每层 +15%，对数递减）
     /// </summary>
     private static float GetAttackSpeedMult(int hasteStacks)
     {
         float bonus = hasteStacks * 0.15f;
-        return Mathf.Max(0.2f, 1f - bonus);
+        return Mathf.Max(0.2f, 1f / (1f + bonus));
     }
 
     // ═══ 弹幕 1（bulletCountBonus = 0，每枪 1 发）═══

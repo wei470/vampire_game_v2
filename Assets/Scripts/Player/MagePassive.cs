@@ -141,7 +141,7 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     }
 
     public float GetDotCritMultiplier() => _dotCritMultiplier;
-    public override float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f - _attackSpeedBonus);
+    public override float GetAttackSpeedMultiplier() => Mathf.Max(0.2f, 1f / (1f + Mathf.Max(0f, _attackSpeedBonus)));
 
     public float GetChargeMoveSpeedMultiplier()
     {

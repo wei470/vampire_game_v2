@@ -45,7 +45,10 @@ public abstract class CharacterPassiveBase : MonoBehaviour, ICharacterPassive
 
     public virtual float GetAttackSpeedMultiplier()
     {
-        return Mathf.Max(MIN_ATTACK_SPEED_MULT, 1f - _attackSpeedBonus);
+        // 对数递减：每层急速都有收益，不会触底
+        // bonus=0→1.0, bonus=0.15→0.87, bonus=0.9→0.53, bonus=4.5→0.18
+        float bonus = Mathf.Max(0f, _attackSpeedBonus);
+        return Mathf.Max(MIN_ATTACK_SPEED_MULT, 1f / (1f + bonus));
     }
 
     public virtual int GetBulletCountBonus() => _bulletCountBonus;

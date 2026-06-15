@@ -656,7 +656,7 @@ public class CoreSystemTests
         Assert.AreEqual(1f, passive.GetAttackSpeedMultiplier(), "Default attack speed mult should be 1.0");
 
         passive.AttackSpeedBonus = 0.15f;
-        Assert.AreEqual(0.85f, passive.GetAttackSpeedMultiplier(), 0.001f, "After 15% bonus, mult should be 0.85");
+        Assert.AreEqual(0.870f, passive.GetAttackSpeedMultiplier(), 0.01f, "After 15% bonus, mult should be ~0.87 (1/1.15)");
 
         Object.DestroyImmediate(go);
     }
@@ -721,14 +721,15 @@ public class CoreSystemTests
         var go = new GameObject("TestClamp");
         var passive = go.AddComponent<BlueCharacterPassive>();
 
+        // 新公式：1/(1+bonus)，对数递减
         passive.AttackSpeedBonus = 0.5f;
-        Assert.AreEqual(0.5f, passive.GetAttackSpeedMultiplier(), 0.001f);
+        Assert.AreEqual(0.667f, passive.GetAttackSpeedMultiplier(), 0.01f, "bonus=0.5 → 1/1.5=0.667");
 
-        passive.AttackSpeedBonus = 1.5f;
-        Assert.AreEqual(0.2f, passive.GetAttackSpeedMultiplier(), 0.001f, "Should clamp to 0.2f minimum");
+        passive.AttackSpeedBonus = 4.5f;
+        Assert.AreEqual(0.2f, passive.GetAttackSpeedMultiplier(), 0.01f, "bonus=4.5 → 1/5.5=0.182, clamped to 0.2");
 
         passive.AttackSpeedBonus = -0.1f;
-        Assert.AreEqual(1.1f, passive.GetAttackSpeedMultiplier(), 0.001f, "Negative bonus should increase speed");
+        Assert.AreEqual(1.0f, passive.GetAttackSpeedMultiplier(), 0.01f, "Negative bonus clamped to 0 → 1.0");
 
         Object.DestroyImmediate(go);
     }
