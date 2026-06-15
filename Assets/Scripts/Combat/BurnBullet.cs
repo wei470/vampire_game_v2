@@ -74,7 +74,7 @@ public class BurnBullet : DotBulletBase
     /// </summary>
     private void ApplyZoneBurnStacks()
     {
-        int count = Physics2D.OverlapCircleNonAlloc(transform.position, _zoneRadius, _overlapBuffer);
+        int count = Physics2D.OverlapCircle(transform.position, _zoneRadius, new ContactFilter2D().NoFilter(), _overlapBuffer);
         for (int i = 0; i < count; i++)
         {
             var hit = _overlapBuffer[i];

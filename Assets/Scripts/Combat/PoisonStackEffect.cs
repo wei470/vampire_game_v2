@@ -37,7 +37,6 @@ public class PoisonStackEffect : StackEffectBase
     {
         var cfg = DotEffectConfig.GetDefault();
         _maxStacks = cfg.PoisonMaxStacks;
-        duration = cfg.PoisonDuration;
         _baseTickInterval = cfg.PoisonBaseTickInterval;
 
         // 应用毒素加速强化
