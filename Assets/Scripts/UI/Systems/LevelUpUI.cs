@@ -80,6 +80,15 @@ public class LevelUpUI : MonoBehaviour
     {
         _currentCharacter = character;
         _customUpgradeStacks.Clear();
+
+        // 从 MagePassive 加载已有的升级层数（TEST 模式或重新进入时）
+        var mage = _characterPassive as MagePassive;
+        if (mage != null && mage.UpgradeStacks != null)
+        {
+            foreach (var kvp in mage.UpgradeStacks)
+                _customUpgradeStacks[kvp.Key] = kvp.Value;
+        }
+
         InitGenerator();
     }
 

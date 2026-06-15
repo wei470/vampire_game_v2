@@ -330,9 +330,19 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     // ═══ 升级应用（委托给 MageUpgradeApplier）═══
     // Update/GetFireDirection/SpawnDotBullet/ApplyUpgradeVisual/ApplyBulletSizeBonus → MagePassive.Firing.cs
 
+    private Dictionary<string, int> _upgradeStacks = new Dictionary<string, int>();
+    public Dictionary<string, int> UpgradeStacks => _upgradeStacks;
+
     public override bool ApplyUpgrade(string upgradeId)
     {
-        return MageUpgradeApplier.ApplyUpgrade(this, upgradeId);
+        bool result = MageUpgradeApplier.ApplyUpgrade(this, upgradeId);
+        if (result)
+        {
+            if (!_upgradeStacks.ContainsKey(upgradeId))
+                _upgradeStacks[upgradeId] = 0;
+            _upgradeStacks[upgradeId]++;
+        }
+        return result;
     }
 
 }
