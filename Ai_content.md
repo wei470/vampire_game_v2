@@ -1,7 +1,7 @@
 # AI 速查手册 — Vampire Survivors Unity 移植版
 
 > 每次开新 AI 对话先读此文件。
-> 最后更新：2026-06-14 | 218 个 CS 文件 | 178 个测试
+> 最后更新：2026-06-14 | 218 个 CS 文件 | 194 个测试
 
 ---
 
@@ -14,7 +14,7 @@
 | 类型 | 2D 俯视角射击生存 |
 | 场景 | `MenuScene` → `GameScene` |
 | 角色 | Mage（DOT 法师）、Blue（蓝色战士） |
-| 测试 | CoreSystemTests 91 + AutomatedPlayModeTests 87 = 178 |
+| 测试 | CoreSystemTests 90 + AutomatedPlayModeTests 87 + FiringSystemTests 17 = 194 |
 
 ---
 
@@ -27,7 +27,7 @@
 | `Player/ICharacterPassive.cs` | `ICharacterPassive`（通用）+ `IDotCharacterPassive`（DOT 子接口） |
 | `Player/CharacterPassiveBase.cs` | 角色基类：攻速/弹数/穿透/进化属性 + `GetFireDirection()` |
 | `Player/MagePassive.cs` | Mage 专属：DOT 枪管理 + 属性，继承 CharacterPassiveBase，实现 IDotCharacterPassive |
-| `Player/MagePassive.Firing.cs` | Mage 射击逻辑：Update + SpawnDotBullet + 视觉 |
+| `Player/MagePassive.Firing.cs` | Mage 射击逻辑：累加器 + MAX_BARRAGE + MAX_ACTIVE_BULLETS |
 | `Player/BlueCharacterPassive.cs` | 蓝色角色：继承 CharacterPassiveBase，只用 SimpleBullet |
 | `Player/CharacterFactory.cs` | 角色工厂：`Register("xxx", go => go.AddComponent<XXX>())` |
 | `Player/DetonateSystem.cs` | 引爆系统：蓄力/连锁/余烬/霜爆/末日审判 |
@@ -42,7 +42,7 @@
 | `Combat/DotBulletBase.cs` | DOT 子弹基类：继承 ProjectileBase，命中调 `DotBulletHelper.EnsureStatusEffectManager()` |
 | `Combat/SimpleBullet.cs` | 蓝色子弹：继承 ProjectileBase，命中直接扣血 |
 | `Combat/DotBulletFactory.cs` | DOT 子弹工厂：7 种 DOT 子弹创建 |
-| `Combat/IGunState.cs` | `IGunState` 接口 + `GunState` + `DotGunState` |
+| `Combat/IGunState.cs` | `IGunState` 接口 + `GunState` + `DotGunState`（含 accumulator） |
 | `Combat/DotBulletHelpers.cs` | `DotBulletHelper`（EnsureStatusEffectManager + 腐蚀/侵蚀）+ `PenetrateHandler` + `CritParams` |
 
 ### DOT 子弹类型（7 种，Mage 专属）
@@ -97,6 +97,37 @@
 
 ## 3. 关键公式
 
+### 急速系统（对数递减）
+
+```
+attackSpeedMult = Max(0.2, 1.0 / (1.0 + attackSpeedBonus))
+effectiveCooldown = Max(0.1, gun.cooldown × attackSpeedMult)
+```
+
+每层急速 +0.15，每层都有递减但持续的收益。
+
+| 层数 | attackSpeedMult | Poison(1.8s) | Burn(0.5s) | Wind(0.2s) |
+|------|-----------------|---------------|------------|------------|
+| 0 | 1.00 | 1.80s | 0.50s | 0.20s |
+| 1 | 0.87 | 1.57s | 0.43s | 0.17s |
+| 3 | 0.69 | 1.24s | 0.34s | 0.14s |
+| 6 | 0.53 | 0.95s | 0.26s | 0.11s |
+| 10 | 0.47 | 0.85s | 0.24s | 0.10s |
+| 30 | 0.24 | 0.43s | 0.10s | 0.10s |
+
+### 射击系统（累加器）
+
+```
+每帧：gun.accumulator += dt
+上限：gun.accumulator = min(gun.accumulator, effectiveCooldown × 1.5)
+开火：if (accumulator >= effectiveCooldown) { accumulator -= cooldown; fire(); }
+```
+
+- 每枪每帧最多 1 发（`if` 不是 `while`）
+- 弹幕上限 `MAX_BARRAGE = 5`
+- 场上子弹上限 `MAX_ACTIVE_BULLETS = 200`
+- 创建失败重试一次，仍失败则日志跳过
+
 ### 护甲系统
 
 ```
@@ -130,13 +161,14 @@ multiplier = 3.0 × 1.15^辐射层数（最多 10 层）
 
 | 问题 | 说明 |
 |------|------|
-| **返回菜单卡死** | 禁止 `DestroyImmediate`，禁止 `OnGUI` 内 `LoadScene` |
+| **返回菜单** | `ReturnToMenu` 不调 `FullReset`，只做定向清理（避免 ObjectPool 级联销毁卡死） |
 | **DOT 命中** | 必须调 `DotBulletHelper.EnsureStatusEffectManager()` |
 | **腐蚀计算** | 用 `FloorToInt`（非 RoundToInt），否则 1 护甲无效 |
 | **护甲减伤** | 用 `RoundToInt`（非 CeilToInt），避免浮点误差 |
-| **场景重置** | 所有静态列表必须在 `GameStateResetter.FullReset()` 中清理 |
-| **MagePassive.Awake** | 自动创建 DetonateSystem + 解锁 Poison DOT 枪 |
-| **GameReferences** | Player 赋值时自动失效所有缓存，使用 `CharacterPassive` 而非 `MagePassive` |
+| **场景重置** | 所有静态列表在 `GameStateResetter.FullReset()` 中清理 |
+| **子弹颜色** | `DotBulletBase.OnEnable` 重置 SpriteRenderer/TrailRenderer 颜色 + trail.material |
+| **VFX 销毁** | 用 `TimedSelfDestruct`（unscaledTime），不用 `Object.Destroy(delay)` |
+| **bee_backend 卡死** | 杀掉卡住的 `bee_backend.exe` 进程 |
 
 ---
 
@@ -145,7 +177,7 @@ multiplier = 3.0 × 1.15^辐射层数（最多 10 层）
 ```
 1. 创建 XXXCharacterPassive : CharacterPassiveBase
      - 实现 CharacterId / DisplayName
-     - 实现 Update() 中的射击逻辑
+     - 实现 Update() 中的射击逻辑（累加器模式）
      - 重写 ApplyUpgrade() 处理升级
 
 2. 创建 XXXUpgradeConfig : CharacterUpgradeConfig
@@ -178,23 +210,35 @@ dot?.GetDotDamageMultiplier();
 dot?.CorrosionArmorReduction;
 ```
 
+### 射击系统常量
+
+```csharp
+const int MAX_BARRAGE = 5;              // 弹幕上限
+const int MAX_ACTIVE_BULLETS = 200;     // 场上子弹上限
+float effectiveCooldown = Max(0.1, gun.cooldown * attackSpeedMult);
+```
+
 ### VFX 工具
 
 ```csharp
 Material mat = MaterialCache.GetDefault();          // 缓存的 Sprites/Default Material
 var go = VFXPool.Get("CurseLine");                  // 从池获取 VFX
-VFXPool.Return(go, 0.5f);                          // 延迟回收
+VFXPool.ReturnImmediate(go);                        // 立即回收
 var glow = GlowReturnHelper.GetOrCreate();          // Glow 对象池
 Sprite s = DotSpriteCache.Get();                    // 椭圆 Sprite
 Sprite c = DotSpriteCache.CircleSprite();           // 圆形 Sprite
+go.AddComponent<TimedSelfDestruct>().Setup(0.5f);   // 定时自毁（unscaledTime）
 ```
 
 ### 测试
 
 ```csharp
 // EditMode 测试（纯计算，无 GameObject）
-Tests/Editor/CoreSystemTests.cs — 91 个
+Tests/Editor/CoreSystemTests.cs — 90 个
 
 // PlayMode 测试（GameObject 交互）
 Tests/Editor/AutomatedPlayModeTests.cs — 87 个
+
+// 射速系统测试（累加器模拟）
+Tests/Editor/FiringSystemTests.cs — 17 个
 ```
