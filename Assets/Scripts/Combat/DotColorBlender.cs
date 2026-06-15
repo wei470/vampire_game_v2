@@ -116,6 +116,13 @@ public class DotColorBlender : MonoBehaviour
             _colorCaptured = true;
         }
 
+        // 天照优先：强制黑色，跳过所有其他混合
+        if (GetComponent<AmaterasuEffect>() != null)
+        {
+            _sr.color = new Color(0.05f, 0.05f, 0.05f);
+            return;
+        }
+
         if (_contributions.Count == 0)
         {
             // 没有DOT效果时，逐渐恢复原始颜色
