@@ -116,25 +116,17 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // 灰色
                 new UpgradeEntry { upgradeId = "static_chain", upgradeName = "连锁强化", description = "连锁目标+1", category = CharacterUpgradeOption.UpgradeCategory.StaticChain, rarity = UpgradeRarity.Common, value1 = 1f, maxStacks = 3 },
                 // 绿色
-                new UpgradeEntry { upgradeId = "static_tick", upgradeName = "雷电加速", description = "雷电叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.StaticTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "static_range", upgradeName = "雷电范围", description = "连锁范围+20%", category = CharacterUpgradeOption.UpgradeCategory.StaticRange, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
-                // 蓝色
-                new UpgradeEntry { upgradeId = "static_overload", upgradeName = "超载", description = "雷电×燃烧超载爆炸", category = CharacterUpgradeOption.UpgradeCategory.StaticOverload, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
                 // 紫色
-                new UpgradeEntry { upgradeId = "storm_multi", upgradeName = "雷暴", description = "雷电子弹+1", category = CharacterUpgradeOption.UpgradeCategory.StormMulti, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "storm_multi", upgradeName = "雷暴", description = "连续发射两枚雷电子弹", category = CharacterUpgradeOption.UpgradeCategory.StormMulti, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
                 new UpgradeEntry { upgradeId = "storm_chain", upgradeName = "万雷齐发", description = "连锁目标×2", category = CharacterUpgradeOption.UpgradeCategory.StormChain, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
 
                 // ═══ 风专属 ═══
-                // 灰色
-                new UpgradeEntry { upgradeId = "wind_damage", upgradeName = "风刃强化", description = "风弹伤害+3", category = CharacterUpgradeOption.UpgradeCategory.WindDamage, rarity = UpgradeRarity.Common, value1 = 3f, maxStacks = 5 },
-                new UpgradeEntry { upgradeId = "wind_speed", upgradeName = "风速", description = "风弹速度+20%", category = CharacterUpgradeOption.UpgradeCategory.WindSpeed, rarity = UpgradeRarity.Common, value1 = 0.20f, maxStacks = 3 },
                 // 绿色
+                new UpgradeEntry { upgradeId = "wind_speed", upgradeName = "风速", description = "风弹速度+20%", category = CharacterUpgradeOption.UpgradeCategory.WindSpeed, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "wind_tick", upgradeName = "风化加速", description = "风化叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.WindTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
-                new UpgradeEntry { upgradeId = "wind_pierce", upgradeName = "风刃穿透", description = "风弹穿透+1", category = CharacterUpgradeOption.UpgradeCategory.WindPierce, rarity = UpgradeRarity.Uncommon, value1 = 1f, maxStacks = 3 },
-                // 蓝色
-                new UpgradeEntry { upgradeId = "wind_storm_eye", upgradeName = "风暴之眼", description = "风×雷电连锁风暴", category = CharacterUpgradeOption.UpgradeCategory.WindStormEye, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
                 // 紫色
-                new UpgradeEntry { upgradeId = "wind_hurricane", upgradeName = "飓风", description = "风弹数量+2", category = CharacterUpgradeOption.UpgradeCategory.WindHurricane, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "wind_hurricane", upgradeName = "飓风", description = "偏移角度7%/0%", category = CharacterUpgradeOption.UpgradeCategory.WindHurricane, rarity = UpgradeRarity.Epic, value1 = 7f, value2 = 0f, maxStacks = 2 },
                 new UpgradeEntry { upgradeId = "wind_lord", upgradeName = "风暴领主", description = "风弹范围×2", category = CharacterUpgradeOption.UpgradeCategory.WindLord, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
             };
         }

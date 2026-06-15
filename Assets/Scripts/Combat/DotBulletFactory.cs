@@ -144,22 +144,24 @@ public static class DotBulletFactory
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
         var mage = GetMage();
-        int damage = gun.impactDamage + (mage != null ? Mathf.RoundToInt(mage.StaticDamageBonus) : 0);
-        float critBonus = mage != null ? mage.StaticCritBonus : 0f;
+        int damage = gun.impactDamage;
 
         var go = LightningBullet.Create(pos, dir, Config.LightningSpeed, damage,
             dmgMult)?.gameObject;
 
-        // 连锁目标加成
         if (go != null && mage != null)
         {
             var lb = go.GetComponent<LightningBullet>();
             if (lb != null)
             {
-                int extraChain = mage.StaticChainBonus;
-                if (mage.StormChain) extraChain += 3;   // 万雷齐发：连锁目标翻倍（基础连锁≈3）
-                if (extraChain > 0) lb.ExtraChainTargets = extraChain;
+                lb.ExtraChainTargets = mage.StaticChainBonus;
+                lb.ExtraChainRadius = mage.StaticRangeBonus * 8f;
             }
+        }
+
+        AttachRicochetIfAvailable(go);
+        return go;
+    }
         }
 
         AttachRicochetIfAvailable(go);

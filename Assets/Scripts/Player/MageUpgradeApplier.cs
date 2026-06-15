@@ -71,22 +71,14 @@ public static class MageUpgradeApplier
         { CharacterUpgradeOption.UpgradeCategory.FrostAbsolute, ApplyFrostAbsolute },
 
         // 雷电专属
-        { CharacterUpgradeOption.UpgradeCategory.StaticDamage, ApplyStaticDamage },
         { CharacterUpgradeOption.UpgradeCategory.StaticChain, ApplyStaticChain },
-        { CharacterUpgradeOption.UpgradeCategory.StaticTick, ApplyStaticTick },
         { CharacterUpgradeOption.UpgradeCategory.StaticRange, ApplyStaticRange },
-        { CharacterUpgradeOption.UpgradeCategory.StaticCrit, ApplyStaticCrit },
-        { CharacterUpgradeOption.UpgradeCategory.StaticOverload, ApplyStaticOverload },
         { CharacterUpgradeOption.UpgradeCategory.StormMulti, ApplyStormMulti },
         { CharacterUpgradeOption.UpgradeCategory.StormChain, ApplyStormChain },
 
         // 风专属
-        { CharacterUpgradeOption.UpgradeCategory.WindDamage, ApplyWindDamage },
         { CharacterUpgradeOption.UpgradeCategory.WindSpeed, ApplyWindSpeed },
         { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindTick },
-        { CharacterUpgradeOption.UpgradeCategory.WindPierce, ApplyWindPierce },
-        { CharacterUpgradeOption.UpgradeCategory.WindCrit, ApplyWindCrit },
-        { CharacterUpgradeOption.UpgradeCategory.WindStormEye, ApplyWindStormEye },
         { CharacterUpgradeOption.UpgradeCategory.WindHurricane, ApplyWindHurricane },
         { CharacterUpgradeOption.UpgradeCategory.WindLord, ApplyWindLord },
     };
@@ -265,23 +257,15 @@ public static class MageUpgradeApplier
 
     // ═══ 雷电专属 ═══
 
-    private static void ApplyStaticDamage(MagePassive mage, UpgradeEntry ue) { mage.StaticDamageBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticDamage +{ue.value1} (total: {mage.StaticDamageBonus})"); }
     private static void ApplyStaticChain(MagePassive mage, UpgradeEntry ue) { mage.StaticChainBonus += (int)ue.value1; DebugHelper.Log($"[Upgrade] StaticChain +{ue.value1} (total: {mage.StaticChainBonus})"); }
-    private static void ApplyStaticTick(MagePassive mage, UpgradeEntry ue) { mage.StaticTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] StaticTick +{ue.value1} (total: {mage.StaticTickReduction})"); }
     private static void ApplyStaticRange(MagePassive mage, UpgradeEntry ue) { mage.StaticRangeBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticRange +{ue.value1} (total: {mage.StaticRangeBonus})"); }
-    private static void ApplyStaticCrit(MagePassive mage, UpgradeEntry ue) { mage.StaticCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticCrit +{ue.value1} (total: {mage.StaticCritBonus})"); }
-    private static void ApplyStaticOverload(MagePassive mage, UpgradeEntry ue) { mage.StaticOverload = true; DebugHelper.Log("[Upgrade] StaticOverload activated"); }
     private static void ApplyStormMulti(MagePassive mage, UpgradeEntry ue) { mage.StormMulti = true; DebugHelper.Log("[Upgrade] StormMulti activated"); }
     private static void ApplyStormChain(MagePassive mage, UpgradeEntry ue) { mage.StormChain = true; DebugHelper.Log("[Upgrade] StormChain activated"); }
 
     // ═══ 风专属 ═══
 
-    private static void ApplyWindDamage(MagePassive mage, UpgradeEntry ue) { mage.WindDamageBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindDamage +{ue.value1} (total: {mage.WindDamageBonus})"); }
     private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindSpeed +{ue.value1} (total: {mage.WindSpeedBonus})"); }
     private static void ApplyWindTick(MagePassive mage, UpgradeEntry ue) { mage.WindTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] WindTick +{ue.value1} (total: {mage.WindTickReduction})"); }
-    private static void ApplyWindPierce(MagePassive mage, UpgradeEntry ue) { mage.WindPierceBonus += (int)ue.value1; DebugHelper.Log($"[Upgrade] WindPierce +{ue.value1} (total: {mage.WindPierceBonus})"); }
-    private static void ApplyWindCrit(MagePassive mage, UpgradeEntry ue) { mage.WindCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindCrit +{ue.value1} (total: {mage.WindCritBonus})"); }
-    private static void ApplyWindStormEye(MagePassive mage, UpgradeEntry ue) { mage.WindStormEye = true; DebugHelper.Log("[Upgrade] WindStormEye activated"); }
     private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; DebugHelper.Log("[Upgrade] WindHurricane activated"); }
     private static void ApplyWindLord(MagePassive mage, UpgradeEntry ue) { mage.WindLord = true; DebugHelper.Log("[Upgrade] WindLord activated"); }
 

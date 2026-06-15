@@ -77,46 +77,56 @@ public partial class MagePassive
     /// </summary>
     private int SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)
     {
-        // 安全阀：场上子弹已达硬上限则整把跳过——在弹幕**之前**判断一次，
-        // 绝不在弹幕内部逐发截断，否则会出现「弹幕+2 却只射 1/2 发」的不稳定（核心 bug）。
-        // 允许至多 MAX_BARRAGE-1 的轻微溢出（≤204），无害。
         if (DotBulletBase.ActiveDotBullets.Count >= MAX_ACTIVE_BULLETS)
             return 0;
 
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
-        // 元素专属弹幕加成：雷暴（雷电+1）、飓风（风+2）
-        int elementExtra = 0;
-        if (gun.effectType == StatusEffectType.Static && StormMulti) elementExtra += 1;
-        if (gun.effectType == StatusEffectType.WindErosion && WindHurricane) elementExtra += 2;
-        int bulletCount = Mathf.Min(1 + _bulletCountBonus + elementExtra, MAX_BARRAGE);
+        int bulletCount = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
         float spreadAngle = 15f;
+
+        // 飓风：偏移角度从 15° 改为 value1°
+        if (gun.effectType == StatusEffectType.WindErosion && WindHurricane)
+        {
+            var cfg = GetUpgradeConfig();
+            if (cfg != null)
+            {
+                var entry = cfg.GetUpgradeEntry("wind_hurricane");
+                if (entry.HasValue) spreadAngle = entry.Value.value1;
+            }
+        }
+
         int created = 0;
 
-        for (int b = 0; b < bulletCount; b++)
+        // 雷暴：连续发射两枚（双发）
+        int shots = (gun.effectType == StatusEffectType.Static && StormMulti) ? 2 : 1;
+
+        for (int s = 0; s < shots; s++)
         {
-            Vector2 fireDir = direction;
-            if (bulletCount > 1)
+            for (int b = 0; b < bulletCount; b++)
             {
-                float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
-                float rad = angle * Mathf.Deg2Rad;
-                fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
+                Vector2 fireDir = direction;
+                if (bulletCount > 1)
+                {
+                    float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
+                    float rad = angle * Mathf.Deg2Rad;
+                    fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
+                }
+                GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+                if (bullet == null)
+                    bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+                if (bullet == null)
+                {
+                    DebugHelper.LogWarning($"[MagePassive] Bullet create failed for {gun.effectType}");
+                    continue;
+                }
+
+                ApplyBulletSizeBonus(bullet);
+                ApplyUpgradeVisual(bullet, gun);
+                created++;
             }
-            GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
-
-            // 创建失败重试一次
-            if (bullet == null)
-                bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
-
-            if (bullet == null)
-            {
-                DebugHelper.LogWarning($"[MagePassive] Bullet create failed for {gun.effectType}");
-                continue;
-            }
-
-            ApplyBulletSizeBonus(bullet);
-            ApplyUpgradeVisual(bullet, gun);
-            created++;
         }
 
         return created;

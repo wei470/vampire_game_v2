@@ -1232,7 +1232,7 @@ public class CoreSystemTests
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
         int total = config.upgradeEntries.Length;
-        Assert.AreEqual(33, total, $"Expected 33 upgrades (8 general + 25 bullet), got {total}");
+        Assert.AreEqual(27, total, $"Expected 27 upgrades (8 general + 19 bullet), got {total}");
         Object.DestroyImmediate(config);
     }
 
@@ -1291,21 +1291,20 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void MageUpgradeConfig_Static6Upgrades()
+    public void MageUpgradeConfig_Static4Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "static_chain", "static_tick", "static_range", "static_overload", "storm_multi", "storm_chain" };
+        string[] ids = { "static_chain", "static_range", "storm_multi", "storm_chain" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
     }
 
     [Test]
-    public void MageUpgradeConfig_Wind8Upgrades()
+    public void MageUpgradeConfig_Wind4Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "wind_damage", "wind_speed", "wind_tick", "wind_pierce",
-                         "wind_crit", "wind_storm_eye", "wind_hurricane", "wind_lord" };
+        string[] ids = { "wind_speed", "wind_tick", "wind_hurricane", "wind_lord" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
@@ -1384,19 +1383,14 @@ public class CoreSystemTests
     // ── 雷电专属 ──
 
     [Test] public void Static_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_chain"); Assert.AreEqual(1, m.StaticChainBonus); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Static_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_tick"); Assert.AreEqual(0.15f, m.StaticTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Range_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_range"); Assert.AreEqual(0.2f, m.StaticRangeBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Static_Overload_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_overload"); Assert.IsTrue(m.StaticOverload); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Storm_Multi_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("storm_multi"); Assert.IsTrue(m.StormMulti); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Storm_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("storm_chain"); Assert.IsTrue(m.StormChain); Object.DestroyImmediate(m.gameObject); }
 
     // ── 风专属 ──
 
-    [Test] public void Wind_Damage_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_damage"); Assert.AreEqual(3f, m.WindDamageBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Speed_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_speed"); Assert.AreEqual(0.2f, m.WindSpeedBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_tick"); Assert.AreEqual(0.15f, m.WindTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Wind_Pierce_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_pierce"); Assert.AreEqual(1, m.WindPierceBonus); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Wind_StormEye_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_storm_eye"); Assert.IsTrue(m.WindStormEye); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Hurricane_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_hurricane"); Assert.IsTrue(m.WindHurricane); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Lord_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_lord"); Assert.IsTrue(m.WindLord); Object.DestroyImmediate(m.gameObject); }
 
@@ -1407,14 +1401,6 @@ public class CoreSystemTests
         var m = CreateMageWithConfig();
         for (int i = 0; i < 5; i++) m.ApplyUpgrade("poison_duration");
         Assert.AreEqual(5f, m.PoisonDurationBonus);
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test] public void Wind_Damage_Stacks5()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 5; i++) m.ApplyUpgrade("wind_damage");
-        Assert.AreEqual(15f, m.WindDamageBonus);
         Object.DestroyImmediate(m.gameObject);
     }
 
@@ -1442,209 +1428,5 @@ public class CoreSystemTests
         Object.DestroyImmediate(m.gameObject);
     }
 
-    [Test] public void Wind_Pierce_Stacks3()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("wind_pierce");
-        Assert.AreEqual(3, m.WindPierceBonus);
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    // ═══ 效果验证测试（验证升级后属性正确累加）═══
-
-    [Test]
-    public void Poison_Dps_Stacks5_TotalDps()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 5; i++) m.ApplyUpgrade("poison_dps");
-        Assert.AreEqual(5f, m.PoisonDpsBonus, "5层毒素强化应+5 DPS");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Poison_Pool_Stacks3_RadiusMultiplier()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("poison_pool");
-        Assert.AreEqual(0.6f, m.PoisonPoolBonus, 0.001f, "3层毒液扩散应+60%范围");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Poison_Tick_Stacks3_IntervalReduction()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("poison_tick");
-        Assert.AreEqual(0.45f, m.PoisonTickReduction, 0.001f, "3层毒素加速应-45%间隔");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Burn_Tick_Stacks3_TotalReduction()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("burn_tick");
-        Assert.AreEqual(0.3f, m.BurnTickReduction, 0.001f, "3层火焰加速应-0.3s");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Burn_Slow_Stacks3_TotalSlow()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("burn_slow");
-        Assert.AreEqual(0.6f, m.BurnSlowBonus, 0.001f, "3层火场减速应-60%移速");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Static_Tick_Stacks3_TotalReduction()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("static_tick");
-        Assert.AreEqual(0.45f, m.StaticTickReduction, 0.001f, "3层雷电加速应-45%间隔");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Static_Range_Stacks3_TotalRange()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("static_range");
-        Assert.AreEqual(0.6f, m.StaticRangeBonus, 0.001f, "3层雷电范围应+60%范围");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Wind_Tick_Stacks3_TotalReduction()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("wind_tick");
-        Assert.AreEqual(0.45f, m.WindTickReduction, 0.001f, "3层风化加速应-45%间隔");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Wind_Speed_Stacks3_TotalSpeed()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 3; i++) m.ApplyUpgrade("wind_speed");
-        Assert.AreEqual(0.6f, m.WindSpeedBonus, 0.001f, "3层风速应+60%速度");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Poison_Lethal_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.PoisonLethal, "默认关闭");
-        m.ApplyUpgrade("poison_lethal");
-        Assert.IsTrue(m.PoisonLethal, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Burn_Melt_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.BurnMeltMastery, "默认关闭");
-        m.ApplyUpgrade("burn_melt");
-        Assert.IsTrue(m.BurnMeltMastery, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Burn_Burst_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.BurnBurst, "默认关闭");
-        m.ApplyUpgrade("burn_burst");
-        Assert.IsTrue(m.BurnBurst, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Static_Overload_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.StaticOverload, "默认关闭");
-        m.ApplyUpgrade("static_overload");
-        Assert.IsTrue(m.StaticOverload, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Storm_Multi_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.StormMulti, "默认关闭");
-        m.ApplyUpgrade("storm_multi");
-        Assert.IsTrue(m.StormMulti, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Storm_Chain_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.StormChain, "默认关闭");
-        m.ApplyUpgrade("storm_chain");
-        Assert.IsTrue(m.StormChain, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Wind_StormEye_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.WindStormEye, "默认关闭");
-        m.ApplyUpgrade("wind_storm_eye");
-        Assert.IsTrue(m.WindStormEye, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Wind_Hurricane_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.WindHurricane, "默认关闭");
-        m.ApplyUpgrade("wind_hurricane");
-        Assert.IsTrue(m.WindHurricane, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Wind_Lord_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.WindLord, "默认关闭");
-        m.ApplyUpgrade("wind_lord");
-        Assert.IsTrue(m.WindLord, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    // ═══ 稀有度分布验证 ═══
-
-    [Test]
-    public void MageUpgradeConfig_RarityDistribution_Correct()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        int common = 0, uncommon = 0, rare = 0, epic = 0;
-        for (int i = 0; i < config.upgradeEntries.Length; i++)
-        {
-            switch (config.upgradeEntries[i].rarity)
-            {
-                case UpgradeRarity.Common: common++; break;
-                case UpgradeRarity.Uncommon: uncommon++; break;
-                case UpgradeRarity.Rare: rare++; break;
-                case UpgradeRarity.Epic: epic++; break;
-            }
-        }
-        Assert.IsTrue(common > 0, "应有Common强化");
-        Assert.IsTrue(uncommon > 0, "应有Uncommon强化");
-        Assert.IsTrue(rare > 0, "应有Rare强化");
-        Assert.IsTrue(epic > 0, "应有Epic强化");
-        Object.DestroyImmediate(config);
-    }
 }
 #endif

@@ -17,6 +17,8 @@ public class LightningBullet : MonoBehaviour
     public int ExtraChainTargets { get; set; } = 0;
     private int TotalChainCount => _maxChainCount + ExtraChainTargets;
     private float _chainRadius = 8f;
+    public float ExtraChainRadius { get; set; } = 0f;
+    private float TotalChainRadius => _chainRadius + ExtraChainRadius;
     private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
     private readonly List<(GameObject enemy, float dist)> _chainCandidates = new List<(GameObject, float)>(16);
     private bool _consumed = false;
@@ -90,7 +92,7 @@ public class LightningBullet : MonoBehaviour
         IReadOnlyList<GameObject> enemies = spawnMgr != null ? spawnMgr.ActiveEnemies : null;
         if (enemies == null || enemies.Count == 0) return;
 
-        float chainRadiusSqr = _chainRadius * _chainRadius;
+        float chainRadiusSqr = TotalChainRadius * TotalChainRadius;
         Vector2 originPos = origin.transform.position;
         var candidates = _chainCandidates;
         candidates.Clear();
