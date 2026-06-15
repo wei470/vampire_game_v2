@@ -17,7 +17,7 @@ public class BurnBullet : DotBulletBase
     protected override Color DefaultBulletColor => new Color(1f, 0.4f, 0f, 0.6f);
     protected override Color DefaultTrailStartColor => new Color(1f, 0.4f, 0f, 0.4f);
 
-    private static readonly List<Collider2D> _overlapBuffer = new List<Collider2D>(16);
+    private static readonly Collider2D[] _overlapBuffer = new Collider2D[32];
 
     public void SetupBurn(float speed, int impactDmg, float burnDps, float burnDuration,
         float dmgMult, bool canCrit, float critChance, float critMult)
@@ -80,29 +80,30 @@ public class BurnBullet : DotBulletBase
             var hit = _overlapBuffer[i];
             if (!hit.CompareTag("Enemy")) continue;
 
-            var dmg = hit.GetComponent<Damageable>();
+            var enemyGo = hit.gameObject;
+            var dmg = enemyGo.GetComponent<Damageable>();
             if (dmg == null || dmg.CurrentHp <= 0) continue;
 
             // 确保 StatusEffectManager 存在
-            DotBulletHelper.EnsureStatusEffectManager(hit.gameObject);
+            DotBulletHelper.EnsureStatusEffectManager(enemyGo);
 
             // 叠燃烧层
-            var burn = hit.GetComponent<BurnStackEffect>();
-            if (burn == null) burn = hit.AddComponent<BurnStackEffect>();
+            var burn = enemyGo.GetComponent<BurnStackEffect>();
+            if (burn == null) burn = enemyGo.AddComponent<BurnStackEffect>();
             burn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
 
             // ── 元素反应：燃烧扩散（燃烧 × 风化）──
-            var windEffect = hit.GetComponent<WindErosionEffect>();
+            var windEffect = enemyGo.GetComponent<WindErosionEffect>();
             if (windEffect != null && windEffect.WindStacks > 0)
             {
                 TriggerBurnSpread(hit.transform.position, burn);
             }
 
             // ── 元素反应：融化（霜冻 × 燃烧）──
-            var frostEffect = hit.GetComponent<FrostEffect>();
+            var frostEffect = enemyGo.GetComponent<FrostEffect>();
             if (frostEffect != null && frostEffect.FrostStacks > 0)
             {
-                TriggerMelt(hit.gameObject, frostEffect);
+                TriggerMelt(enemyGo, frostEffect);
             }
         }
     }
