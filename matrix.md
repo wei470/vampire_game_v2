@@ -38,10 +38,11 @@
 
 ### 融化（霜冻 × 燃烧）
 
-- **触发**：火场 tick 时检测敌人身上有 FrostEffect
-- **效果**：激活 MeltEffect，DOT 伤害 ×2，持续 `MeltDuration` 秒
-- **消耗**：消耗一层霜冻
-- **配置**：`DotEffectConfig.MeltDuration`、`MeltDamageMultiplier`
+- **触发**：火场 tick 时检测敌人身上有 FrostEffect（层数 > 0）
+- **消耗**：1 层霜冻
+- **效果**：引爆所有 DOT，造成相当于 1 秒 DOT 总 DPS 的瞬间伤害
+- **显示**：弹出 "融化！{伤害}" 文字
+- **代码**：`BurnBullet.TriggerMelt()`
 
 ### 燃烧扩散（燃烧 × 风化）
 

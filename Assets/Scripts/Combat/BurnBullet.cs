@@ -154,27 +154,53 @@ public class BurnBullet : DotBulletBase
         }
     }
 
-    // ── 元素反应：融化 ──
+    // ── 元素反应：融化（DOT 引爆）──
     private static void TriggerMelt(GameObject enemy, FrostEffect frostEff)
     {
         if (!frostEff.ConsumeStack()) return;
 
-        var config = DotEffectConfig.GetDefault();
-        var melt = enemy.GetComponent<MeltEffect>();
-        if (melt == null) melt = enemy.AddComponent<MeltEffect>();
-        melt.Activate(config.MeltDuration, config.MeltDamageMultiplier);
+        // 计算所有 DOT 的 1 秒总伤害
+        float totalDps = 0f;
 
-        CombatManager.CreateExplosionEffect(enemy.transform.position, 0.6f, new Color(1f, 0.3f, 0f, 0.5f), 0.3f);
-        ShowMeltText(enemy.transform.position);
+        var burn = enemy.GetComponent<BurnStackEffect>();
+        if (burn != null && burn.StackCount > 0)
+        {
+            float burnStackMult = 1f + (burn.StackCount - 1) * 0.1f;
+            totalDps += burn.baseDps * burnStackMult;
+        }
+
+        var poison = enemy.GetComponent<PoisonStackEffect>();
+        if (poison != null && poison.StackCount > 0)
+        {
+            totalDps += poison.StackCount;
+        }
+
+        var frost = enemy.GetComponent<FrostEffect>();
+        if (frost != null && frost.frostDps > 0)
+        {
+            totalDps += frost.frostDps * frost.FrostStacks;
+        }
+
+        if (totalDps <= 0f) return;
+
+        // 造成相当于 1 秒 DOT 的引爆伤害
+        var dmg = enemy.GetComponent<Damageable>();
+        if (dmg != null && dmg.CurrentHp > 0)
+        {
+            dmg.TakeDamage(totalDps, new Color(1f, 0.3f, 0f));
+        }
+
+        CombatManager.CreateExplosionEffect(enemy.transform.position, 0.8f, new Color(1f, 0.3f, 0f, 0.6f), 0.4f);
+        ShowMeltText(enemy.transform.position, totalDps);
     }
 
-    private static void ShowMeltText(Vector2 pos)
+    private static void ShowMeltText(Vector2 pos, float damage)
     {
         var textObj = new GameObject("MeltText");
         textObj.transform.position = pos + new Vector2(0, 0.6f);
         textObj.transform.localScale = Vector3.one * 0.3f;
         var textMesh = textObj.AddComponent<TextMesh>();
-        textMesh.text = "融化！";
+        textMesh.text = $"融化！{damage:F0}";
         textMesh.characterSize = 0.2f;
         textMesh.anchor = TextAnchor.MiddleCenter;
         textMesh.alignment = TextAlignment.Center;
