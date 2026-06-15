@@ -126,7 +126,6 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new UpgradeEntry { upgradeId = "wind_speed", upgradeName = "风速", description = "风弹速度+20%", category = CharacterUpgradeOption.UpgradeCategory.WindSpeed, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "wind_precision", upgradeName = "精准", description = "偏移角度缩小为5°", category = CharacterUpgradeOption.UpgradeCategory.WindTick, rarity = UpgradeRarity.Epic, value1 = 5f, maxStacks = 1 },
-                new UpgradeEntry { upgradeId = "wind_hurricane", upgradeName = "飓风", description = "偏移角度7%/0%", category = CharacterUpgradeOption.UpgradeCategory.WindHurricane, rarity = UpgradeRarity.Epic, value1 = 7f, value2 = 0f, maxStacks = 2 },
             };
         }
     }

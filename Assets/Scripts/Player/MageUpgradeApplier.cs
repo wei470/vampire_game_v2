@@ -79,7 +79,6 @@ public static class MageUpgradeApplier
         // 风专属
         { CharacterUpgradeOption.UpgradeCategory.WindSpeed, ApplyWindSpeed },
         { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindPrecision },
-        { CharacterUpgradeOption.UpgradeCategory.WindHurricane, ApplyWindHurricane },
     };
 
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)

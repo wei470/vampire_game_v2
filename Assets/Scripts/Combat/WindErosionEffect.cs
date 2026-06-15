@@ -54,15 +54,7 @@ public class WindErosionEffect : StackEffectBase
         if (_windStacks >= _maxStacks) return;
         _windStacks++;
 
-        if (_damageable == null) _damageable = GetComponent<Damageable>();
-        if (_damageable != null && _damageable.CurrentHp > 0)
-        {
-            _damageable.TakeDamage(DAMAGE_PER_STACK, WIND_POPUP_COLOR);
-        }
-
         ApplyKnockback();
-
-        DebugHelper.Log($"[WindErosion] Stack added! Total={_windStacks}, Hits={_hitCount}, Knockback={GetKnockbackForce():F1}");
     }
 
     public float GetKnockbackForce()
