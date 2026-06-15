@@ -1228,11 +1228,11 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void MageUpgradeConfig_Has48Upgrades()
+    public void MageUpgradeConfig_Has40Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
         int total = config.upgradeEntries.Length;
-        Assert.AreEqual(48, total, $"Expected 48 upgrades (8 general + 40 bullet), got {total}");
+        Assert.AreEqual(38, total, $"Expected 38 upgrades (8 general + 30 bullet), got {total}");
         Object.DestroyImmediate(config);
     }
 
@@ -1281,11 +1281,10 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void MageUpgradeConfig_Frost8Upgrades()
+    public void MageUpgradeConfig_Frost4Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "frost_duration", "frost_slow", "frost_tick", "frost_range",
-                         "frost_crit", "frost_freeze", "frost_blizzard", "frost_absolute" };
+        string[] ids = { "frost_duration", "frost_slow", "frost_freeze", "frost_blizzard", "frost_absolute" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
@@ -1368,9 +1367,6 @@ public class CoreSystemTests
     [Test] public void Poison_Dps_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_dps"); Assert.AreEqual(1f, m.PoisonDpsBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Poison_Pool_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_pool"); Assert.AreEqual(0.2f, m.PoisonPoolBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Poison_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_tick"); Assert.AreEqual(0.15f, m.PoisonTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Poison_Crit_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_crit"); Assert.AreEqual(0.05f, m.PoisonCritBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Poison_Sepsis_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_sepsis"); Assert.IsTrue(m.PoisonSepsis); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Poison_Plague_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_plague"); Assert.IsTrue(m.PoisonPlague); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Poison_Lethal_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("poison_lethal"); Assert.IsTrue(m.PoisonLethal); Object.DestroyImmediate(m.gameObject); }
 
     // ── 燃烧专属 ──
@@ -1379,18 +1375,13 @@ public class CoreSystemTests
     [Test] public void Burn_Radius_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_radius"); Assert.AreEqual(0.15f, m.BurnRadiusBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Burn_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_tick"); Assert.AreEqual(0.1f, m.BurnTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Burn_Slow_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_slow"); Assert.AreEqual(0.2f, m.BurnSlowBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Burn_Crit_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_crit"); Assert.AreEqual(0.05f, m.BurnCritBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Burn_Melt_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_melt"); Assert.IsTrue(m.BurnMeltMastery); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Burn_Storm_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_storm"); Assert.IsTrue(m.BurnStorm); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Burn_Burst_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_burst"); Assert.IsTrue(m.BurnBurst); Object.DestroyImmediate(m.gameObject); }
 
     // ── 霜冻专属 ──
 
     [Test] public void Frost_Duration_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_duration"); Assert.AreEqual(1f, m.FrostDurationBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Slow_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_slow"); Assert.AreEqual(0.1f, m.FrostSlowBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_tick"); Assert.AreEqual(0.15f, m.FrostTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Range_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_range"); Assert.AreEqual(0.2f, m.FrostRangeBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Crit_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_crit"); Assert.AreEqual(0.05f, m.FrostCritBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Freeze_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_freeze"); Assert.IsTrue(m.FrostFreeze); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Blizzard_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_blizzard"); Assert.IsTrue(m.FrostBlizzard); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Absolute_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_absolute"); Assert.IsTrue(m.FrostAbsolute); Object.DestroyImmediate(m.gameObject); }
@@ -1401,7 +1392,6 @@ public class CoreSystemTests
     [Test] public void Static_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_chain"); Assert.AreEqual(1, m.StaticChainBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_tick"); Assert.AreEqual(0.15f, m.StaticTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Range_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_range"); Assert.AreEqual(0.2f, m.StaticRangeBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Static_Crit_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_crit"); Assert.AreEqual(0.05f, m.StaticCritBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Overload_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_overload"); Assert.IsTrue(m.StaticOverload); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Storm_Multi_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("storm_multi"); Assert.IsTrue(m.StormMulti); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Storm_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("storm_chain"); Assert.IsTrue(m.StormChain); Object.DestroyImmediate(m.gameObject); }
@@ -1412,7 +1402,6 @@ public class CoreSystemTests
     [Test] public void Wind_Speed_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_speed"); Assert.AreEqual(0.2f, m.WindSpeedBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_tick"); Assert.AreEqual(0.15f, m.WindTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Pierce_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_pierce"); Assert.AreEqual(1, m.WindPierceBonus); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Wind_Crit_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_crit"); Assert.AreEqual(0.05f, m.WindCritBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_StormEye_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_storm_eye"); Assert.IsTrue(m.WindStormEye); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Hurricane_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_hurricane"); Assert.IsTrue(m.WindHurricane); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Lord_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_lord"); Assert.IsTrue(m.WindLord); Object.DestroyImmediate(m.gameObject); }

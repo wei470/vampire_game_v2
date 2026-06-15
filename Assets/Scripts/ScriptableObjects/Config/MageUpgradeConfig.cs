@@ -93,11 +93,7 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // 绿色
                 new UpgradeEntry { upgradeId = "poison_pool", upgradeName = "毒液扩散", description = "毒液池范围+20%", category = CharacterUpgradeOption.UpgradeCategory.PoisonPool, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "poison_tick", upgradeName = "毒素加速", description = "毒素叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.PoisonTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
-                // 蓝色
-                new UpgradeEntry { upgradeId = "poison_crit", upgradeName = "毒素暴击", description = "毒素暴击率+5%", category = CharacterUpgradeOption.UpgradeCategory.PoisonCrit, rarity = UpgradeRarity.Rare, value1 = 0.05f, maxStacks = 5 },
-                new UpgradeEntry { upgradeId = "poison_sepsis", upgradeName = "脓毒", description = "DOT伤害+30%", category = CharacterUpgradeOption.UpgradeCategory.PoisonSepsis, rarity = UpgradeRarity.Rare, value1 = 0.30f, maxStacks = 1 },
                 // 紫色
-                new UpgradeEntry { upgradeId = "poison_plague", upgradeName = "瘟疫", description = "毒素敌人死亡传播", category = CharacterUpgradeOption.UpgradeCategory.PoisonPlague, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
                 new UpgradeEntry { upgradeId = "poison_lethal", upgradeName = "猛毒", description = "毒素DPS×2", category = CharacterUpgradeOption.UpgradeCategory.PoisonLethal, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
 
                 // ═══ 燃烧专属 ═══
@@ -108,21 +104,15 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new UpgradeEntry { upgradeId = "burn_tick", upgradeName = "火焰加速", description = "火场叠层间隔-0.1s", category = CharacterUpgradeOption.UpgradeCategory.BurnTick, rarity = UpgradeRarity.Uncommon, value1 = 0.1f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "burn_slow", upgradeName = "火场减速", description = "火场内敌人移速-20%", category = CharacterUpgradeOption.UpgradeCategory.BurnSlow, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 // 蓝色
-                new UpgradeEntry { upgradeId = "burn_crit", upgradeName = "燃烧暴击", description = "燃烧暴击率+5%", category = CharacterUpgradeOption.UpgradeCategory.BurnCrit, rarity = UpgradeRarity.Rare, value1 = 0.05f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "burn_melt", upgradeName = "融化精通", description = "融化DOT×3", category = CharacterUpgradeOption.UpgradeCategory.BurnMelt, rarity = UpgradeRarity.Rare, value1 = 3f, maxStacks = 1 },
                 // 紫色
-                new UpgradeEntry { upgradeId = "burn_storm", upgradeName = "火焰风暴", description = "同时2个火场", category = CharacterUpgradeOption.UpgradeCategory.BurnStorm, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
                 new UpgradeEntry { upgradeId = "burn_burst", upgradeName = "炎爆", description = "燃烧满层爆炸", category = CharacterUpgradeOption.UpgradeCategory.BurnBurst, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
 
                 // ═══ 霜冻专属 ═══
                 // 灰色
                 new UpgradeEntry { upgradeId = "frost_duration", upgradeName = "霜冻持久", description = "霜冻持续时间+1s", category = CharacterUpgradeOption.UpgradeCategory.FrostDuration, rarity = UpgradeRarity.Common, value1 = 1f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "frost_slow", upgradeName = "减速强化", description = "霜冻减速+10%", category = CharacterUpgradeOption.UpgradeCategory.FrostSlow, rarity = UpgradeRarity.Common, value1 = 0.10f, maxStacks = 5 },
-                // 绿色
-                new UpgradeEntry { upgradeId = "frost_tick", upgradeName = "霜冻加速", description = "霜冻叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.FrostTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
-                new UpgradeEntry { upgradeId = "frost_range", upgradeName = "霜冻范围", description = "霜冻碰撞范围+20%", category = CharacterUpgradeOption.UpgradeCategory.FrostRange, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 // 蓝色
-                new UpgradeEntry { upgradeId = "frost_crit", upgradeName = "霜冻暴击", description = "霜冻暴击率+5%", category = CharacterUpgradeOption.UpgradeCategory.FrostCrit, rarity = UpgradeRarity.Rare, value1 = 0.05f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "frost_freeze", upgradeName = "冰封", description = "霜冻满层冻结0.5s", category = CharacterUpgradeOption.UpgradeCategory.FrostFreeze, rarity = UpgradeRarity.Rare, value1 = 0.5f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "frost_blizzard", upgradeName = "暴风雪", description = "霜冻范围×2", category = CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
@@ -136,7 +126,6 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new UpgradeEntry { upgradeId = "static_tick", upgradeName = "雷电加速", description = "雷电叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.StaticTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "static_range", upgradeName = "雷电范围", description = "连锁范围+20%", category = CharacterUpgradeOption.UpgradeCategory.StaticRange, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 // 蓝色
-                new UpgradeEntry { upgradeId = "static_crit", upgradeName = "雷电暴击", description = "雷电暴击率+5%", category = CharacterUpgradeOption.UpgradeCategory.StaticCrit, rarity = UpgradeRarity.Rare, value1 = 0.05f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "static_overload", upgradeName = "超载", description = "雷电×燃烧超载爆炸", category = CharacterUpgradeOption.UpgradeCategory.StaticOverload, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "storm_multi", upgradeName = "雷暴", description = "雷电子弹+1", category = CharacterUpgradeOption.UpgradeCategory.StormMulti, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
@@ -150,7 +139,6 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new UpgradeEntry { upgradeId = "wind_tick", upgradeName = "风化加速", description = "风化叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.WindTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "wind_pierce", upgradeName = "风刃穿透", description = "风弹穿透+1", category = CharacterUpgradeOption.UpgradeCategory.WindPierce, rarity = UpgradeRarity.Uncommon, value1 = 1f, maxStacks = 3 },
                 // 蓝色
-                new UpgradeEntry { upgradeId = "wind_crit", upgradeName = "风暴暴击", description = "风弹暴击率+5%", category = CharacterUpgradeOption.UpgradeCategory.WindCrit, rarity = UpgradeRarity.Rare, value1 = 0.05f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "wind_storm_eye", upgradeName = "风暴之眼", description = "风×雷电连锁风暴", category = CharacterUpgradeOption.UpgradeCategory.WindStormEye, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "wind_hurricane", upgradeName = "飓风", description = "风弹数量+2", category = CharacterUpgradeOption.UpgradeCategory.WindHurricane, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },

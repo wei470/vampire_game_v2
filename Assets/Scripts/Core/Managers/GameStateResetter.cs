@@ -28,6 +28,7 @@ public static class GameStateResetter
         VFXPool.ClearAll();
 
         // 清理静态列表（防止场景重载泄漏）
+        EnemyBase.AllAlive.Clear();
         DotBulletBase.ActiveDotBullets.Clear();
         SimpleBullet.ActiveBullets.Clear();
         Coin.All.Clear();

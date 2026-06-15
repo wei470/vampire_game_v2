@@ -78,11 +78,23 @@ public class PoisonBullet : DotBulletBase
         _exploded = true;
         if (_rb != null) _rb.linearVelocity = Vector2.zero;
 
-        // 从 Config 实时读取毒液池参数
         var cfg = DotEffectConfig.GetDefault();
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+
         float explosionRadius = darkMarkBonus ? _explosionRadius * 2f : cfg.PoisonExplosionRadius * 2f;
         float puddleRadius = darkMarkBonus ? cfg.PoisonPuddleRadius : cfg.PoisonPuddleRadius * 0.5f;
         float puddleDuration = cfg.PoisonPuddleDuration;
+
+        // 应用毒液扩散强化
+        if (mage != null && mage.PoisonPoolBonus > 0)
+            puddleRadius *= (1f + mage.PoisonPoolBonus);
+
+        // 应用毒素持久强化
+        if (mage != null && mage.PoisonDurationBonus > 0)
+        {
+            puddleDuration += mage.PoisonDurationBonus;
+            _poisonDuration += mage.PoisonDurationBonus;
+        }
 
         int count = PhysicsHelper.OverlapCircle(center, explosionRadius, _overlapBuffer);
         for (int i = 0; i < count; i++)
@@ -102,7 +114,6 @@ public class PoisonBullet : DotBulletBase
             CombatManager.CreateExplosionEffect(center, 1f,
                 new Color(0.4f, 0.1f, 0.6f, 0.6f), 0.5f);
             ShowPoisonBurstText(center);
-            DebugHelper.Log($"[PoisonBurst] 毒爆触发！爆炸范围={explosionRadius:F1}，毒圈范围={puddleRadius:F1}");
         }
 
         DespawnSelf();

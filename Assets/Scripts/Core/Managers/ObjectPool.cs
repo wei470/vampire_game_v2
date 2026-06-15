@@ -49,6 +49,22 @@ public class ObjectPool : Singleton<ObjectPool>
                 Parent = CreatePoolParent(poolKey)
             };
         }
+        else if (prefab != null && _pools[poolKey].Prefab == null)
+        {
+            // 池已存在但其 Prefab 模板已随上一局场景卸载被销毁（== null）。
+            // ObjectPool 是 DontDestroyOnLoad，返回菜单若未走 FullReset，池会带着失效模板残留；
+            // 此时若不刷新，CreateNewInstance 会从空模板创建“无组件假敌人”，
+            // 导致敌人不可见、永不死亡、波次卡死、敌人彻底不再刷新。
+            // 用本局的新模板刷新引用，并清空可能失效的空闲实例。
+            var existing = _pools[poolKey];
+            existing.Prefab = prefab;
+            while (existing.InactiveQueue.Count > 0)
+            {
+                var stale = existing.InactiveQueue.Dequeue();
+                if (stale != null) Destroy(stale);
+            }
+            DebugHelper.Log($"[ObjectPool] Pool '{poolKey}' prefab was stale (scene-unloaded); refreshed with new template.");
+        }
 
         var pool = _pools[poolKey];
         for (int i = 0; i < count; i++)

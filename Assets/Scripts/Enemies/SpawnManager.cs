@@ -108,6 +108,8 @@ public class SpawnManager : MonoBehaviour
         _waveInProgress = false;
 
         ForceDestroyAllEnemies();
+        // 清理静态存活列表残留（返回菜单走的是定向清理而非 FullReset，可能遗留上一局的条目）
+        EnemyBase.AllAlive.Clear();
         _prefabFactory.EnsureEnemyPrefabs();
         EnsureEnemyPoolsWarmedUp();
 
