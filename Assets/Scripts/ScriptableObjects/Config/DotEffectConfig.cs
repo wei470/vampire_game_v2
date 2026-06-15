@@ -31,7 +31,7 @@ public class DotEffectConfig : ScriptableObject
     public float BurnSpeed = 4f;
 
     [Tooltip("火场子弹自身在场景中的存活时间。默认值：8")]
-    public float BurnLifetime = 8f;
+    public float BurnLifetime = 2f;
 
     [Tooltip("燃烧效果的基础每秒伤害（DPS）。默认值：2")]
     public float BurnBaseDps = 2f;
