@@ -40,10 +40,19 @@ public struct UpgradeEntry
     public string upgradeName;
     [TextArea(2, 3)] public string description;
     public CharacterUpgradeOption.UpgradeCategory category;
+    public UpgradeRarity rarity;
     public float value1;
     public float value2;
     public float value3;
     public int maxStacks;
+}
+
+public enum UpgradeRarity
+{
+    Common,     // 灰色 40%
+    Uncommon,   // 绿色 30%
+    Rare,       // 蓝色 20%
+    Epic        // 紫色 10%
 }
 
 #endregion
@@ -113,6 +122,7 @@ public class CharacterUpgradeConfig : ScriptableObject, ICharacterConfig
                 {
                     upgradeId = ue.upgradeId, upgradeName = ue.upgradeName,
                     description = ue.description, category = ue.category,
+                    rarity = ue.rarity,
                     value1 = ue.value1, value2 = ue.value2, value3 = ue.value3, maxStacks = ue.maxStacks
                 });
             }

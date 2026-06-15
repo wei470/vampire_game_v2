@@ -19,6 +19,7 @@ public class CharacterUpgradeOption
 
     [Header("升级类型")]
     public UpgradeCategory category = UpgradeCategory.DotDamage;
+    public UpgradeRarity rarity = UpgradeRarity.Common;
 
     [Header("数值参数")]
     public float value1;        // 主要数值（伤害倍率、概率等）
@@ -72,5 +73,51 @@ public class CharacterUpgradeOption
         Doomsday,           // 末日审判
         EternalAgony,       // 永恒痛苦
         DotOverflow,        // 溢出弹
+
+        // ── 子弹专属强化 ──
+        PoisonDuration,     // 毒素持久
+        PoisonDps,          // 毒素强化
+        PoisonPool,         // 毒液扩散
+        PoisonTick,         // 毒素加速
+        PoisonCrit,         // 毒素暴击
+        PoisonSepsis,       // 脓毒
+        PoisonPlague,       // 瘟疫
+        PoisonLethal,       // 猛毒
+
+        BurnDuration,       // 火焰持久
+        BurnRadius,         // 火场扩大
+        BurnTick,           // 火焰加速
+        BurnSlow,           // 火场减速
+        BurnCrit,           // 燃烧暴击
+        BurnMelt,           // 融化精通
+        BurnStorm,          // 火焰风暴
+        BurnBurst,          // 炎爆
+
+        FrostDuration,      // 霜冻持久
+        FrostSlow,          // 减速强化
+        FrostTick,          // 霜冻加速
+        FrostRange,         // 霜冻范围
+        FrostCrit,          // 霜冻暴击
+        FrostFreeze,        // 冰封
+        FrostBlizzard,      // 暴风雪
+        FrostAbsolute,      // 绝对零度
+
+        StaticDamage,       // 雷电强化
+        StaticChain,        // 连锁强化
+        StaticTick,         // 雷电加速
+        StaticRange,        // 雷电范围
+        StaticCrit,         // 雷电暴击
+        StaticOverload,     // 超载
+        StormMulti,         // 雷暴
+        StormChain,         // 万雷齐发
+
+        WindDamage,         // 风刃强化
+        WindSpeed,          // 风速
+        WindTick,           // 风化加速
+        WindPierce,         // 风刃穿透
+        WindCrit,           // 风暴暴击
+        WindStormEye,       // 风暴之眼
+        WindHurricane,      // 飓风
+        WindLord,           // 风暴领主
     }
 }

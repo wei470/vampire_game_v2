@@ -62,7 +62,7 @@ public class LevelUpOptionGenerator
     }
 
     /// <summary>
-    /// 生成 3 个随机升级选项
+    /// 生成 3 个随机升级选项（按稀有度加权）
     /// </summary>
     public UpgradeSlot[] GenerateOptions(WeaponController weaponController)
     {
@@ -84,29 +84,61 @@ public class LevelUpOptionGenerator
 
         CalculateRecommendations(allSlots);
 
-        // Fisher-Yates 洗牌
-        var arr = allSlots.ToArray();
-        for (int i = arr.Length - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            var temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
-        }
-
-        // 优先推荐选项
+        // 按稀有度加权选择 3 个
         var result = new UpgradeSlot[3];
-        var recommendedList = new List<UpgradeSlot>();
-        var normalList = new List<UpgradeSlot>();
-        for (int i = 0; i < arr.Length; i++)
+        var used = new HashSet<int>();
+        for (int slot = 0; slot < 3 && slot < allSlots.Count; slot++)
         {
-            if (arr[i].isRecommended) recommendedList.Add(arr[i]);
-            else normalList.Add(arr[i]);
+            int selected = WeightedSelect(allSlots, used);
+            if (selected >= 0)
+            {
+                used.Add(selected);
+                result[slot] = allSlots[selected];
+            }
         }
 
-        int idx = 0;
-        if (recommendedList.Count > 0)
+        // 填充空位
+        for (int i = 0; i < 3; i++)
+            if (result[i].customOption.upgradeId == null && result[i].genericType == 0)
+                result[i] = allSlots[0];
+
+        return result;
+    }
+
+    private static int WeightedSelect(List<UpgradeSlot> slots, HashSet<int> used)
+    {
+        float totalWeight = 0f;
+        for (int i = 0; i < slots.Count; i++)
         {
-            int ri = Random.Range(0, recommendedList.Count);
-            result[idx++] = recommendedList[ri];
+            if (used.Contains(i)) continue;
+            totalWeight += GetRarityWeight(slots[i].customOption.rarity);
+        }
+
+        float roll = Random.Range(0f, totalWeight);
+        float cum = 0f;
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (used.Contains(i)) continue;
+            cum += GetRarityWeight(slots[i].customOption.rarity);
+            if (roll <= cum) return i;
+        }
+
+        for (int i = 0; i < slots.Count; i++)
+            if (!used.Contains(i)) return i;
+        return -1;
+    }
+
+    private static float GetRarityWeight(UpgradeRarity rarity)
+    {
+        switch (rarity)
+        {
+            case UpgradeRarity.Common: return 40f;
+            case UpgradeRarity.Uncommon: return 30f;
+            case UpgradeRarity.Rare: return 20f;
+            case UpgradeRarity.Epic: return 10f;
+            default: return 40f;
+        }
+    }
         }
 
         var normalArr = normalList.ToArray();

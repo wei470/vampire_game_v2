@@ -306,7 +306,8 @@ public class TestBulletSelectUI : MonoBehaviour
 
             string catName = entry.category.ToString();
             Color catCol = _categoryColorCache.ContainsKey(catName) ? _categoryColorCache[catName] : new Color(0.5f, 0.5f, 0.5f);
-            GUI.color = active ? catCol : new Color(catCol.r, catCol.g, catCol.b, 0.35f);
+            Color rarCol = GetRarityColor(entry.rarity);
+            GUI.color = active ? rarCol : new Color(rarCol.r, rarCol.g, rarCol.b, 0.35f);
             GUI.DrawTexture(new Rect(5f, yPos, 8f, itemH - 5f), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
@@ -442,5 +443,17 @@ public class TestBulletSelectUI : MonoBehaviour
         GUI.DrawTexture(new Rect(rect.x, rect.y, t, rect.height), Texture2D.whiteTexture);
         GUI.DrawTexture(new Rect(rect.xMax - t, rect.y, t, rect.height), Texture2D.whiteTexture);
         GUI.color = Color.white;
+    }
+
+    private static Color GetRarityColor(UpgradeRarity rarity)
+    {
+        switch (rarity)
+        {
+            case UpgradeRarity.Common: return new Color(0.7f, 0.7f, 0.7f);   // 灰色
+            case UpgradeRarity.Uncommon: return new Color(0.2f, 0.9f, 0.2f); // 绿色
+            case UpgradeRarity.Rare: return new Color(0.3f, 0.5f, 1f);       // 蓝色
+            case UpgradeRarity.Epic: return new Color(0.7f, 0.3f, 1f);       // 紫色
+            default: return Color.white;
+        }
     }
 }

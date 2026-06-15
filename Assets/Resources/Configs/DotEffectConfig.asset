@@ -13,11 +13,13 @@ MonoBehaviour:
   m_Name: DotEffectConfig
   m_EditorClassIdentifier: Gameplay::DotEffectConfig
   BarrageSpreadAngle: 15
-  BurnSpeed: 12
-  BurnLifetime: 4
+  BurnSpeed: 3
+  BurnLifetime: 10
   BurnBaseDps: 2
   BurnDuration: 3
-  BurnMinTickInterval: 0.2
+  BurnBaseTickInterval: 0.5
+  BurnFireZoneRadius: 2.5
+  BurnFireZoneScale: 2
   PoisonSpeed: 14
   PoisonExplosionRadius: 0.5
   PoisonPuddleRadius: 1.5

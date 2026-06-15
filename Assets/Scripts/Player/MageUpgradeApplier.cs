@@ -38,9 +38,57 @@ public static class MageUpgradeApplier
         { CharacterUpgradeOption.UpgradeCategory.Penetrate, ApplyPenetrate },
         { CharacterUpgradeOption.UpgradeCategory.ElementalShield, ApplyElementalShield },
         { CharacterUpgradeOption.UpgradeCategory.Doomsday, ApplyDoomsday },
-
-        // 一般强化
         { CharacterUpgradeOption.UpgradeCategory.MoveSpeed, ApplyMoveSpeed },
+
+        // 中毒专属
+        { CharacterUpgradeOption.UpgradeCategory.PoisonDuration, ApplyPoisonDuration },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonDps, ApplyPoisonDps },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonPool, ApplyPoisonPool },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonTick, ApplyPoisonTick },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonCrit, ApplyPoisonCrit },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonSepsis, ApplyPoisonSepsis },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonPlague, ApplyPoisonPlague },
+        { CharacterUpgradeOption.UpgradeCategory.PoisonLethal, ApplyPoisonLethal },
+
+        // 燃烧专属
+        { CharacterUpgradeOption.UpgradeCategory.BurnDuration, ApplyBurnDuration },
+        { CharacterUpgradeOption.UpgradeCategory.BurnRadius, ApplyBurnRadius },
+        { CharacterUpgradeOption.UpgradeCategory.BurnTick, ApplyBurnTick },
+        { CharacterUpgradeOption.UpgradeCategory.BurnSlow, ApplyBurnSlow },
+        { CharacterUpgradeOption.UpgradeCategory.BurnCrit, ApplyBurnCrit },
+        { CharacterUpgradeOption.UpgradeCategory.BurnMelt, ApplyBurnMelt },
+        { CharacterUpgradeOption.UpgradeCategory.BurnStorm, ApplyBurnStorm },
+        { CharacterUpgradeOption.UpgradeCategory.BurnBurst, ApplyBurnBurst },
+
+        // 霜冻专属
+        { CharacterUpgradeOption.UpgradeCategory.FrostDuration, ApplyFrostDuration },
+        { CharacterUpgradeOption.UpgradeCategory.FrostSlow, ApplyFrostSlow },
+        { CharacterUpgradeOption.UpgradeCategory.FrostTick, ApplyFrostTick },
+        { CharacterUpgradeOption.UpgradeCategory.FrostRange, ApplyFrostRange },
+        { CharacterUpgradeOption.UpgradeCategory.FrostCrit, ApplyFrostCrit },
+        { CharacterUpgradeOption.UpgradeCategory.FrostFreeze, ApplyFrostFreeze },
+        { CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, ApplyFrostBlizzard },
+        { CharacterUpgradeOption.UpgradeCategory.FrostAbsolute, ApplyFrostAbsolute },
+
+        // 雷电专属
+        { CharacterUpgradeOption.UpgradeCategory.StaticDamage, ApplyStaticDamage },
+        { CharacterUpgradeOption.UpgradeCategory.StaticChain, ApplyStaticChain },
+        { CharacterUpgradeOption.UpgradeCategory.StaticTick, ApplyStaticTick },
+        { CharacterUpgradeOption.UpgradeCategory.StaticRange, ApplyStaticRange },
+        { CharacterUpgradeOption.UpgradeCategory.StaticCrit, ApplyStaticCrit },
+        { CharacterUpgradeOption.UpgradeCategory.StaticOverload, ApplyStaticOverload },
+        { CharacterUpgradeOption.UpgradeCategory.StormMulti, ApplyStormMulti },
+        { CharacterUpgradeOption.UpgradeCategory.StormChain, ApplyStormChain },
+
+        // 风专属
+        { CharacterUpgradeOption.UpgradeCategory.WindDamage, ApplyWindDamage },
+        { CharacterUpgradeOption.UpgradeCategory.WindSpeed, ApplyWindSpeed },
+        { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindTick },
+        { CharacterUpgradeOption.UpgradeCategory.WindPierce, ApplyWindPierce },
+        { CharacterUpgradeOption.UpgradeCategory.WindCrit, ApplyWindCrit },
+        { CharacterUpgradeOption.UpgradeCategory.WindStormEye, ApplyWindStormEye },
+        { CharacterUpgradeOption.UpgradeCategory.WindHurricane, ApplyWindHurricane },
+        { CharacterUpgradeOption.UpgradeCategory.WindLord, ApplyWindLord },
     };
 
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)
@@ -181,6 +229,61 @@ public static class MageUpgradeApplier
             DebugHelper.Log($"[MageUpgradeApplier] MoveSpeed +{ue.value1 * 100:F0}% (total: {player.MoveSpeed:F1})");
         }
     }
+
+    // ═══ 中毒专属 ═══
+
+    private static void ApplyPoisonDuration(MagePassive mage, UpgradeEntry ue) { mage.PoisonDurationBonus += ue.value1; }
+    private static void ApplyPoisonDps(MagePassive mage, UpgradeEntry ue) { mage.PoisonDpsBonus += ue.value1; }
+    private static void ApplyPoisonPool(MagePassive mage, UpgradeEntry ue) { mage.PoisonPoolBonus += ue.value1; }
+    private static void ApplyPoisonTick(MagePassive mage, UpgradeEntry ue) { mage.PoisonTickReduction += ue.value1; }
+    private static void ApplyPoisonCrit(MagePassive mage, UpgradeEntry ue) { mage.PoisonCritBonus += ue.value1; }
+    private static void ApplyPoisonSepsis(MagePassive mage, UpgradeEntry ue) { mage.PoisonSepsis = true; }
+    private static void ApplyPoisonPlague(MagePassive mage, UpgradeEntry ue) { mage.PoisonPlague = true; }
+    private static void ApplyPoisonLethal(MagePassive mage, UpgradeEntry ue) { mage.PoisonLethal = true; }
+
+    // ═══ 燃烧专属 ═══
+
+    private static void ApplyBurnDuration(MagePassive mage, UpgradeEntry ue) { mage.BurnDurationBonus += ue.value1; }
+    private static void ApplyBurnRadius(MagePassive mage, UpgradeEntry ue) { mage.BurnRadiusBonus += ue.value1; }
+    private static void ApplyBurnTick(MagePassive mage, UpgradeEntry ue) { mage.BurnTickReduction += ue.value1; }
+    private static void ApplyBurnSlow(MagePassive mage, UpgradeEntry ue) { mage.BurnSlowBonus += ue.value1; }
+    private static void ApplyBurnCrit(MagePassive mage, UpgradeEntry ue) { mage.BurnCritBonus += ue.value1; }
+    private static void ApplyBurnMelt(MagePassive mage, UpgradeEntry ue) { mage.BurnMeltMastery = true; }
+    private static void ApplyBurnStorm(MagePassive mage, UpgradeEntry ue) { mage.BurnStorm = true; }
+    private static void ApplyBurnBurst(MagePassive mage, UpgradeEntry ue) { mage.BurnBurst = true; }
+
+    // ═══ 霜冻专属 ═══
+
+    private static void ApplyFrostDuration(MagePassive mage, UpgradeEntry ue) { mage.FrostDurationBonus += ue.value1; }
+    private static void ApplyFrostSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostSlowBonus += ue.value1; }
+    private static void ApplyFrostTick(MagePassive mage, UpgradeEntry ue) { mage.FrostTickReduction += ue.value1; }
+    private static void ApplyFrostRange(MagePassive mage, UpgradeEntry ue) { mage.FrostRangeBonus += ue.value1; }
+    private static void ApplyFrostCrit(MagePassive mage, UpgradeEntry ue) { mage.FrostCritBonus += ue.value1; }
+    private static void ApplyFrostFreeze(MagePassive mage, UpgradeEntry ue) { mage.FrostFreeze = true; }
+    private static void ApplyFrostBlizzard(MagePassive mage, UpgradeEntry ue) { mage.FrostBlizzard = true; }
+    private static void ApplyFrostAbsolute(MagePassive mage, UpgradeEntry ue) { mage.FrostAbsolute = true; }
+
+    // ═══ 雷电专属 ═══
+
+    private static void ApplyStaticDamage(MagePassive mage, UpgradeEntry ue) { mage.StaticDamageBonus += ue.value1; }
+    private static void ApplyStaticChain(MagePassive mage, UpgradeEntry ue) { mage.StaticChainBonus += (int)ue.value1; }
+    private static void ApplyStaticTick(MagePassive mage, UpgradeEntry ue) { mage.StaticTickReduction += ue.value1; }
+    private static void ApplyStaticRange(MagePassive mage, UpgradeEntry ue) { mage.StaticRangeBonus += ue.value1; }
+    private static void ApplyStaticCrit(MagePassive mage, UpgradeEntry ue) { mage.StaticCritBonus += ue.value1; }
+    private static void ApplyStaticOverload(MagePassive mage, UpgradeEntry ue) { mage.StaticOverload = true; }
+    private static void ApplyStormMulti(MagePassive mage, UpgradeEntry ue) { mage.StormMulti = true; }
+    private static void ApplyStormChain(MagePassive mage, UpgradeEntry ue) { mage.StormChain = true; }
+
+    // ═══ 风专属 ═══
+
+    private static void ApplyWindDamage(MagePassive mage, UpgradeEntry ue) { mage.WindDamageBonus += ue.value1; }
+    private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; }
+    private static void ApplyWindTick(MagePassive mage, UpgradeEntry ue) { mage.WindTickReduction += ue.value1; }
+    private static void ApplyWindPierce(MagePassive mage, UpgradeEntry ue) { mage.WindPierceBonus += (int)ue.value1; }
+    private static void ApplyWindCrit(MagePassive mage, UpgradeEntry ue) { mage.WindCritBonus += ue.value1; }
+    private static void ApplyWindStormEye(MagePassive mage, UpgradeEntry ue) { mage.WindStormEye = true; }
+    private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; }
+    private static void ApplyWindLord(MagePassive mage, UpgradeEntry ue) { mage.WindLord = true; }
 
     // ═══ 进化兼容 ═══
 
