@@ -19,6 +19,8 @@ public class FrostEffect : StackEffectBase
     private float _baseSlow = 0.30f;
     private float _perStackSlow = 0.05f;
     private float _maxSlow = 0.90f;
+    private float _frostTickAccumulator;
+    private const float FROST_TICK_INTERVAL = 1f;
 
     public override int StackCount => _frostStacks;
     public override StatusEffectType EffectType => StatusEffectType.Frostbite;
@@ -65,6 +67,7 @@ public class FrostEffect : StackEffectBase
         slowPercent = 0f;
         _frostStacks = 0;
         frostDps = 0f;
+        _frostTickAccumulator = 0f;
         _lastSyncedStacks = -1;
         _blenderUnregistered = false;
         if (_enemyBase == null) _enemyBase = GetComponent<EnemyBase>();
@@ -93,6 +96,19 @@ public class FrostEffect : StackEffectBase
         {
             _lastSyncedStacks = _frostStacks;
             _enemyBase.FrostSlowMultiplier = 1f - slowPercent;
+        }
+
+        // 绝对零度（frost_absolute）：frostDps > 0 时霜冻才造成伤害，每层叠加
+        if (frostDps > 0f && _frostStacks > 0 && _damageable != null)
+        {
+            _frostTickAccumulator += Time.deltaTime;
+            if (_frostTickAccumulator >= FROST_TICK_INTERVAL)
+            {
+                _frostTickAccumulator -= FROST_TICK_INTERVAL;
+                float dmg = frostDps * _frostStacks;
+                if (canCrit && Random.value < critChance) dmg *= critMult;
+                _damageable.TakeDamage(Mathf.Max(0.01f, dmg), DotColorBlender.FROST_BLUE);
+            }
         }
     }
 

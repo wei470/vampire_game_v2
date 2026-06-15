@@ -64,6 +64,11 @@ public static class DotBulletFactory
         float durBonus = mage != null ? mage.PoisonDurationBonus : 0f;
         float critBonus = mage != null ? mage.PoisonCritBonus : 0f;
         float dps = gun.dotDps + dpsBonus;
+        if (mage != null)
+        {
+            if (mage.PoisonLethal) dps *= 2f;        // 猛毒：毒素 DPS ×2
+            if (mage.PoisonSepsis) dps *= 1.3f;      // 脓毒：全 DOT 伤害 +30%
+        }
         float dur = gun.dotDuration * durMult + durBonus;
 
         var go = PoisonBullet.Create(pos, dir, Config.PoisonSpeed,
@@ -78,6 +83,7 @@ public static class DotBulletFactory
     {
         var mage = GetMage();
         float dps = gun.dotDps + (mage != null ? mage.BurnDurationBonus : 0f);
+        if (mage != null && mage.PoisonSepsis) dps *= 1.3f;   // 脓毒：全 DOT 伤害 +30%
         float dur = gun.dotDuration * durMult + (mage != null ? mage.BurnDurationBonus : 0f);
         float critBonus = mage != null ? mage.BurnCritBonus : 0f;
         float speed = Config.BurnSpeed;
@@ -106,8 +112,12 @@ public static class DotBulletFactory
         float critBonus = mage != null ? mage.FrostCritBonus : 0f;
         float rangeBonus = mage != null ? mage.FrostRangeBonus : 0f;
 
+        // 绝对零度（frost_absolute）：默认霜冻只减速不造成伤害，拿到强化后每发 DPS 5（每层叠加）
+        float frostDps = (mage != null && mage.FrostAbsolute) ? 5f : 0f;
+        if (frostDps > 0f && mage.PoisonSepsis) frostDps *= 1.3f;   // 脓毒：全 DOT 伤害 +30%
+
         var go = FrostBullet.Create(pos, dir, Config.FrostSpeed, gun.impactDamage,
-            gun.dotDps, Config.FrostFreezeDuration, slowPct, dmgMult,
+            frostDps, Config.FrostFreezeDuration, slowPct, dmgMult,
             canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
 
         // 霜冻范围加成
@@ -116,6 +126,14 @@ public static class DotBulletFactory
             go.transform.localScale *= (1f + rangeBonus);
             var col = go.GetComponent<Collider2D>();
             if (col is CircleCollider2D c) c.radius *= (1f + rangeBonus);
+        }
+
+        // 暴风雪（frost_blizzard）：霜冻范围 ×2
+        if (go != null && mage != null && mage.FrostBlizzard)
+        {
+            go.transform.localScale *= 2f;
+            var col = go.GetComponent<Collider2D>();
+            if (col is CircleCollider2D c) c.radius *= 2f;
         }
 
         AttachRicochetIfAvailable(go);
@@ -133,10 +151,15 @@ public static class DotBulletFactory
             dmgMult)?.gameObject;
 
         // 连锁目标加成
-        if (go != null && mage != null && mage.StaticChainBonus > 0)
+        if (go != null && mage != null)
         {
             var lb = go.GetComponent<LightningBullet>();
-            if (lb != null) lb.ExtraChainTargets = mage.StaticChainBonus;
+            if (lb != null)
+            {
+                int extraChain = mage.StaticChainBonus;
+                if (mage.StormChain) extraChain += 3;   // 万雷齐发：连锁目标翻倍（基础连锁≈3）
+                if (extraChain > 0) lb.ExtraChainTargets = extraChain;
+            }
         }
 
         AttachRicochetIfAvailable(go);
@@ -179,6 +202,7 @@ public static class DotBulletFactory
         var mage = GetMage();
         float critBonus = mage != null ? mage.WindCritBonus : 0f;
         float damageBonus = mage != null ? mage.WindDamageBonus : 0f;
+        float speed = Config.WindSpeed * (1f + (mage != null ? mage.WindSpeedBonus : 0f));   // 风速强化
 
         float randomAngle = Random.Range(-25f, 25f);
         float rad = randomAngle * Mathf.Deg2Rad;
@@ -186,7 +210,7 @@ public static class DotBulletFactory
             dir.x * Mathf.Cos(rad) - dir.y * Mathf.Sin(rad),
             dir.x * Mathf.Sin(rad) + dir.y * Mathf.Cos(rad)
         ).normalized;
-        var go = WindBullet.Create(pos, spreadDir, Config.WindSpeed, gun.impactDamage + Mathf.RoundToInt(damageBonus),
+        var go = WindBullet.Create(pos, spreadDir, speed, gun.impactDamage + Mathf.RoundToInt(damageBonus),
             dmgMult, canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
 
         // 风弹范围加成

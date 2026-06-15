@@ -85,7 +85,11 @@ public partial class MagePassive
 
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
-        int bulletCount = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
+        // 元素专属弹幕加成：雷暴（雷电+1）、飓风（风+2）
+        int elementExtra = 0;
+        if (gun.effectType == StatusEffectType.Static && StormMulti) elementExtra += 1;
+        if (gun.effectType == StatusEffectType.WindErosion && WindHurricane) elementExtra += 2;
+        int bulletCount = Mathf.Min(1 + _bulletCountBonus + elementExtra, MAX_BARRAGE);
         float spreadAngle = 15f;
         int created = 0;
 
