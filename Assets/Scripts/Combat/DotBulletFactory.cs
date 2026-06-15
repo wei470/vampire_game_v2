@@ -162,11 +162,6 @@ public static class DotBulletFactory
         AttachRicochetIfAvailable(go);
         return go;
     }
-        }
-
-        AttachRicochetIfAvailable(go);
-        return go;
-    }
 
     private static GameObject SpawnDark(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
