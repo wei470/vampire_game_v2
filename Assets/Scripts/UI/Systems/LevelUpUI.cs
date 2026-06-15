@@ -79,17 +79,23 @@ public class LevelUpUI : MonoBehaviour
     public void SetCharacter(CharacterData character)
     {
         _currentCharacter = character;
-        _customUpgradeStacks.Clear();
-
-        // 从 MagePassive 加载已有的升级层数（TEST 模式或重新进入时）
-        var mage = _characterPassive as MagePassive;
-        if (mage != null && mage.UpgradeStacks != null)
-        {
-            foreach (var kvp in mage.UpgradeStacks)
-                _customUpgradeStacks[kvp.Key] = kvp.Value;
-        }
-
+        SyncStacksFromPassive();
         InitGenerator();
+    }
+
+    /// <summary>
+    /// 以 MagePassive.UpgradeStacks（权威层数来源，每次 ApplyUpgrade 都会累加）同步本地层数缓存。
+    /// 这样 TEST 模式预选的层数、以及已选过的强化层数都会被升级界面正确识别（满层不再刷出，显示正确 [n/max]）。
+    /// 非 Mage 角色（UpgradeStacks 不可用）保持本地累计，不做改动。
+    /// </summary>
+    private void SyncStacksFromPassive()
+    {
+        var mage = _characterPassive as MagePassive;
+        if (mage == null || mage.UpgradeStacks == null) return;
+
+        _customUpgradeStacks.Clear();
+        foreach (var kvp in mage.UpgradeStacks)
+            _customUpgradeStacks[kvp.Key] = kvp.Value;
     }
 
     private void Update()
@@ -123,6 +129,10 @@ public class LevelUpUI : MonoBehaviour
         if (_currentCharacter == null) _currentCharacter = GameSceneBootstrap.CurrentCharacter;
         if (_generator == null) InitGenerator();
         else _generator.Init(_characterPassive, _mageUpgradeConfig, _currentCharacter, _customUpgradeStacks);
+
+        // 以 MagePassive.UpgradeStacks 为权威层数来源同步（覆盖 TEST 模式预选 / 已有进度），
+        // 否则升级界面会无视已满层强化、并显示错误的 [0/max]。
+        SyncStacksFromPassive();
 
         Time.timeScale = 0.0001f;
         _currentSlots = _generator.GenerateOptions(_weaponController);

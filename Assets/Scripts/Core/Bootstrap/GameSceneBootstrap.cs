@@ -228,8 +228,10 @@ public class GameSceneBootstrap : MonoBehaviour
             {
                 for (int s = 0; s < kvp.Value; s++)
                 {
+                    // 走 MagePassive.ApplyUpgrade（而非直接调 MageUpgradeApplier），
+                    // 否则不会累加 UpgradeStacks → 升级界面显示 [0/5] 且已满层强化仍会被刷出。
                     if (magePassive != null)
-                        MageUpgradeApplier.ApplyUpgrade(magePassive, kvp.Key);
+                        magePassive.ApplyUpgrade(kvp.Key);
                     else
                         dotPassive.ApplyUpgrade(kvp.Key);
                 }
