@@ -44,12 +44,15 @@ public class DarkMarkEffect : MonoBehaviour, IStackEffect
         AddStack();
     }
 
+    /// <summary>黑暗标记最高层数（固定 1 层，不可叠加）</summary>
+    private const int MAX_STACK = 1;
+
     /// <summary>
-    /// 叠加1层黑暗标记
+    /// 施加黑暗标记。层数固定上限为 1，多次命中不再叠加。
     /// </summary>
     public void AddStack()
     {
-        _stackCount++;
+        _stackCount = Mathf.Min(_stackCount + 1, MAX_STACK);
         ApplyDarkVisual();
         SubscribeDeath();
     }

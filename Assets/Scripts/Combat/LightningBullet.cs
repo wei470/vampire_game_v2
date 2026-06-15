@@ -25,6 +25,14 @@ public class LightningBullet : MonoBehaviour
     private Rigidbody2D _cachedRb;
     private PenetrateHandler _cachedPenetrate;
 
+    // ===== 元素反应「紫电」（雷电 × 黑暗）=====
+    private bool _isPurple = false;
+    private const float PURPLE_SPEED_MULT = 3f;      // 变形后速度倍率
+    private const float PURPLE_LIFETIME = 1.5f;       // 变形后存活时间（飞出地图用）
+    private const float EXECUTE_THRESHOLD = 0.2f;     // 处决血量阈值（<20%）
+    private static readonly Color PURPLE_SPRITE = new Color(0.12f, 0.02f, 0.18f);       // 近黑暗紫子弹本体
+    private static readonly Color PURPLE_FX = new Color(0.5f, 0.1f, 0.8f, 0.7f);        // 紫电特效色
+
     public void Setup(float speed, int impactDmg, float dmgMult)
     {
         _speed = speed; _impactDamage = impactDmg; _damageMultiplier = dmgMult;
@@ -38,6 +46,10 @@ public class LightningBullet : MonoBehaviour
         _spawnTime = Time.time;
         _consumed = false;
         _hitEnemies.Clear();
+        // 紫电状态必须在池回收时重置，否则下一发会残留黑色/3x 速度/超长生命
+        _isPurple = false;
+        _lifetime = 2f;
+        transform.localScale = Vector3.one * 0.5f;
         if (_cachedRb == null) _cachedRb = GetComponent<Rigidbody2D>();
         if (_cachedRb != null) _cachedRb.linearVelocity = Vector2.zero;
         _cachedPenetrate = GetComponent<PenetrateHandler>();
@@ -62,20 +74,100 @@ public class LightningBullet : MonoBehaviour
         if (_consumed) return;
         if (!other.CompareTag("Enemy")) return;
         var dmg = other.GetComponent<Damageable>();
-        if (dmg != null && dmg.CurrentHp > 0)
+        bool aliveEnemy = dmg != null && dmg.CurrentHp > 0;
+
+        if (aliveEnemy)
         {
-            // 雷电不造成直接伤害，只叠静电层数
+            // 紫电贯穿模式：穿透所有单位，不消耗、不 despawn
+            if (_isPurple) { HandlePurpleHit(other.gameObject, dmg); return; }
+
+            // 命中带黑暗标记的敌人 → 触发元素反应「紫电」，子弹变形
+            var darkMark = other.GetComponent<DarkMarkEffect>();
+            if (darkMark != null && darkMark.IsActive)
+            {
+                EnterPurpleMode();
+                HandlePurpleHit(other.gameObject, dmg);
+                return;
+            }
+
+            // 普通雷电：不造成直接伤害，只叠静电层数 + 连锁
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             ApplyStaticToEnemy(other.gameObject);
             _hitEnemies.Add(other.gameObject);
             ChainLightning(other.gameObject);
         }
+
         _consumed = true;
         if (_cachedPenetrate == null) _cachedPenetrate = GetComponent<PenetrateHandler>();
         if (_cachedPenetrate != null && _cachedPenetrate.TryPenetrate(other)) { _consumed = false; return; }
         var ricochet = GetComponent<RicochetHandler>();
         if (ricochet != null && ricochet.TryRicochet(transform.position, other)) { _consumed = false; return; }
         DespawnSelf();
+    }
+
+    // ============ 元素反应「紫电」（雷电 × 黑暗）============
+
+    /// <summary>
+    /// 切换为紫电贯穿模式（一次性）：变黑紫、3x 速度、绕过穿透/反弹无限贯穿。
+    /// </summary>
+    private void EnterPurpleMode()
+    {
+        if (_isPurple) return;
+        _isPurple = true;
+        _consumed = false;                 // 紫电永不被消耗
+        _speed *= PURPLE_SPEED_MULT;
+        _lifetime = PURPLE_LIFETIME;
+        _spawnTime = Time.time;            // 从变形点重新计生命周期，确保飞出地图
+
+        ApplyPurpleVisual();
+        CombatManager.CreateExplosionEffect(transform.position, 1f, PURPLE_FX, 0.35f);
+        DebugHelper.Log("[LightningBullet] 紫电触发：转入贯穿模式");
+    }
+
+    /// <summary>
+    /// 紫电模式命中单个敌人：叠 1 层雷电(静电)，残血处决。
+    /// 注意：紫电贯穿不叠加黑暗层数。
+    /// </summary>
+    private void HandlePurpleHit(GameObject enemy, Damageable dmg)
+    {
+        if (!_hitEnemies.Add(enemy)) return;   // 同一敌人只处理一次
+
+        DotBulletHelper.EnsureStatusEffectManager(enemy);
+
+        // 叠 1 层雷电（AddStack 内含触发静电 + 眩屏）
+        ApplyStaticToEnemy(enemy);
+
+        // 处决：血量 < 20% 直接斩杀（绕过护甲，走完整死亡流程 → 触发暗影传播）
+        if (dmg.HpPercent < EXECUTE_THRESHOLD)
+            ExecuteEnemy(enemy);
+        else
+            CombatManager.CreateExplosionEffect(enemy.transform.position, 0.5f, PURPLE_FX, 0.2f);
+    }
+
+    /// <summary>
+    /// 处决：直接调 BaseEntity.Die()，不走 TakeDamage（避免护甲/减伤吃掉斩杀）。
+    /// Die() 幂等且广播 OnDeath → 击杀奖励 + 暗影传播 + 回收一并触发。
+    /// </summary>
+    private void ExecuteEnemy(GameObject enemy)
+    {
+        var be = enemy.GetComponent<BaseEntity>();
+        if (be == null || !be.Alive) return;
+        CombatManager.CreateExplosionEffect(enemy.transform.position, 1.2f, PURPLE_FX, 0.4f);
+        be.Die();
+    }
+
+    private void ApplyPurpleVisual()
+    {
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = PURPLE_SPRITE;       // 蓝 → 近黑暗紫
+        var trail = GetComponent<TrailRenderer>();
+        if (trail != null)
+        {
+            trail.startColor = new Color(0.5f, 0.05f, 0.7f, 0.9f);
+            trail.endColor = new Color(0.15f, 0f, 0.25f, 0f);
+            trail.Clear();
+        }
+        transform.localScale = Vector3.one * 0.7f;       // 略放大，强调贯穿弹
     }
 
     private void ApplyStaticToEnemy(GameObject enemy)

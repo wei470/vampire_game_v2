@@ -1,7 +1,7 @@
 # AI 速查手册 — Vampire Survivors Unity 移植版
 
 > 每次开新 AI 对话先读此文件。
-> 最后更新：2026-06-14 | 218 个 CS 文件 | 194 个测试
+> 最后更新：2026-06-15 | 218 个 CS 文件 | 194 个测试
 
 ---
 
@@ -250,3 +250,34 @@ Tests/Editor/AutomatedPlayModeTests.cs — 87 个
 // 射速系统测试（累加器模拟）
 Tests/Editor/FiringSystemTests.cs — 17 个
 ```
+
+---
+
+## 7. 元素反应
+
+> 完整矩阵见仓库根目录 `matrix.md`。触发逻辑分散在各 DOT 子弹的命中/ tick 中。
+
+已实现 9 个：毒爆、融化、天照、燃烧扩散、霜电冰场、紫电、球状闪电、静电扩散、暗影传播。
+
+| 反应 | 组合 | 代码位置 |
+|------|------|---------|
+| 毒爆 | 中毒 × 黑暗 | `PoisonBullet.LeavePuddle()` |
+| 融化 | 燃烧 × 霜冻 | `BurnBullet.TriggerMelt()` |
+| 天照 | 燃烧 × 黑暗 | `BurnBullet.ApplyZoneBurnStacks()` + `AmaterasuEffect.cs` |
+| 燃烧扩散 | 燃烧 × 风化 | `BurnBullet.TriggerBurnSpread()` |
+| 霜电冰场 | 霜冻 × 雷电 | `FrostBullet.cs` + `FrostLightningField.cs` |
+| **紫电** | 雷电 × 黑暗 | `LightningBullet.OnTriggerEnter2D/EnterPurpleMode/HandlePurpleHit` |
+| 球状闪电 | 风化 × 雷电 | `WindBullet.OnHitEnemy()` + `BallLightning.cs` |
+| 静电扩散 | 雷电叠满层 | `StaticStackEffect.cs` |
+| 暗影传播 | 黑暗标记死亡 | `DarkMarkEffect.cs` + `CurseSpreadSystem.cs` |
+
+### 紫电（雷电 × 黑暗）
+
+- 雷电子弹命中带黑暗标记（`DarkMarkEffect.IsActive`）的敌人 → 变黑紫、速度 ×3、无限贯穿（绕过穿透/反弹）
+- 沿途每穿过一个敌人：+1 雷电层（触发静电）；**不叠加黑暗层**
+- 血量 < 20% 直接处决：调 `BaseEntity.Die()`（绕过护甲，走完整死亡管线 → 击杀奖励 + 暗影传播）
+- 对象池注意：`_isPurple`/速度/生命/颜色/缩放必须在 `OnEnable` 重置
+
+### 黑暗标记
+
+- **层数固定上限 1 层**（`DarkMarkEffect.MAX_STACK`），多次命中不叠加
