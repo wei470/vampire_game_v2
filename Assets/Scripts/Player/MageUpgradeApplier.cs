@@ -232,58 +232,58 @@ public static class MageUpgradeApplier
 
     // ═══ 中毒专属 ═══
 
-    private static void ApplyPoisonDuration(MagePassive mage, UpgradeEntry ue) { mage.PoisonDurationBonus += ue.value1; }
-    private static void ApplyPoisonDps(MagePassive mage, UpgradeEntry ue) { mage.PoisonDpsBonus += ue.value1; }
-    private static void ApplyPoisonPool(MagePassive mage, UpgradeEntry ue) { mage.PoisonPoolBonus += ue.value1; }
-    private static void ApplyPoisonTick(MagePassive mage, UpgradeEntry ue) { mage.PoisonTickReduction += ue.value1; }
-    private static void ApplyPoisonCrit(MagePassive mage, UpgradeEntry ue) { mage.PoisonCritBonus += ue.value1; }
-    private static void ApplyPoisonSepsis(MagePassive mage, UpgradeEntry ue) { mage.PoisonSepsis = true; }
-    private static void ApplyPoisonPlague(MagePassive mage, UpgradeEntry ue) { mage.PoisonPlague = true; }
-    private static void ApplyPoisonLethal(MagePassive mage, UpgradeEntry ue) { mage.PoisonLethal = true; }
+    private static void ApplyPoisonDuration(MagePassive mage, UpgradeEntry ue) { mage.PoisonDurationBonus += ue.value1; DebugHelper.Log($"[Upgrade] PoisonDuration +{ue.value1} (total: {mage.PoisonDurationBonus})"); }
+    private static void ApplyPoisonDps(MagePassive mage, UpgradeEntry ue) { mage.PoisonDpsBonus += ue.value1; DebugHelper.Log($"[Upgrade] PoisonDps +{ue.value1} (total: {mage.PoisonDpsBonus})"); }
+    private static void ApplyPoisonPool(MagePassive mage, UpgradeEntry ue) { mage.PoisonPoolBonus += ue.value1; DebugHelper.Log($"[Upgrade] PoisonPool +{ue.value1} (total: {mage.PoisonPoolBonus})"); }
+    private static void ApplyPoisonTick(MagePassive mage, UpgradeEntry ue) { mage.PoisonTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] PoisonTick +{ue.value1} (total: {mage.PoisonTickReduction})"); }
+    private static void ApplyPoisonCrit(MagePassive mage, UpgradeEntry ue) { mage.PoisonCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] PoisonCrit +{ue.value1} (total: {mage.PoisonCritBonus})"); }
+    private static void ApplyPoisonSepsis(MagePassive mage, UpgradeEntry ue) { mage.PoisonSepsis = true; DebugHelper.Log("[Upgrade] PoisonSepsis activated"); }
+    private static void ApplyPoisonPlague(MagePassive mage, UpgradeEntry ue) { mage.PoisonPlague = true; DebugHelper.Log("[Upgrade] PoisonPlague activated"); }
+    private static void ApplyPoisonLethal(MagePassive mage, UpgradeEntry ue) { mage.PoisonLethal = true; DebugHelper.Log("[Upgrade] PoisonLethal activated"); }
 
     // ═══ 燃烧专属 ═══
 
-    private static void ApplyBurnDuration(MagePassive mage, UpgradeEntry ue) { mage.BurnDurationBonus += ue.value1; }
-    private static void ApplyBurnRadius(MagePassive mage, UpgradeEntry ue) { mage.BurnRadiusBonus += ue.value1; }
-    private static void ApplyBurnTick(MagePassive mage, UpgradeEntry ue) { mage.BurnTickReduction += ue.value1; }
-    private static void ApplyBurnSlow(MagePassive mage, UpgradeEntry ue) { mage.BurnSlowBonus += ue.value1; }
-    private static void ApplyBurnCrit(MagePassive mage, UpgradeEntry ue) { mage.BurnCritBonus += ue.value1; }
-    private static void ApplyBurnMelt(MagePassive mage, UpgradeEntry ue) { mage.BurnMeltMastery = true; }
-    private static void ApplyBurnStorm(MagePassive mage, UpgradeEntry ue) { mage.BurnStorm = true; }
-    private static void ApplyBurnBurst(MagePassive mage, UpgradeEntry ue) { mage.BurnBurst = true; }
+    private static void ApplyBurnDuration(MagePassive mage, UpgradeEntry ue) { mage.BurnDurationBonus += ue.value1; DebugHelper.Log($"[Upgrade] BurnDuration +{ue.value1} (total: {mage.BurnDurationBonus})"); }
+    private static void ApplyBurnRadius(MagePassive mage, UpgradeEntry ue) { mage.BurnRadiusBonus += ue.value1; DebugHelper.Log($"[Upgrade] BurnRadius +{ue.value1} (total: {mage.BurnRadiusBonus})"); }
+    private static void ApplyBurnTick(MagePassive mage, UpgradeEntry ue) { mage.BurnTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] BurnTick +{ue.value1} (total: {mage.BurnTickReduction})"); }
+    private static void ApplyBurnSlow(MagePassive mage, UpgradeEntry ue) { mage.BurnSlowBonus += ue.value1; DebugHelper.Log($"[Upgrade] BurnSlow +{ue.value1} (total: {mage.BurnSlowBonus})"); }
+    private static void ApplyBurnCrit(MagePassive mage, UpgradeEntry ue) { mage.BurnCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] BurnCrit +{ue.value1} (total: {mage.BurnCritBonus})"); }
+    private static void ApplyBurnMelt(MagePassive mage, UpgradeEntry ue) { mage.BurnMeltMastery = true; DebugHelper.Log("[Upgrade] BurnMelt activated"); }
+    private static void ApplyBurnStorm(MagePassive mage, UpgradeEntry ue) { mage.BurnStorm = true; DebugHelper.Log("[Upgrade] BurnStorm activated"); }
+    private static void ApplyBurnBurst(MagePassive mage, UpgradeEntry ue) { mage.BurnBurst = true; DebugHelper.Log("[Upgrade] BurnBurst activated"); }
 
     // ═══ 霜冻专属 ═══
 
-    private static void ApplyFrostDuration(MagePassive mage, UpgradeEntry ue) { mage.FrostDurationBonus += ue.value1; }
-    private static void ApplyFrostSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostSlowBonus += ue.value1; }
-    private static void ApplyFrostTick(MagePassive mage, UpgradeEntry ue) { mage.FrostTickReduction += ue.value1; }
-    private static void ApplyFrostRange(MagePassive mage, UpgradeEntry ue) { mage.FrostRangeBonus += ue.value1; }
-    private static void ApplyFrostCrit(MagePassive mage, UpgradeEntry ue) { mage.FrostCritBonus += ue.value1; }
-    private static void ApplyFrostFreeze(MagePassive mage, UpgradeEntry ue) { mage.FrostFreeze = true; }
-    private static void ApplyFrostBlizzard(MagePassive mage, UpgradeEntry ue) { mage.FrostBlizzard = true; }
-    private static void ApplyFrostAbsolute(MagePassive mage, UpgradeEntry ue) { mage.FrostAbsolute = true; }
+    private static void ApplyFrostDuration(MagePassive mage, UpgradeEntry ue) { mage.FrostDurationBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostDuration +{ue.value1} (total: {mage.FrostDurationBonus})"); }
+    private static void ApplyFrostSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostSlowBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostSlow +{ue.value1} (total: {mage.FrostSlowBonus})"); }
+    private static void ApplyFrostTick(MagePassive mage, UpgradeEntry ue) { mage.FrostTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] FrostTick +{ue.value1} (total: {mage.FrostTickReduction})"); }
+    private static void ApplyFrostRange(MagePassive mage, UpgradeEntry ue) { mage.FrostRangeBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostRange +{ue.value1} (total: {mage.FrostRangeBonus})"); }
+    private static void ApplyFrostCrit(MagePassive mage, UpgradeEntry ue) { mage.FrostCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostCrit +{ue.value1} (total: {mage.FrostCritBonus})"); }
+    private static void ApplyFrostFreeze(MagePassive mage, UpgradeEntry ue) { mage.FrostFreeze = true; DebugHelper.Log("[Upgrade] FrostFreeze activated"); }
+    private static void ApplyFrostBlizzard(MagePassive mage, UpgradeEntry ue) { mage.FrostBlizzard = true; DebugHelper.Log("[Upgrade] FrostBlizzard activated"); }
+    private static void ApplyFrostAbsolute(MagePassive mage, UpgradeEntry ue) { mage.FrostAbsolute = true; DebugHelper.Log("[Upgrade] FrostAbsolute activated"); }
 
     // ═══ 雷电专属 ═══
 
-    private static void ApplyStaticDamage(MagePassive mage, UpgradeEntry ue) { mage.StaticDamageBonus += ue.value1; }
-    private static void ApplyStaticChain(MagePassive mage, UpgradeEntry ue) { mage.StaticChainBonus += (int)ue.value1; }
-    private static void ApplyStaticTick(MagePassive mage, UpgradeEntry ue) { mage.StaticTickReduction += ue.value1; }
-    private static void ApplyStaticRange(MagePassive mage, UpgradeEntry ue) { mage.StaticRangeBonus += ue.value1; }
-    private static void ApplyStaticCrit(MagePassive mage, UpgradeEntry ue) { mage.StaticCritBonus += ue.value1; }
-    private static void ApplyStaticOverload(MagePassive mage, UpgradeEntry ue) { mage.StaticOverload = true; }
-    private static void ApplyStormMulti(MagePassive mage, UpgradeEntry ue) { mage.StormMulti = true; }
-    private static void ApplyStormChain(MagePassive mage, UpgradeEntry ue) { mage.StormChain = true; }
+    private static void ApplyStaticDamage(MagePassive mage, UpgradeEntry ue) { mage.StaticDamageBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticDamage +{ue.value1} (total: {mage.StaticDamageBonus})"); }
+    private static void ApplyStaticChain(MagePassive mage, UpgradeEntry ue) { mage.StaticChainBonus += (int)ue.value1; DebugHelper.Log($"[Upgrade] StaticChain +{ue.value1} (total: {mage.StaticChainBonus})"); }
+    private static void ApplyStaticTick(MagePassive mage, UpgradeEntry ue) { mage.StaticTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] StaticTick +{ue.value1} (total: {mage.StaticTickReduction})"); }
+    private static void ApplyStaticRange(MagePassive mage, UpgradeEntry ue) { mage.StaticRangeBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticRange +{ue.value1} (total: {mage.StaticRangeBonus})"); }
+    private static void ApplyStaticCrit(MagePassive mage, UpgradeEntry ue) { mage.StaticCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticCrit +{ue.value1} (total: {mage.StaticCritBonus})"); }
+    private static void ApplyStaticOverload(MagePassive mage, UpgradeEntry ue) { mage.StaticOverload = true; DebugHelper.Log("[Upgrade] StaticOverload activated"); }
+    private static void ApplyStormMulti(MagePassive mage, UpgradeEntry ue) { mage.StormMulti = true; DebugHelper.Log("[Upgrade] StormMulti activated"); }
+    private static void ApplyStormChain(MagePassive mage, UpgradeEntry ue) { mage.StormChain = true; DebugHelper.Log("[Upgrade] StormChain activated"); }
 
     // ═══ 风专属 ═══
 
-    private static void ApplyWindDamage(MagePassive mage, UpgradeEntry ue) { mage.WindDamageBonus += ue.value1; }
-    private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; }
-    private static void ApplyWindTick(MagePassive mage, UpgradeEntry ue) { mage.WindTickReduction += ue.value1; }
-    private static void ApplyWindPierce(MagePassive mage, UpgradeEntry ue) { mage.WindPierceBonus += (int)ue.value1; }
-    private static void ApplyWindCrit(MagePassive mage, UpgradeEntry ue) { mage.WindCritBonus += ue.value1; }
-    private static void ApplyWindStormEye(MagePassive mage, UpgradeEntry ue) { mage.WindStormEye = true; }
-    private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; }
-    private static void ApplyWindLord(MagePassive mage, UpgradeEntry ue) { mage.WindLord = true; }
+    private static void ApplyWindDamage(MagePassive mage, UpgradeEntry ue) { mage.WindDamageBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindDamage +{ue.value1} (total: {mage.WindDamageBonus})"); }
+    private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindSpeed +{ue.value1} (total: {mage.WindSpeedBonus})"); }
+    private static void ApplyWindTick(MagePassive mage, UpgradeEntry ue) { mage.WindTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] WindTick +{ue.value1} (total: {mage.WindTickReduction})"); }
+    private static void ApplyWindPierce(MagePassive mage, UpgradeEntry ue) { mage.WindPierceBonus += (int)ue.value1; DebugHelper.Log($"[Upgrade] WindPierce +{ue.value1} (total: {mage.WindPierceBonus})"); }
+    private static void ApplyWindCrit(MagePassive mage, UpgradeEntry ue) { mage.WindCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindCrit +{ue.value1} (total: {mage.WindCritBonus})"); }
+    private static void ApplyWindStormEye(MagePassive mage, UpgradeEntry ue) { mage.WindStormEye = true; DebugHelper.Log("[Upgrade] WindStormEye activated"); }
+    private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; DebugHelper.Log("[Upgrade] WindHurricane activated"); }
+    private static void ApplyWindLord(MagePassive mage, UpgradeEntry ue) { mage.WindLord = true; DebugHelper.Log("[Upgrade] WindLord activated"); }
 
     // ═══ 进化兼容 ═══
 

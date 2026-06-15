@@ -35,7 +35,54 @@ public class TestBulletSelectUI : MonoBehaviour
         CharacterUpgradeOption.UpgradeCategory.AttackSpeed,
         CharacterUpgradeOption.UpgradeCategory.BulletCount,
         CharacterUpgradeOption.UpgradeCategory.Ricochet,
+        CharacterUpgradeOption.UpgradeCategory.ArmorReduction,
+        CharacterUpgradeOption.UpgradeCategory.ArmorPenetration,
+        CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier,
+        CharacterUpgradeOption.UpgradeCategory.DetonateAbility,
     };
+
+    // ── 子弹类型筛选 ──
+    private static readonly string[] _bulletFilterNames = { "全部", "中毒", "燃烧", "霜冻", "雷电", "风" };
+    private static readonly HashSet<CharacterUpgradeOption.UpgradeCategory>[] _bulletFilterCategories;
+    private int _bulletFilterIndex = 0;
+
+    static TestBulletSelectUI()
+    {
+        _bulletFilterCategories = new HashSet<CharacterUpgradeOption.UpgradeCategory>[]
+        {
+            null, // 全部
+            new HashSet<CharacterUpgradeOption.UpgradeCategory> {
+                CharacterUpgradeOption.UpgradeCategory.PoisonDuration, CharacterUpgradeOption.UpgradeCategory.PoisonDps,
+                CharacterUpgradeOption.UpgradeCategory.PoisonPool, CharacterUpgradeOption.UpgradeCategory.PoisonTick,
+                CharacterUpgradeOption.UpgradeCategory.PoisonCrit, CharacterUpgradeOption.UpgradeCategory.PoisonSepsis,
+                CharacterUpgradeOption.UpgradeCategory.PoisonPlague, CharacterUpgradeOption.UpgradeCategory.PoisonLethal,
+            },
+            new HashSet<CharacterUpgradeOption.UpgradeCategory> {
+                CharacterUpgradeOption.UpgradeCategory.BurnDuration, CharacterUpgradeOption.UpgradeCategory.BurnRadius,
+                CharacterUpgradeOption.UpgradeCategory.BurnTick, CharacterUpgradeOption.UpgradeCategory.BurnSlow,
+                CharacterUpgradeOption.UpgradeCategory.BurnCrit, CharacterUpgradeOption.UpgradeCategory.BurnMelt,
+                CharacterUpgradeOption.UpgradeCategory.BurnStorm, CharacterUpgradeOption.UpgradeCategory.BurnBurst,
+            },
+            new HashSet<CharacterUpgradeOption.UpgradeCategory> {
+                CharacterUpgradeOption.UpgradeCategory.FrostDuration, CharacterUpgradeOption.UpgradeCategory.FrostSlow,
+                CharacterUpgradeOption.UpgradeCategory.FrostTick, CharacterUpgradeOption.UpgradeCategory.FrostRange,
+                CharacterUpgradeOption.UpgradeCategory.FrostCrit, CharacterUpgradeOption.UpgradeCategory.FrostFreeze,
+                CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, CharacterUpgradeOption.UpgradeCategory.FrostAbsolute,
+            },
+            new HashSet<CharacterUpgradeOption.UpgradeCategory> {
+                CharacterUpgradeOption.UpgradeCategory.StaticDamage, CharacterUpgradeOption.UpgradeCategory.StaticChain,
+                CharacterUpgradeOption.UpgradeCategory.StaticTick, CharacterUpgradeOption.UpgradeCategory.StaticRange,
+                CharacterUpgradeOption.UpgradeCategory.StaticCrit, CharacterUpgradeOption.UpgradeCategory.StaticOverload,
+                CharacterUpgradeOption.UpgradeCategory.StormMulti, CharacterUpgradeOption.UpgradeCategory.StormChain,
+            },
+            new HashSet<CharacterUpgradeOption.UpgradeCategory> {
+                CharacterUpgradeOption.UpgradeCategory.WindDamage, CharacterUpgradeOption.UpgradeCategory.WindSpeed,
+                CharacterUpgradeOption.UpgradeCategory.WindTick, CharacterUpgradeOption.UpgradeCategory.WindPierce,
+                CharacterUpgradeOption.UpgradeCategory.WindCrit, CharacterUpgradeOption.UpgradeCategory.WindStormEye,
+                CharacterUpgradeOption.UpgradeCategory.WindHurricane, CharacterUpgradeOption.UpgradeCategory.WindLord,
+            },
+        };
+    }
 
     // ── 分类后的升级缓存 ──
     private List<UpgradeEntry> _generalUpgrades = new List<UpgradeEntry>();
@@ -194,7 +241,10 @@ public class TestBulletSelectUI : MonoBehaviour
         {
             case 0: DrawBulletPanel(); break;
             case 1: DrawUpgradePanel(_generalUpgrades, ref _generalScrollPos); break;
-            case 2: DrawUpgradePanel(_specificUpgrades, ref _specificScrollPos); break;
+            case 2:
+                DrawBulletFilterButtons();
+                DrawUpgradePanel(GetFilteredSpecificUpgrades(), ref _specificScrollPos);
+                break;
         }
 
         DrawBottomButtons();
@@ -404,6 +454,52 @@ public class TestBulletSelectUI : MonoBehaviour
         if (GUI.Button(new Rect(PANEL_X + PANEL_W - 230f, btnY, 210f, btnH + 4f), "✓ 确认进入", _confirmStyle))
             ConfirmSelection();
         GUI.color = Color.white;
+    }
+
+    // ═══ 子弹类型筛选 ═══
+
+    private void DrawBulletFilterButtons()
+    {
+        float btnW = 80f;
+        float btnH = 28f;
+        float startX = PANEL_X + 15f;
+        float y = PANEL_Y + 10f;
+
+        for (int i = 0; i < _bulletFilterNames.Length; i++)
+        {
+            bool selected = _bulletFilterIndex == i;
+            GUI.color = selected ? GetFilterColor(i) : new Color(0.4f, 0.4f, 0.4f);
+            if (GUI.Button(new Rect(startX + i * (btnW + 5f), y, btnW, btnH), _bulletFilterNames[i]))
+                _bulletFilterIndex = i;
+        }
+        GUI.color = Color.white;
+    }
+
+    private List<UpgradeEntry> GetFilteredSpecificUpgrades()
+    {
+        if (_bulletFilterIndex == 0) return _specificUpgrades;
+        var filter = _bulletFilterCategories[_bulletFilterIndex];
+        if (filter == null) return _specificUpgrades;
+
+        var filtered = new List<UpgradeEntry>();
+        for (int i = 0; i < _specificUpgrades.Count; i++)
+            if (filter.Contains(_specificUpgrades[i].category))
+                filtered.Add(_specificUpgrades[i]);
+        return filtered;
+    }
+
+    private static Color GetFilterColor(int index)
+    {
+        switch (index)
+        {
+            case 0: return new Color(0.8f, 0.8f, 0.8f); // 全部-白
+            case 1: return new Color(0.1f, 0.9f, 0.2f); // 中毒-绿
+            case 2: return new Color(1f, 0.4f, 0f);     // 燃烧-橙
+            case 3: return new Color(0.3f, 0.6f, 1f);   // 霜冻-蓝
+            case 4: return new Color(0.3f, 0.8f, 1f);   // 雷电-青
+            case 5: return new Color(0.7f, 0.85f, 1f);  // 风-浅蓝
+            default: return Color.white;
+        }
     }
 
     // ═══ 确认 ═══

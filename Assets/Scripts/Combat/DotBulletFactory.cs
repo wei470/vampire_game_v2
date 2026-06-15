@@ -52,17 +52,19 @@ public static class DotBulletFactory
 
     private static MagePassive GetMage()
     {
-        return GameReferences.DotCharacterPassive as MagePassive;
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        return mage;
     }
 
     private static GameObject SpawnPoison(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
         var mage = GetMage();
-        float dps = gun.dotDps + (mage != null ? mage.PoisonDpsBonus : 0f);
-        float dur = gun.dotDuration * durMult + (mage != null ? mage.PoisonDurationBonus : 0f);
-        float poolBonus = mage != null ? mage.PoisonPoolBonus : 0f;
+        float dpsBonus = mage != null ? mage.PoisonDpsBonus : 0f;
+        float durBonus = mage != null ? mage.PoisonDurationBonus : 0f;
         float critBonus = mage != null ? mage.PoisonCritBonus : 0f;
+        float dps = gun.dotDps + dpsBonus;
+        float dur = gun.dotDuration * durMult + durBonus;
 
         var go = PoisonBullet.Create(pos, dir, Config.PoisonSpeed,
             dps, dur, dmgMult,
