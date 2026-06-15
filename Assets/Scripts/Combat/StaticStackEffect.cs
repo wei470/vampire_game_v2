@@ -63,7 +63,20 @@ public class StaticStackEffect : StackEffectBase
             new Color(0.4f, 0.8f, 1f), isFirstStack ? 0.4f : 0.2f);
 
         _lastTickTime = Time.time;
-        DebugHelper.Log($"[StaticStackEffect] Stack added! Total={_stackCount}, Interval={GetInterval():F1}s, First={isFirstStack}");
+    }
+
+    /// <summary>
+    /// 球状闪电专用：添加雷电层 + 指定时长眩晕
+    /// </summary>
+    public void RegisterHit(float stunDuration)
+    {
+        _stackCount = Mathf.Min(_stackCount + 1, _maxStacks);
+        ApplyStun(stunDuration);
+
+        CombatManager.CreateExplosionEffect(transform.position, 0.4f,
+            new Color(0.3f, 0.8f, 1f), 0.15f);
+
+        _lastTickTime = Time.time;
     }
 
     public float GetInterval()

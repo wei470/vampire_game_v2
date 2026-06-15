@@ -8,10 +8,35 @@ public class WindBullet : DotBulletBase
 
     protected override void OnHitEnemy(GameObject enemy)
     {
-        var windEffect = enemy.GetComponent<WindErosionEffect>();
-        if (windEffect == null)
-            windEffect = enemy.AddComponent<WindErosionEffect>();
-        windEffect.RegisterHit();
+        // 元素反应：球状闪电（风 × 雷电）
+        var staticEffect = enemy.GetComponent<StaticStackEffect>();
+        if (staticEffect != null && staticEffect.StackCount > 0)
+        {
+            // 消耗 1 层雷电
+            staticEffect.ConsumeStack();
+
+            // 消耗全部风层数
+            var windEffect = enemy.GetComponent<WindErosionEffect>();
+            if (windEffect != null)
+            {
+                while (windEffect.WindStacks > 0)
+                    windEffect.ConsumeStack();
+            }
+
+            // 生成球状闪电，随机方向
+            float angle = Random.Range(0f, 360f);
+            float rad = angle * Mathf.Deg2Rad;
+            Vector2 randomDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            BallLightning.Create(transform.position, randomDir);
+
+            return;
+        }
+
+        // 正常风化叠层
+        var wind = enemy.GetComponent<WindErosionEffect>();
+        if (wind == null)
+            wind = enemy.AddComponent<WindErosionEffect>();
+        wind.RegisterHit();
     }
 
     protected override void OnBulletDespawn()
