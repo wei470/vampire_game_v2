@@ -176,10 +176,7 @@ public class BurnBullet : DotBulletBase
         }
 
         var frost = enemy.GetComponent<FrostEffect>();
-        if (frost != null && frost.frostDps > 0)
-        {
-            totalDps += frost.frostDps * frost.FrostStacks;
-        }
+        // 霜冻无伤害，不计入引爆
 
         if (totalDps <= 0f) return;
 
