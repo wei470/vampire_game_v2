@@ -12,8 +12,6 @@ public class BurnBullet : DotBulletBase
     private float _tickInterval = 0.5f;
     private float _zoneRadius = 2.5f;
     private float _tickAccumulator;
-    private float _spawnTime;
-    private float _lifetime = 8f;
 
     protected override StatusEffectType EffectType => StatusEffectType.Burn;
     protected override Color DefaultBulletColor => new Color(1f, 0.4f, 0f, 0.6f);
@@ -30,7 +28,6 @@ public class BurnBullet : DotBulletBase
         _burnDuration = burnDuration;
         _tickInterval = config.BurnBaseTickInterval;
         _zoneRadius = config.BurnFireZoneRadius;
-        _lifetime = config.BurnLifetime;
 
         // 设置火场大小
         transform.localScale = Vector3.one * config.BurnFireZoneScale;
@@ -42,17 +39,12 @@ public class BurnBullet : DotBulletBase
     {
         base.OnEnable();
         _tickAccumulator = 0f;
-        _spawnTime = Time.time;
     }
 
     protected override void Update()
     {
-        // 超时销毁
-        if (Time.time - _spawnTime > _lifetime)
-        {
-            DespawnSelf();
-            return;
-        }
+        // 基类处理超时销毁
+        base.Update();
 
         // 渐变效果
         var sr = GetComponent<SpriteRenderer>();
@@ -73,6 +65,9 @@ public class BurnBullet : DotBulletBase
             ApplyZoneBurnStacks();
         }
     }
+
+    // 火场不直接命中敌人（通过区域 tick 叠层）
+    protected override void OnHitEnemy(GameObject enemy) { }
 
     /// <summary>
     /// 火场内敌人每 0.5 秒叠一次燃烧层，保留元素反应
@@ -199,7 +194,7 @@ public class BurnBullet : DotBulletBase
         ticker.Lifetime = 1.0f;
     }
 
-    // 火场不穿透不反弹
+    // 火场不触发碰撞逻辑（通过区域 tick 叠层，不通过碰撞）
     protected override void OnTriggerEnter2D(Collider2D other) { }
 
     protected override void OnBulletDespawn()
