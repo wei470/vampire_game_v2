@@ -174,7 +174,12 @@ public static class MageUpgradeApplier
 
     private static void ApplyMoveSpeed(MagePassive mage, UpgradeEntry ue)
     {
-        // 移速暂不实现，BaseEntity 无 MoveSpeed 属性
+        var player = GameReferences.Player;
+        if (player != null)
+        {
+            player.MoveSpeed *= (1f + ue.value1);
+            DebugHelper.Log($"[MageUpgradeApplier] MoveSpeed +{ue.value1 * 100:F0}% (total: {player.MoveSpeed:F1})");
+        }
     }
 
     // ═══ 进化兼容 ═══
