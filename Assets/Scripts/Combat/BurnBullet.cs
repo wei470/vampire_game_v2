@@ -92,6 +92,13 @@ public class BurnBullet : DotBulletBase
             if (burn == null) burn = enemyGo.AddComponent<BurnStackEffect>();
             burn.AddStack(_burnDps * _damageMultiplier, _burnDuration, _canCrit, _critChance, _critMult);
 
+            // ── 元素反应：天照（燃烧 × 黑暗）──
+            var darkMark = enemyGo.GetComponent<DarkMarkEffect>();
+            if (darkMark != null && darkMark.StackCount > 0)
+            {
+                AmaterasuEffect.Apply(enemyGo);
+            }
+
             // ── 元素反应：燃烧扩散（燃烧 × 风化）──
             var windEffect = enemyGo.GetComponent<WindErosionEffect>();
             if (windEffect != null && windEffect.WindStacks > 0)
