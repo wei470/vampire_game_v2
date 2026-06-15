@@ -90,14 +90,10 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     [SerializeField] private bool _stormChain = false;
 
     [Header("风专属")]
-    [SerializeField] private float _windDamageBonus = 0f;
     [SerializeField] private float _windSpeedBonus = 0f;
     [SerializeField] private float _windTickReduction = 0f;
-    [SerializeField] private int _windPierceBonus = 0;
-    [SerializeField] private float _windCritBonus = 0f;
-    [SerializeField] private bool _windStormEye = false;
     [SerializeField] private bool _windHurricane = false;
-    [SerializeField] private bool _windLord = false;
+    [SerializeField] private float _windPrecisionAngle = 25f;
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
 
@@ -201,14 +197,10 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     public bool StormChain { get => _stormChain; set => _stormChain = value; }
 
     // ── 风专属访问器 ──
-    public float WindDamageBonus { get => _windDamageBonus; set => _windDamageBonus = value; }
     public float WindSpeedBonus { get => _windSpeedBonus; set => _windSpeedBonus = value; }
     public float WindTickReduction { get => _windTickReduction; set => _windTickReduction = value; }
-    public int WindPierceBonus { get => _windPierceBonus; set => _windPierceBonus = value; }
-    public float WindCritBonus { get => _windCritBonus; set => _windCritBonus = value; }
-    public bool WindStormEye { get => _windStormEye; set => _windStormEye = value; }
     public bool WindHurricane { get => _windHurricane; set => _windHurricane = value; }
-    public bool WindLord { get => _windLord; set => _windLord = value; }
+    public float WindPrecisionAngle { get => _windPrecisionAngle; set => _windPrecisionAngle = value; }
 
     // ── 综合查询方法 ──
     public float GetTotalDotCritChance() => GetDotCritChance() + _toxicologyCritBonus;

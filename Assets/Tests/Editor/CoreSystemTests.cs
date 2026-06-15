@@ -1232,7 +1232,7 @@ public class CoreSystemTests
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
         int total = config.upgradeEntries.Length;
-        Assert.AreEqual(26, total, $"Expected 26 upgrades (8 general + 18 bullet), got {total}");
+        Assert.AreEqual(25, total, $"Expected 25 upgrades (8 general + 17 bullet), got {total}");
         Object.DestroyImmediate(config);
     }
 
@@ -1304,7 +1304,7 @@ public class CoreSystemTests
     public void MageUpgradeConfig_Wind4Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "wind_speed", "wind_tick", "wind_hurricane" };
+        string[] ids = { "wind_speed", "wind_precision", "wind_hurricane" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
@@ -1390,7 +1390,7 @@ public class CoreSystemTests
     // ── 风专属 ──
 
     [Test] public void Wind_Speed_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_speed"); Assert.AreEqual(0.2f, m.WindSpeedBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Wind_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_tick"); Assert.AreEqual(0.15f, m.WindTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
+    [Test] public void Wind_Precision_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_precision"); Assert.AreEqual(5f, m.WindPrecisionAngle); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Wind_Hurricane_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("wind_hurricane"); Assert.IsTrue(m.WindHurricane); Object.DestroyImmediate(m.gameObject); }
 
     // ── 堆叠测试 ──

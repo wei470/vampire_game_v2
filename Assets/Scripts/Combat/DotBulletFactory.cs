@@ -197,26 +197,17 @@ public static class DotBulletFactory
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
         var mage = GetMage();
-        float critBonus = mage != null ? mage.WindCritBonus : 0f;
-        float damageBonus = mage != null ? mage.WindDamageBonus : 0f;
-        float speed = Config.WindSpeed * (1f + (mage != null ? mage.WindSpeedBonus : 0f));   // 风速强化
+        float speed = Config.WindSpeed * (1f + (mage != null ? mage.WindSpeedBonus : 0f));
+        float spreadAngle = mage != null ? mage.WindPrecisionAngle : 25f;
 
-        float randomAngle = Random.Range(-25f, 25f);
+        float randomAngle = Random.Range(-spreadAngle, spreadAngle);
         float rad = randomAngle * Mathf.Deg2Rad;
         Vector2 spreadDir = new Vector2(
             dir.x * Mathf.Cos(rad) - dir.y * Mathf.Sin(rad),
             dir.x * Mathf.Sin(rad) + dir.y * Mathf.Cos(rad)
         ).normalized;
-        var go = WindBullet.Create(pos, spreadDir, speed, gun.impactDamage + Mathf.RoundToInt(damageBonus),
-            dmgMult, canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
-
-        // 风弹范围加成
-        if (go != null && mage != null && mage.WindLord)
-        {
-            go.transform.localScale *= 2f;
-            var col = go.GetComponent<Collider2D>();
-            if (col is CircleCollider2D c) c.radius *= 2f;
-        }
+        var go = WindBullet.Create(pos, spreadDir, speed, 0,
+            dmgMult, false, 0f, critMult)?.gameObject;
 
         AttachRicochetIfAvailable(go);
         return go;

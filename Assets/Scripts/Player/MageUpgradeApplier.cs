@@ -78,9 +78,8 @@ public static class MageUpgradeApplier
 
         // 风专属
         { CharacterUpgradeOption.UpgradeCategory.WindSpeed, ApplyWindSpeed },
-        { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindTick },
+        { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindPrecision },
         { CharacterUpgradeOption.UpgradeCategory.WindHurricane, ApplyWindHurricane },
-        { CharacterUpgradeOption.UpgradeCategory.WindLord, ApplyWindLord },
     };
 
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)
@@ -265,9 +264,8 @@ public static class MageUpgradeApplier
     // ═══ 风专属 ═══
 
     private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindSpeed +{ue.value1} (total: {mage.WindSpeedBonus})"); }
-    private static void ApplyWindTick(MagePassive mage, UpgradeEntry ue) { mage.WindTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] WindTick +{ue.value1} (total: {mage.WindTickReduction})"); }
+    private static void ApplyWindPrecision(MagePassive mage, UpgradeEntry ue) { mage.WindPrecisionAngle = ue.value1; DebugHelper.Log($"[Upgrade] WindPrecision → {ue.value1}°"); }
     private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; DebugHelper.Log("[Upgrade] WindHurricane activated"); }
-    private static void ApplyWindLord(MagePassive mage, UpgradeEntry ue) { mage.WindLord = true; DebugHelper.Log("[Upgrade] WindLord activated"); }
 
     // ═══ 进化兼容 ═══
 
