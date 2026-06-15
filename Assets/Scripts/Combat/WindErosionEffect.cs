@@ -21,7 +21,7 @@ public class WindErosionEffect : StackEffectBase
     private DotColorBlender _blender;
 
     private const int HITS_PER_STACK = 1;
-    private const int DAMAGE_PER_STACK = 5;
+    private const int DAMAGE_PER_STACK = 0;
     private float _knockbackDistance = 1f;
     private int _maxStacks = 999;
     private static readonly Color WIND_COLOR = new Color(0.7f, 0.85f, 1f);
