@@ -139,26 +139,6 @@ public class LevelUpOptionGenerator
             default: return 40f;
         }
     }
-        }
-
-        var normalArr = normalList.ToArray();
-        for (int i = normalArr.Length - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            var temp = normalArr[i]; normalArr[i] = normalArr[j]; normalArr[j] = temp;
-        }
-        int ni = 0;
-        while (idx < 3)
-        {
-            if (normalArr.Length > 0)
-                result[idx] = normalArr[ni++ % normalArr.Length];
-            else if (recommendedList.Count > 0)
-                result[idx] = recommendedList[Random.Range(0, recommendedList.Count)];
-            idx++;
-        }
-
-        return result;
-    }
 
     /// <summary>
     /// 生成通用升级选项（攻/血/速/甲/磁铁）
