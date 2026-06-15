@@ -110,7 +110,7 @@ public static class DotBulletFactory
         float laserLength = Config.LightLaserLength;
         float laserWidth = Config.LightLaserWidth;
         float markDuration = Config.LightMarkDuration;
-        int markMaxStacks = Config.LightMarkMaxStacks <= 0 ? 9999 : Config.LightMarkMaxStacks;
+        int markMaxStacks = Config.LightMarkMaxStacks;
 
         var controller = LightBulletController.Create(pos);
         controller.Setup(chargeDuration, laserDamage, sweepAngle, sweepDuration,

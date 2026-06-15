@@ -311,7 +311,7 @@ public class DotEffectConfig : ScriptableObject
              "每层标记使该敌人受到的所有伤害 +0.5%。\n" +
              "无上限意味着长期战斗中伤害可无限放大。\n" +
              "默认值：0（无上限）")]
-    public int LightMarkMaxStacks = 0;
+    public int LightMarkMaxStacks = 999;
 
     [Tooltip("光明标记每层增加的受伤百分比（小数形式）。\n" +
              "例如 0.005 表示每层 +0.5% 受伤。\n" +

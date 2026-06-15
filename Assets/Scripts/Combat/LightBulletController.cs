@@ -17,7 +17,7 @@ public class LightBulletController : MonoBehaviour
     private float _laserLength = 25f;
     private float _laserWidth = 1.5f;
     private float _markDuration = 15f;
-    private int _markMaxStacks = 9999; // 无上限
+    private int _markMaxStacks = 999;
 
     // ── 状态 ──
     private enum Phase { Charging, Sweeping, Done }
@@ -261,7 +261,7 @@ public class LightBulletController : MonoBehaviour
         _laserLength = cfg.LightLaserLength;
         _laserWidth = cfg.LightLaserWidth;
         _markDuration = cfg.LightMarkDuration;
-        _markMaxStacks = cfg.LightMarkMaxStacks <= 0 ? 9999 : cfg.LightMarkMaxStacks;
+        _markMaxStacks = cfg.LightMarkMaxStacks;
     }
 
     public static LightBulletController Create(Vector2 pos)
