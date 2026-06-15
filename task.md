@@ -27,37 +27,32 @@ effectiveCooldown = Max(0.1, gun.cooldown × attackSpeedMult)
 
 ## Bug 列表
 
-### ~~Bug 1：交错偏移被 cap 吞掉，7 枪同步开火~~ ⏳ 待重构
+### ~~Bug 1：交错偏移被 cap 吞掉，7 枪同步开火~~ ✅ 已修复
+
+**根因**：硬钳位 `accumulator = effectiveCooldown × 1.5` 把所有积压的枪压到**同一个值**，
+导致它们在同一帧开火、之后永久同步。
+
+**修复**：cap 改为**相位保留取模**，保留各枪的子周期相位，长时间积压后仍维持交错。
 
 ```csharp
-accumulator = index × cooldown / (index + 1)   // 初始化
+if (gun.accumulator > effectiveCooldown * 1.5f)
+    gun.accumulator = effectiveCooldown + Mathf.Repeat(gun.accumulator, effectiveCooldown);
 ```
 
-| 枪 | 初始值(Poison) | cap(0.54) | cap 后 |
-|----|---------------|-----------|--------|
-| 0 | 0.00 | 0.54 | 0.00 |
-| 1 | 0.90 | 0.54 | **0.54** |
-| 2 | 1.20 | 0.54 | **0.54** |
-| 6 | 1.54 | 0.54 | **0.54** |
+| 枪 | 积压前(Poison) | 旧硬钳位(0.54) | 新取模 cap |
+|----|---------------|----------------|------------|
+| 0 | 5.00 | 0.54 | 0.36 + 相位A |
+| 1 | 5.03 | 0.54（同步） | 0.36 + 相位B |
+| 6 | 5.18 | 0.54（同步） | 0.36 + 相位C |
 
-枪 1~6 全部被 cap 到 0.54，**交错完全失效**。
-第一轮：枪 0 先开火（0.36s），枪 1~6 同时开火（0.54s）。
-第二轮起：所有枪 accumulator 都从 ~0 开始，**完全同步**。
+各枪相位差被保留，**交错不再失效**。
 
-### ~~Bug 2：cap 导致不均匀射击节奏~~ ⏳ 待重构
+### ~~Bug 2：cap 导致不均匀射击节奏~~ ✅ 已修复
 
-cap = `effectiveCooldown × 1.5`。以 60FPS、effectiveCooldown=0.1 为例：
+**根因**：硬钳位在开火前强制把 accumulator 压到 1.5×cooldown，破坏自然累加节奏。
 
-```
-Frame 1: accumulator = 0.15(cap) → 开火 → 0.05
-Frame 2: accumulator = 0.0667 → 不开火
-Frame 3: accumulator = 0.0834 → 不开火
-Frame 4: accumulator = 0.1001 → 开火 → 0.0001
-Frame 5~9: 不开火
-Frame 10: 开火
-```
-
-节奏：开火、等 2 帧、开火、等 5 帧、开火、等 2 帧... **不均匀**。
+**修复**：同 Bug 1，取模 cap 把积压限制在「约 1 发」的同时保留相位，
+开火后回落到 `[0, cooldown)` 自然累加，节奏恢复均匀（积压至多多打 1 发就回到稳态）。
 
 ### ~~Bug 3：无子弹数量上限~~ ✅ 已修复
 
@@ -67,10 +62,38 @@ Frame 10: 开火
 if (DotBulletBase.ActiveDotBullets.Count >= MAX_ACTIVE_BULLETS) break;
 ```
 
-### ~~Bug 4：每帧子弹创建无节流~~ ⏳ 待重构
+### ~~Bug 4：每帧子弹创建无节流~~ ✅ 已修复
 
-每帧最多 7 枪开火 × 5 弹幕 = 35 个 `DotBulletFactory.Create()` 调用。
-需要更深层的重构（帧预算或时间切片）。
+**根因**：每帧最多 7 枪开火 × 5 弹幕 = 35 个 `DotBulletFactory.Create()` 调用，造成帧率尖刺。
+
+**修复**：加入每帧全局子弹创建预算 `MAX_BULLETS_PER_FRAME = 15`，配合**轮转起始枪索引**
+保证各枪轮流优先开火（避免末尾的枪饿死）。超预算的枪保留 accumulator（已被 cap），下一帧补发。
+
+**⚠️ 关键：帧预算以「整把枪」为粒度，绝不截断弹幕**（见 Bug 9）。
+
+```csharp
+const int MAX_BULLETS_PER_FRAME = 15;
+int i = (_fireStartIndex + k) % gunCount;               // 轮转，避免末尾枪饿死
+int barrage = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
+if (bulletsThisFrame > 0 && bulletsThisFrame + barrage > MAX_BULLETS_PER_FRAME)
+    continue;                                            // 推迟整把枪，不拆弹幕
+bulletsThisFrame += SpawnDotBullet(gun, fireDir, dmgMult);
+_fireStartIndex = (_fireStartIndex + 1) % gunCount;
+```
+
+### ~~Bug 9：弹幕+2 却射出 1/2/3 发（弹幕被中途截断）~~ ✅ 已修复
+
+**现象**：拿了弹幕+2 后，期望每次开火稳定 3 发，实际偶尔 1/2/3 发。
+
+**根因**：弹幕在创建循环**内部**被两处逐发截断，导致单次弹幕数不稳定：
+1. 早期版本的帧预算 `Mathf.Min(bulletCount, budget)` 在弹幕中途砍断；
+2. `MAX_ACTIVE_BULLETS` 的**逐发** `break` —— 场上子弹逼近 200 时，一把弹幕只创建到一半。
+
+**修复**：弹幕**原子化**。两道闸门都改为「整把枪之前」判断一次：
+- 帧预算超限 → 推迟**整把枪**到下一帧（保留 accumulator）；
+- 场上子弹达硬上限 → **整把跳过**（`return 0`），允许至多 `MAX_BARRAGE-1` 的轻微溢出（≤204，无害）。
+
+弹幕循环内部不再有任何 `break`/截断，单次弹幕数恒为 `Min(1 + bulletCountBonus, MAX_BARRAGE)`。
 
 ### ~~Bug 5/8：弹幕上限 3 但代码不统一~~ ✅ 已修复
 
@@ -104,11 +127,12 @@ if (bullet == null) { Debug.LogWarning("..."); continue; }
 
 | 问题 | 根因 | 状态 |
 |------|------|------|
-| 7 枪同步开火 | 交错初始化被 cap 吞掉 + 二轮起 accumulator 重置到同值 | ⏳ |
-| 射击节奏不均匀 | cap 在开火前强制钳位，破坏自然累加 | ⏳ |
+| 7 枪同步开火 | 硬钳位 cap 把积压枪压到同值 → 同帧开火后永久同步 | ✅ |
+| 射击节奏不均匀 | cap 在开火前强制钳位，破坏自然累加 | ✅ |
 | 子弹数量爆炸 | 无子弹上限 | ✅ |
-| 帧率尖刺 | 每帧同步创建多个 GameObject | ⏳ |
+| 帧率尖刺 | 每帧同步创建多个 GameObject | ✅ |
 | 急速溢出 | 线性公式无递减收益 | ✅ |
+| 弹幕+2 却射 1/2/3 发 | 帧预算/子弹上限在弹幕**内部**逐发截断 → 弹幕原子化 | ✅ |
 | 弹幕数量不稳定 | 创建失败静默跳过 | ✅ |
 | 弹幕上限不统一 | 两处重复计算 | ✅ |
 
@@ -147,9 +171,26 @@ if (bullet == null) { Debug.LogWarning($"[MagePassive] Bullet create failed for 
 
 ---
 
-## 待重构（Bug 1/2/4）
+### 5. 相位保留 cap（Bug 1/2）✅
 
-需要更深层的重构来解决：
-1. 交错偏移被 cap 吞掉 → 改用相位偏移或移除 cap
-2. 射击节奏不均匀 → 改用固定时间步或帧预算
-3. 每帧创建无节流 → 时间切片或子弹合并
+```csharp
+// 取模而非硬钳位：积压限制在「约 1 发」的同时保留各枪相位，交错不失效
+if (gun.accumulator > effectiveCooldown * 1.5f)
+    gun.accumulator = effectiveCooldown + Mathf.Repeat(gun.accumulator, effectiveCooldown);
+```
+
+### 6. 每帧子弹创建预算 + 轮转（Bug 4）✅
+
+```csharp
+const int MAX_BULLETS_PER_FRAME = 15;
+int i = (_fireStartIndex + k) % gunCount;        // 轮转，避免末尾枪饿死
+if (bulletsThisFrame >= MAX_BULLETS_PER_FRAME) continue;
+bulletsThisFrame += SpawnDotBullet(gun, fireDir, dmgMult, MAX_BULLETS_PER_FRAME - bulletsThisFrame);
+_fireStartIndex = (_fireStartIndex + 1) % gunCount;
+```
+
+---
+
+## 全部 Bug 已修复 ✅
+
+Bug 1/2/4 由「相位保留 cap」+「每帧预算 + 轮转」解决，无遗留待重构项。

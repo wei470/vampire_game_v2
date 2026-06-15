@@ -39,14 +39,14 @@ public class FiringSystemTests
         while (elapsed < duration)
         {
             elapsed += SIMULATED_DT;
-            float effectiveCooldown = Mathf.Max(0.1f, gun.cooldown * attackSpeedMult);
+            float effectiveCooldown = Mathf.Max(0.33f, gun.cooldown * attackSpeedMult);
             int bulletsPerShot = Mathf.Min(1 + bulletCountBonus, 3);
 
             accumulator += SIMULATED_DT;
 
-            // cap 在开火检查之前
+            // cap 在开火检查之前：取模保留子周期相位（与生产逻辑一致）
             if (accumulator > effectiveCooldown * 1.5f)
-                accumulator = effectiveCooldown * 1.5f;
+                accumulator = effectiveCooldown + Mathf.Repeat(accumulator, effectiveCooldown);
 
             if (accumulator >= effectiveCooldown)
             {
@@ -63,7 +63,7 @@ public class FiringSystemTests
     /// </summary>
     private static int CalculateExpectedBullets(float gunCooldown, float attackSpeedMult, int bulletCountBonus, float duration)
     {
-        float effectiveCooldown = Mathf.Max(0.1f, gunCooldown * attackSpeedMult);
+        float effectiveCooldown = Mathf.Max(0.33f, gunCooldown * attackSpeedMult);
         int shotsPerDuration = Mathf.FloorToInt(duration / effectiveCooldown);
         int bulletsPerShot = Mathf.Min(1 + bulletCountBonus, 3);
         return shotsPerDuration * bulletsPerShot;
@@ -253,17 +253,49 @@ public class FiringSystemTests
     // ═══ 帧预算测试 ═══
 
     [Test]
-    public void AllGunsFireOncePerFrame()
+    public void FrameBudget_NeverSplitsBarrage()
     {
-        // 7 枪全部就绪，每枪每帧最多 1 发，无帧预算限制
-        int gunsFiring = 0;
-        for (int i = 0; i < 7; i++)
+        // 帧预算以「整把枪」为粒度：每把开火的枪都射出完整弹幕，绝不被截断成 1/2 发。
+        // 7 枪全部就绪、每枪弹幕 3、帧预算 15。
+        const int gunCount = 7;
+        const int barrage = 3;
+        const int budget = 15;
+
+        int bulletsThisFrame = 0;
+        int gunsFired = 0;
+        for (int i = 0; i < gunCount; i++)
         {
-            // 每枪都能开火（无帧预算限制）
-            gunsFiring++;
+            // 已开过火且再加一把会超预算 → 推迟整把枪（不截断弹幕）
+            if (bulletsThisFrame > 0 && bulletsThisFrame + barrage > budget)
+                continue;
+
+            int created = barrage; // 完整弹幕，从不部分创建
+            bulletsThisFrame += created;
+            gunsFired++;
+
+            Assert.AreEqual(barrage, created, "Every firing gun must emit a FULL barrage (no partial 1/2 shots)");
         }
 
-        Assert.AreEqual(7, gunsFiring, "All 7 guns can fire per frame (no budget limit)");
+        Assert.AreEqual(0, bulletsThisFrame % barrage, "Total bullets must be a whole multiple of the barrage size");
+        Assert.LessOrEqual(bulletsThisFrame, budget + barrage - 1, "Per-frame total bounded (budget + at most one barrage overshoot)");
+        Assert.Less(gunsFired, gunCount, "With budget 15 and 7x3 demand, not all guns fire the same frame");
+    }
+
+    [Test]
+    public void SingleGun_AlwaysFiresFullBarrage()
+    {
+        // 单枪场景：无论帧预算如何，每次开火都射出完整弹幕（弹幕+2 → 恒定 3 发）
+        const int budget = 15;
+        const int bulletCountBonus = 2;
+        int barrage = Mathf.Min(1 + bulletCountBonus, 5);
+
+        int bulletsThisFrame = 0;
+        // 单枪是本帧第一把（bulletsThisFrame == 0），门槛不触发
+        bool deferred = bulletsThisFrame > 0 && bulletsThisFrame + barrage > budget;
+        Assert.IsFalse(deferred, "First gun of the frame is never deferred");
+
+        int created = barrage;
+        Assert.AreEqual(3, created, "barrage+2 must always emit exactly 3 bullets");
     }
 
     // ═══ 累加器上限测试 ═══
@@ -272,24 +304,38 @@ public class FiringSystemTests
     public void AccumulatorCap_PreventsCatchUpBurst()
     {
         float cooldown = 0.1f;
-        float cap = cooldown * 1.5f;
         float accumulator = 10f; // 模拟长时间积压
 
-        // cap 在开火检查之前
-        if (accumulator > cap)
-            accumulator = cap;
+        // 相位保留的积压上限：取模到 [cooldown, 2*cooldown)
+        if (accumulator > cooldown * 1.5f)
+            accumulator = cooldown + Mathf.Repeat(accumulator, cooldown);
 
-        Assert.AreEqual(cap, accumulator, "Accumulator should be capped at 1.5x cooldown BEFORE fire check");
+        // 积压被限制：最多缓冲约 1 发，不会一次性倾泻
+        Assert.LessOrEqual(accumulator, cooldown * 2f + 0.001f, "Backlog should be bounded to <2 cooldowns");
+        Assert.GreaterOrEqual(accumulator, cooldown - 0.001f, "Should retain at least one buffered shot");
 
-        // 开火后累加器应为 cap - cooldown = 0.05
-        bool canFire = accumulator >= cooldown;
-        Assert.IsTrue(canFire, "Should be able to fire after cap");
+        // 开火一次后应回落到不开火
+        Assert.IsTrue(accumulator >= cooldown, "Should be able to fire once after cap");
         accumulator -= cooldown;
-        Assert.AreEqual(0.05f, accumulator, 0.001f, "After firing, accumulator should be cap - cooldown");
+        Assert.Less(accumulator, cooldown, "After one shot, should NOT fire again immediately");
+    }
 
-        // 第二帧：累加器 + dt = 0.0667，低于 cooldown，不开火
-        accumulator += SIMULATED_DT;
-        Assert.Less(accumulator, cooldown, "Should NOT fire on second frame");
+    // ═══ 交错相位在 cap 后存活（Bug 1 修复） ═══
+
+    [Test]
+    public void Cap_PreservesGunStagger()
+    {
+        // 两枪相位差 0.03s，长时间积压后取模上限不应抹平相位差（否则会同步开火）
+        float cooldown = 0.1f;
+        float accA = 5.03f;
+        float accB = 5.06f;
+
+        accA = cooldown + Mathf.Repeat(accA, cooldown);
+        accB = cooldown + Mathf.Repeat(accB, cooldown);
+
+        Assert.AreNotEqual(accA, accB, "Guns must not collapse to identical accumulator after cap");
+        Assert.AreEqual(0.03f, Mathf.Abs(accA - accB), 0.005f,
+            "Cap should preserve inter-gun phase offset (stagger)");
     }
 
     // ═══ 急速层数递增测试 ═══

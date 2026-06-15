@@ -32,8 +32,8 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new DotGunEntry
                 {
                     upgradeId = "burn", effectType = StatusEffectType.Burn,
-                    displayName = "燃烧 (Burn)", description = "获得燃烧子弹",
-                    color = new Color(1f, 0.4f, 0f), cooldown = 0.5f, impactDmg = 2, dotDps = 2f, dotDuration = 3f
+                    displayName = "燃烧 (Burn)", description = "射出缓慢移动的大型火场，区域内敌人每0.5秒叠层",
+                    color = new Color(1f, 0.4f, 0f), cooldown = 5.0f, impactDmg = 0, dotDps = 2f, dotDuration = 3f
                 },
                 new DotGunEntry
                 {

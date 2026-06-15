@@ -119,13 +119,18 @@ effectiveCooldown = Max(0.1, gun.cooldown × attackSpeedMult)
 
 ```
 每帧：gun.accumulator += dt
-上限：gun.accumulator = min(gun.accumulator, effectiveCooldown × 1.5)
+上限：if (accumulator > effectiveCooldown × 1.5)
+         accumulator = effectiveCooldown + Repeat(accumulator, effectiveCooldown)  // 相位保留取模
 开火：if (accumulator >= effectiveCooldown) { accumulator -= cooldown; fire(); }
 ```
 
 - 每枪每帧最多 1 发（`if` 不是 `while`）
 - 弹幕上限 `MAX_BARRAGE = 5`
 - 场上子弹上限 `MAX_ACTIVE_BULLETS = 200`
+- **每帧子弹预算 `MAX_BULLETS_PER_FRAME = 15`**（防帧率尖刺），以**整把枪**为粒度，绝不拆弹幕
+- **轮转起始枪 `_fireStartIndex`**：预算耗尽时各枪轮流优先开火
+- cap 用**取模**而非硬钳位：保留各枪相位，避免多枪同步开火
+- **弹幕原子化**：单次开火恒射 `Min(1+bonus, MAX_BARRAGE)` 发；帧预算/子弹上限只在弹幕**之前**判断，绝不在循环内逐发截断
 - 创建失败重试一次，仍失败则日志跳过
 
 ### 护甲系统
@@ -162,6 +167,9 @@ multiplier = 3.0 × 1.15^辐射层数（最多 10 层）
 | 问题 | 说明 |
 |------|------|
 | **返回菜单** | `ReturnToMenu` 不调 `FullReset`，只做定向清理（避免 ObjectPool 级联销毁卡死） |
+| **多枪同步** | accumulator cap 必须用 `Mathf.Repeat` 取模，硬钳位会抹平相位导致 7 枪同帧开火 |
+| **帧率尖刺** | 每帧子弹创建受 `MAX_BULLETS_PER_FRAME=15` 限制 + `_fireStartIndex` 轮转 |
+| **弹幕数不稳定** | 帧预算/`MAX_ACTIVE_BULLETS` 必须在弹幕**之前**判断（整把枪粒度），切勿在循环内逐发 `break`，否则「弹幕+2 只射 1/2 发」 |
 | **DOT 命中** | 必须调 `DotBulletHelper.EnsureStatusEffectManager()` |
 | **腐蚀计算** | 用 `FloorToInt`（非 RoundToInt），否则 1 护甲无效 |
 | **护甲减伤** | 用 `RoundToInt`（非 CeilToInt），避免浮点误差 |

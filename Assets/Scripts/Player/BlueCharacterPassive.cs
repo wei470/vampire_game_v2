@@ -36,7 +36,7 @@ public class BlueCharacterPassive : CharacterPassiveBase
         bool hasTarget = fireDir.sqrMagnitude >= 0.01f;
 
         float attackSpeedMult = GetAttackSpeedMultiplier();
-        float effectiveCooldown = Mathf.Max(0.1f, _baseCooldown * attackSpeedMult);
+        float effectiveCooldown = Mathf.Max(0.33f, _baseCooldown * attackSpeedMult);
 
         _accumulator += Time.deltaTime;
 

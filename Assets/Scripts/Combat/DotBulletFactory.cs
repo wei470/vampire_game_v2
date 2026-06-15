@@ -63,7 +63,7 @@ public static class DotBulletFactory
     private static GameObject SpawnBurn(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var go = BurnBullet.Create(pos, dir, Config.BurnSpeed, gun.impactDamage,
+        var go = BurnBullet.Create(pos, dir, Config.BurnSpeed, 0,
             gun.dotDps, gun.dotDuration * durMult, dmgMult,
             canCrit, critChance, critMult)?.gameObject;
         AttachRicochetIfAvailable(go);

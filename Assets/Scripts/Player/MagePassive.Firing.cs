@@ -5,6 +5,11 @@ public partial class MagePassive
 {
     private const int MAX_ACTIVE_BULLETS = 200;
     private const int MAX_BARRAGE = 5;
+    private const int MAX_BULLETS_PER_FRAME = 15;
+    private const float MIN_COOLDOWN = 0.33f;
+
+    // 帧预算耗尽时的轮转起始枪索引，保证各枪轮流获得开火机会（避免末尾的枪饿死）
+    private int _fireStartIndex;
 
     private void Update()
     {
@@ -19,20 +24,37 @@ public partial class MagePassive
         float dmgMult = _weaponController != null ? _weaponController.DamageMultiplier : 1f;
         float attackSpeedMult = GetAttackSpeedMultiplier();
 
-        for (int i = 0; i < _dotGuns.Count; i++)
+        int gunCount = _dotGuns.Count;
+        if (gunCount == 0) return;
+
+        int bulletsThisFrame = 0;
+
+        for (int k = 0; k < gunCount; k++)
         {
+            // 轮转起始索引：帧预算耗尽时让不同的枪在不同帧优先开火
+            int i = (_fireStartIndex + k) % gunCount;
             var gun = _dotGuns[i];
-            float effectiveCooldown = Mathf.Max(0.1f, gun.cooldown * attackSpeedMult);
+            float effectiveCooldown = Mathf.Max(MIN_COOLDOWN, gun.cooldown * attackSpeedMult);
 
             gun.accumulator += dt;
 
+            // 积压上限：最多缓冲约 1 发。用取模保留各枪的子周期相位，
+            // 避免硬钳位把所有枪压到同一值导致同步开火、交错失效（Bug 1/2）。
             if (gun.accumulator > effectiveCooldown * 1.5f)
-                gun.accumulator = effectiveCooldown * 1.5f;
+                gun.accumulator = effectiveCooldown + Mathf.Repeat(gun.accumulator, effectiveCooldown);
 
             if (hasTarget && gun.accumulator >= effectiveCooldown)
             {
+                int barrage = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
+
+                // 帧预算以「整把枪」为粒度：本帧已经开过火、且再加一把会超预算 →
+                // 推迟整把枪到下一帧（保留 accumulator，下帧补发）。
+                // 绝不在弹幕内部截断——保证弹幕数始终恒定（Bug 4 不再误伤弹幕数量）。
+                if (bulletsThisFrame > 0 && bulletsThisFrame + barrage > MAX_BULLETS_PER_FRAME)
+                    continue;
+
                 gun.accumulator -= effectiveCooldown;
-                SpawnDotBullet(gun, fireDir, dmgMult);
+                bulletsThisFrame += SpawnDotBullet(gun, fireDir, dmgMult);
 
                 if (gun.effectType == StatusEffectType.Light)
                 {
@@ -44,21 +66,31 @@ public partial class MagePassive
                 }
             }
         }
+
+        _fireStartIndex = (_fireStartIndex + 1) % gunCount;
     }
 
-    private void SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)
+    /// <summary>
+    /// 创建一发完整弹幕。弹幕数恒为 Min(1 + bulletCountBonus, MAX_BARRAGE)，绝不被帧预算截断。
+    /// 仅当场上子弹逼近硬上限 MAX_ACTIVE_BULLETS（极端安全阀）时才可能少于该值。
+    /// 返回实际创建的子弹数。
+    /// </summary>
+    private int SpawnDotBullet(DotGunState gun, Vector2 direction, float dmgMultiplier)
     {
+        // 安全阀：场上子弹已达硬上限则整把跳过——在弹幕**之前**判断一次，
+        // 绝不在弹幕内部逐发截断，否则会出现「弹幕+2 却只射 1/2 发」的不稳定（核心 bug）。
+        // 允许至多 MAX_BARRAGE-1 的轻微溢出（≤204），无害。
+        if (DotBulletBase.ActiveDotBullets.Count >= MAX_ACTIVE_BULLETS)
+            return 0;
+
         float durMult = GetDotDurationMultiplier();
         float critChance = GetDotCritChance();
         int bulletCount = Mathf.Min(1 + _bulletCountBonus, MAX_BARRAGE);
         float spreadAngle = 15f;
+        int created = 0;
 
         for (int b = 0; b < bulletCount; b++)
         {
-            // 场上子弹过多时停止创建
-            if (DotBulletBase.ActiveDotBullets.Count >= MAX_ACTIVE_BULLETS)
-                break;
-
             Vector2 fireDir = direction;
             if (bulletCount > 1)
             {
@@ -80,7 +112,10 @@ public partial class MagePassive
 
             ApplyBulletSizeBonus(bullet);
             ApplyUpgradeVisual(bullet, gun);
+            created++;
         }
+
+        return created;
     }
 
     private void ApplyUpgradeVisual(GameObject bullet, DotGunState gun)

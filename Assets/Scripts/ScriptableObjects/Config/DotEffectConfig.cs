@@ -22,38 +22,31 @@ public class DotEffectConfig : ScriptableObject
     public float BarrageSpreadAngle = 15f;
 
     // ══════════════════════════════════════════════════════════════
-    // 燃烧子弹（BurnBullet）
-    // 命中敌人后叠加燃烧层数，每层缩短 tick 间隔（最低 0.2 秒），
-    // 造成持续火焰伤害。与风化效果触发"燃烧扩散"元素反应。
+    // 燃烧火场（BurnFireZone）
+    // 射出一个缓慢移动的大型火场，处于火场内的敌人每 0.5 秒受到一次叠层。
+    // 与风化效果触发"燃烧扩散"元素反应，与霜冻触发"融化"。
     // ══════════════════════════════════════════════════════════════
-    [Header("燃烧子弹（BurnBullet）")]
-    [Tooltip("燃烧子弹的飞行速度（单位：Unity 场景单位/秒）。\n" +
-             "数值越大子弹飞得越快，命中敌人更快。\n" +
-             "默认值：12")]
-    public float BurnSpeed = 12f;
+    [Header("燃烧火场（BurnFireZone）")]
+    [Tooltip("火场子弹的飞行速度（缓慢移动）。默认值：4")]
+    public float BurnSpeed = 4f;
 
-    [Tooltip("燃烧子弹自身在场景中的存活时间（单位：秒）。\n" +
-             "超过此时间未命中任何敌人则自动回收到对象池。\n" +
-             "默认值：4")]
-    public float BurnLifetime = 4f;
+    [Tooltip("火场子弹自身在场景中的存活时间。默认值：8")]
+    public float BurnLifetime = 8f;
 
-    [Tooltip("燃烧效果的基础每秒伤害（DPS，Damage Per Second）。\n" +
-             "实际 tick 伤害 = BurnBaseDps × tick间隔，层数越高 tick 越频繁。\n" +
-             "会被 Mage 的伤害倍率（dmgMult）和暴击系统进一步放大。\n" +
-             "默认值：2")]
+    [Tooltip("燃烧效果的基础每秒伤害（DPS）。默认值：2")]
     public float BurnBaseDps = 2f;
 
-    [Tooltip("燃烧状态效果的持续时间（单位：秒）。\n" +
-             "每次命中刷新此计时器；超时后燃烧效果自动消失。\n" +
-             "注意：这是[效果持续时间]，不是子弹飞行时间（那是 BurnLifetime）。\n" +
-             "默认值：3")]
+    [Tooltip("燃烧状态效果的持续时间。默认值：3")]
     public float BurnDuration = 3f;
 
-    [Tooltip("燃烧效果的固定 tick 间隔（单位：秒）。\n" +
-             "无论层数多少，每隔此时间造成一次伤害。\n" +
-             "层数越高，每次 tick 伤害越高（而非频率越快）。\n" +
-             "默认值：0.5")]
+    [Tooltip("火场对区域内敌人的叠层间隔。默认值：0.5")]
     public float BurnBaseTickInterval = 0.5f;
+
+    [Tooltip("火场的碰撞半径。默认值：2.5")]
+    public float BurnFireZoneRadius = 2.5f;
+
+    [Tooltip("火场子弹的缩放。默认值：2.0")]
+    public float BurnFireZoneScale = 2.0f;
 
     // ══════════════════════════════════════════════════════════════
     // 毒液子弹（PoisonBullet）
