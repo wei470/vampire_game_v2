@@ -1215,5 +1215,140 @@ public class CoreSystemTests
         float actualDmg = 100f * (1f - reduction);
         Assert.AreEqual(82f, actualDmg, 0.01f, "9 armor = 18% reduction, 100→82");
     }
+
+    // ═══ 强化系统测试 ═══
+
+    [Test]
+    public void UpgradeRarity_AllValuesExist()
+    {
+        Assert.AreEqual(0, (int)UpgradeRarity.Common);
+        Assert.AreEqual(1, (int)UpgradeRarity.Uncommon);
+        Assert.AreEqual(2, (int)UpgradeRarity.Rare);
+        Assert.AreEqual(3, (int)UpgradeRarity.Epic);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Has48Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        int total = config.upgradeEntries.Length;
+        Assert.AreEqual(48, total, $"Expected 48 upgrades (8 general + 40 bullet), got {total}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_RarityDistribution()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        int common = 0, uncommon = 0, rare = 0, epic = 0;
+        for (int i = 0; i < config.upgradeEntries.Length; i++)
+        {
+            switch (config.upgradeEntries[i].rarity)
+            {
+                case UpgradeRarity.Common: common++; break;
+                case UpgradeRarity.Uncommon: uncommon++; break;
+                case UpgradeRarity.Rare: rare++; break;
+                case UpgradeRarity.Epic: epic++; break;
+            }
+        }
+        Assert.AreEqual(16, common, "Common upgrades");
+        Assert.AreEqual(16, uncommon, "Uncommon upgrades");
+        Assert.AreEqual(16, rare, "Rare upgrades");
+        Assert.AreEqual(16, epic, "Epic upgrades");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Poison8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "poison_duration", "poison_dps", "poison_pool", "poison_tick",
+                         "poison_crit", "poison_sepsis", "poison_plague", "poison_lethal" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Burn8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "burn_duration", "burn_radius", "burn_tick", "burn_slow",
+                         "burn_crit", "burn_melt", "burn_storm", "burn_burst" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Frost8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "frost_duration", "frost_slow", "frost_tick", "frost_range",
+                         "frost_crit", "frost_freeze", "frost_blizzard", "frost_absolute" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Static8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "static_damage", "static_chain", "static_tick", "static_range",
+                         "static_crit", "static_overload", "storm_multi", "storm_chain" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_Wind8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "wind_damage", "wind_speed", "wind_tick", "wind_pierce",
+                         "wind_crit", "wind_storm_eye", "wind_hurricane", "wind_lord" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_General8Upgrades()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        string[] ids = { "move_speed", "erosion", "haste", "radiate",
+                         "corrosion", "contaminate", "barrage", "ricochet" };
+        foreach (var id in ids)
+            Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_BarrageMaxStacks2()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("barrage");
+        Assert.IsTrue(entry.HasValue);
+        Assert.AreEqual(2, entry.Value.maxStacks, "Barrage maxStacks should be 2");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void MageUpgradeConfig_HasteMaxStacks10()
+    {
+        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
+        var entry = config.GetUpgradeEntry("haste");
+        Assert.IsTrue(entry.HasValue);
+        Assert.AreEqual(10, entry.Value.maxStacks, "Haste maxStacks should be 10");
+        Object.DestroyImmediate(config);
+    }
+
+    [Test]
+    public void UpgradeEntry_RarityField()
+    {
+        var entry = new UpgradeEntry { upgradeId = "test", rarity = UpgradeRarity.Epic };
+        Assert.AreEqual(UpgradeRarity.Epic, entry.rarity);
+    }
 }
 #endif
