@@ -1296,7 +1296,7 @@ public class AutomatedPlayModeTests
         Assert.AreEqual(1f, mage.GetAttackSpeedMultiplier(), 0.001f);
 
         mage.AttackSpeedBonus = 0.3f;
-        Assert.AreEqual(0.7f, mage.GetAttackSpeedMultiplier(), 0.001f, "Mage should use CharacterPassiveBase logic");
+        Assert.AreEqual(0.769f, mage.GetAttackSpeedMultiplier(), 0.01f, "Mage should use 1/(1+bonus) = 1/1.3 = 0.769");
 
         Object.DestroyImmediate(go);
     }

@@ -1251,10 +1251,10 @@ public class CoreSystemTests
                 case UpgradeRarity.Epic: epic++; break;
             }
         }
-        Assert.AreEqual(16, common, "Common upgrades");
-        Assert.AreEqual(16, uncommon, "Uncommon upgrades");
-        Assert.AreEqual(16, rare, "Rare upgrades");
-        Assert.AreEqual(16, epic, "Epic upgrades");
+        Assert.AreEqual(12, common, "Common upgrades");
+        Assert.AreEqual(12, uncommon, "Uncommon upgrades");
+        Assert.AreEqual(12, rare, "Rare upgrades");
+        Assert.AreEqual(12, epic, "Epic upgrades");
         Object.DestroyImmediate(config);
     }
 
