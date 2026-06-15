@@ -36,9 +36,14 @@ public class PoisonStackEffect : StackEffectBase
     protected override void RefreshFromConfig()
     {
         var cfg = DotEffectConfig.GetDefault();
-        _baseTickInterval = cfg.PoisonBaseTickInterval;
-        _damagePerTick = cfg.PoisonDamagePerTick;
         _maxStacks = cfg.PoisonMaxStacks;
+        duration = cfg.PoisonDuration;
+        _baseTickInterval = cfg.PoisonBaseTickInterval;
+
+        // 应用毒素加速强化
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage != null && mage.PoisonTickReduction > 0)
+            _baseTickInterval *= (1f - mage.PoisonTickReduction);
     }
 
     private void Update()

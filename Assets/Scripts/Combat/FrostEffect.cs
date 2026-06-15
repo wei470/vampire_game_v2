@@ -136,5 +136,13 @@ public class FrostEffect : StackEffectBase
         _maxSlow = cfg.FrostMaxSlow;
         _baseSlow = cfg.FrostBaseSlowPct;
         _perStackSlow = cfg.FrostSlowPerStack;
+
+        // 应用减速强化
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage != null && mage.FrostSlowBonus > 0)
+        {
+            _baseSlow += mage.FrostSlowBonus;
+            _maxSlow = Mathf.Min(0.95f, _maxSlow + mage.FrostSlowBonus);
+        }
     }
 }

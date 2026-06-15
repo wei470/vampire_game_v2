@@ -50,12 +50,23 @@ public static class DotBulletFactory
         _config = null;
     }
 
+    private static MagePassive GetMage()
+    {
+        return GameReferences.DotCharacterPassive as MagePassive;
+    }
+
     private static GameObject SpawnPoison(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
+        var mage = GetMage();
+        float dps = gun.dotDps + (mage != null ? mage.PoisonDpsBonus : 0f);
+        float dur = gun.dotDuration * durMult + (mage != null ? mage.PoisonDurationBonus : 0f);
+        float poolBonus = mage != null ? mage.PoisonPoolBonus : 0f;
+        float critBonus = mage != null ? mage.PoisonCritBonus : 0f;
+
         var go = PoisonBullet.Create(pos, dir, Config.PoisonSpeed,
-            gun.dotDps, gun.dotDuration * durMult, dmgMult,
-            canCrit, critChance, critMult)?.gameObject;
+            dps, dur, dmgMult,
+            canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
         AttachRicochetIfAvailable(go);
         return go;
     }
@@ -63,9 +74,24 @@ public static class DotBulletFactory
     private static GameObject SpawnBurn(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var go = BurnBullet.Create(pos, dir, Config.BurnSpeed, 0,
-            gun.dotDps, gun.dotDuration * durMult, dmgMult,
-            canCrit, critChance, critMult)?.gameObject;
+        var mage = GetMage();
+        float dps = gun.dotDps + (mage != null ? mage.BurnDurationBonus : 0f);
+        float dur = gun.dotDuration * durMult + (mage != null ? mage.BurnDurationBonus : 0f);
+        float critBonus = mage != null ? mage.BurnCritBonus : 0f;
+        float speed = Config.BurnSpeed;
+
+        var go = BurnBullet.Create(pos, dir, speed, 0,
+            dps, dur, dmgMult,
+            canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
+
+        // 火场范围加成
+        if (go != null && mage != null && mage.BurnRadiusBonus > 0)
+        {
+            go.transform.localScale *= (1f + mage.BurnRadiusBonus);
+            var col = go.GetComponent<CircleCollider2D>();
+            if (col != null) col.radius *= (1f + mage.BurnRadiusBonus);
+        }
+
         AttachRicochetIfAvailable(go);
         return go;
     }
@@ -73,9 +99,23 @@ public static class DotBulletFactory
     private static GameObject SpawnFrost(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
+        var mage = GetMage();
+        float slowPct = Config.FrostBaseSlowPct + (mage != null ? mage.FrostSlowBonus : 0f);
+        float critBonus = mage != null ? mage.FrostCritBonus : 0f;
+        float rangeBonus = mage != null ? mage.FrostRangeBonus : 0f;
+
         var go = FrostBullet.Create(pos, dir, Config.FrostSpeed, gun.impactDamage,
-            gun.dotDps, Config.FrostFreezeDuration, Config.FrostBaseSlowPct, dmgMult,
-            canCrit, critChance, critMult)?.gameObject;
+            gun.dotDps, Config.FrostFreezeDuration, slowPct, dmgMult,
+            canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
+
+        // 霜冻范围加成
+        if (go != null && rangeBonus > 0)
+        {
+            go.transform.localScale *= (1f + rangeBonus);
+            var col = go.GetComponent<Collider2D>();
+            if (col is CircleCollider2D c) c.radius *= (1f + rangeBonus);
+        }
+
         AttachRicochetIfAvailable(go);
         return go;
     }
@@ -83,8 +123,20 @@ public static class DotBulletFactory
     private static GameObject SpawnStatic(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
-        var go = LightningBullet.Create(pos, dir, Config.LightningSpeed, gun.impactDamage,
+        var mage = GetMage();
+        int damage = gun.impactDamage + (mage != null ? Mathf.RoundToInt(mage.StaticDamageBonus) : 0);
+        float critBonus = mage != null ? mage.StaticCritBonus : 0f;
+
+        var go = LightningBullet.Create(pos, dir, Config.LightningSpeed, damage,
             dmgMult)?.gameObject;
+
+        // 连锁目标加成
+        if (go != null && mage != null && mage.StaticChainBonus > 0)
+        {
+            var lb = go.GetComponent<LightningBullet>();
+            if (lb != null) lb.ExtraChainTargets = mage.StaticChainBonus;
+        }
+
         AttachRicochetIfAvailable(go);
         return go;
     }
@@ -122,14 +174,27 @@ public static class DotBulletFactory
     private static GameObject SpawnWind(Vector2 pos, Vector2 dir, DotGunState gun,
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
+        var mage = GetMage();
+        float critBonus = mage != null ? mage.WindCritBonus : 0f;
+        float damageBonus = mage != null ? mage.WindDamageBonus : 0f;
+
         float randomAngle = Random.Range(-25f, 25f);
         float rad = randomAngle * Mathf.Deg2Rad;
         Vector2 spreadDir = new Vector2(
             dir.x * Mathf.Cos(rad) - dir.y * Mathf.Sin(rad),
             dir.x * Mathf.Sin(rad) + dir.y * Mathf.Cos(rad)
         ).normalized;
-        var go = WindBullet.Create(pos, spreadDir, Config.WindSpeed, gun.impactDamage,
-            dmgMult, canCrit, critChance, critMult)?.gameObject;
+        var go = WindBullet.Create(pos, spreadDir, Config.WindSpeed, gun.impactDamage + Mathf.RoundToInt(damageBonus),
+            dmgMult, canCrit || critBonus > 0, critChance + critBonus, critMult)?.gameObject;
+
+        // 风弹范围加成
+        if (go != null && mage != null && mage.WindLord)
+        {
+            go.transform.localScale *= 2f;
+            var col = go.GetComponent<Collider2D>();
+            if (col is CircleCollider2D c) c.radius *= 2f;
+        }
+
         AttachRicochetIfAvailable(go);
         return go;
     }

@@ -180,5 +180,10 @@ public class StaticStackEffect : StackEffectBase
         _stunDurationDischarge = cfg.StaticStunOnDischarge;
         _stunDurationFirst = cfg.StaticStunOnFirstStack;
         _maxStacks = cfg.StaticMaxStacks;
+
+        // 应用雷电加速强化
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage != null && mage.StaticTickReduction > 0)
+            _baseInterval *= (1f - mage.StaticTickReduction);
     }
 }

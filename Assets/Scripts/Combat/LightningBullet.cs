@@ -14,6 +14,8 @@ public class LightningBullet : MonoBehaviour
     private Vector2 _direction;
     private float _spawnTime;
     private int _maxChainCount = 3;
+    public int ExtraChainTargets { get; set; } = 0;
+    private int TotalChainCount => _maxChainCount + ExtraChainTargets;
     private float _chainRadius = 8f;
     private HashSet<GameObject> _hitEnemies = new HashSet<GameObject>();
     private readonly List<(GameObject enemy, float dist)> _chainCandidates = new List<(GameObject, float)>(16);
@@ -109,7 +111,7 @@ public class LightningBullet : MonoBehaviour
 
         int chained = 0;
         Vector2 lastPos = originPos;
-        for (int i = 0; i < candidates.Count && chained < _maxChainCount; i++)
+        for (int i = 0; i < candidates.Count && chained < TotalChainCount; i++)
         {
             var target = candidates[i].enemy;
             if (_hitEnemies.Contains(target)) continue;

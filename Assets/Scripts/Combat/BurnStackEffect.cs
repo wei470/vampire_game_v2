@@ -42,6 +42,11 @@ public class BurnStackEffect : StackEffectBase
         var cfg = DotEffectConfig.GetDefault();
         duration = cfg.BurnDuration;
         _baseTickInterval = cfg.BurnBaseTickInterval;
+
+        // 应用火焰加速强化
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage != null && mage.BurnTickReduction > 0)
+            _baseTickInterval = Mathf.Max(0.1f, _baseTickInterval - mage.BurnTickReduction);
     }
 
     private void Update()
