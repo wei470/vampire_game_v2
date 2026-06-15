@@ -79,9 +79,6 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 new UpgradeEntry { upgradeId = "haste", upgradeName = "急速 (Haste)", description = "攻速+15%，最多10层", category = CharacterUpgradeOption.UpgradeCategory.AttackSpeed, value1 = 0.15f, maxStacks = 10 },
                 new UpgradeEntry { upgradeId = "barrage", upgradeName = "弹幕 (Barrage)", description = "子弹+1，最多2层", category = CharacterUpgradeOption.UpgradeCategory.BulletCount, value1 = 1f, maxStacks = 2 },
                 new UpgradeEntry { upgradeId = "ricochet", upgradeName = "贯穿弹 (Penetrate)", description = "穿透+1", category = CharacterUpgradeOption.UpgradeCategory.Ricochet, value1 = 1f, maxStacks = 3 },
-                new UpgradeEntry { upgradeId = "light_judgment", upgradeName = "光明审判 (Light Judgment)", description = "光明标记每层+0.3%", category = CharacterUpgradeOption.UpgradeCategory.LightJudgment, value1 = 0.003f, maxStacks = 5 },
-                new UpgradeEntry { upgradeId = "static_field", upgradeName = "静电领域 (Static Field)", description = "静电扩散1.5范围+1层", category = CharacterUpgradeOption.UpgradeCategory.StaticField, value1 = 1.5f, value2 = 1f, maxStacks = 3 },
-                new UpgradeEntry { upgradeId = "frost_explosion", upgradeName = "霜爆 (Frost Explosion)", description = "减速80%+引爆3%最大生命", category = CharacterUpgradeOption.UpgradeCategory.FrostExplosion, value1 = 0.03f, value2 = 0.80f, maxStacks = 0 },
                 new UpgradeEntry { upgradeId = "move_speed", upgradeName = "移速 (Move Speed)", description = "移动速度+10%", category = CharacterUpgradeOption.UpgradeCategory.MoveSpeed, value1 = 0.10f, maxStacks = 0 },
             };
         }
