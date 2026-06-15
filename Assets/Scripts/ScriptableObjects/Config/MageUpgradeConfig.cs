@@ -110,17 +110,14 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
 
                 // ═══ 霜冻专属 ═══
                 // 灰色
-                new UpgradeEntry { upgradeId = "frost_duration", upgradeName = "霜冻持久", description = "霜冻持续时间+1s", category = CharacterUpgradeOption.UpgradeCategory.FrostDuration, rarity = UpgradeRarity.Common, value1 = 1f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "frost_slow", upgradeName = "减速强化", description = "霜冻减速+10%", category = CharacterUpgradeOption.UpgradeCategory.FrostSlow, rarity = UpgradeRarity.Common, value1 = 0.10f, maxStacks = 5 },
                 // 蓝色
                 new UpgradeEntry { upgradeId = "frost_freeze", upgradeName = "冰封", description = "霜冻满层冻结0.5s", category = CharacterUpgradeOption.UpgradeCategory.FrostFreeze, rarity = UpgradeRarity.Rare, value1 = 0.5f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "frost_blizzard", upgradeName = "暴风雪", description = "霜冻范围×2", category = CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
-                new UpgradeEntry { upgradeId = "frost_absolute", upgradeName = "绝对零度", description = "霜冻DPS+5", category = CharacterUpgradeOption.UpgradeCategory.FrostAbsolute, rarity = UpgradeRarity.Epic, value1 = 5f, maxStacks = 1 },
 
                 // ═══ 雷电专属 ═══
                 // 灰色
-                new UpgradeEntry { upgradeId = "static_damage", upgradeName = "雷电强化", description = "雷电伤害+5", category = CharacterUpgradeOption.UpgradeCategory.StaticDamage, rarity = UpgradeRarity.Common, value1 = 5f, maxStacks = 5 },
                 new UpgradeEntry { upgradeId = "static_chain", upgradeName = "连锁强化", description = "连锁目标+1", category = CharacterUpgradeOption.UpgradeCategory.StaticChain, rarity = UpgradeRarity.Common, value1 = 1f, maxStacks = 3 },
                 // 绿色
                 new UpgradeEntry { upgradeId = "static_tick", upgradeName = "雷电加速", description = "雷电叠层间隔-15%", category = CharacterUpgradeOption.UpgradeCategory.StaticTick, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 3 },

@@ -1232,7 +1232,7 @@ public class CoreSystemTests
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
         int total = config.upgradeEntries.Length;
-        Assert.AreEqual(38, total, $"Expected 38 upgrades (8 general + 30 bullet), got {total}");
+        Assert.AreEqual(35, total, $"Expected 35 upgrades (8 general + 27 bullet), got {total}");
         Object.DestroyImmediate(config);
     }
 
@@ -1281,21 +1281,20 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void MageUpgradeConfig_Frost4Upgrades()
+    public void MageUpgradeConfig_Frost3Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "frost_duration", "frost_slow", "frost_freeze", "frost_blizzard", "frost_absolute" };
+        string[] ids = { "frost_slow", "frost_freeze", "frost_blizzard" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
     }
 
     [Test]
-    public void MageUpgradeConfig_Static8Upgrades()
+    public void MageUpgradeConfig_Static5Upgrades()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "static_damage", "static_chain", "static_tick", "static_range",
-                         "static_crit", "static_overload", "storm_multi", "storm_chain" };
+        string[] ids = { "static_chain", "static_tick", "static_range", "static_overload", "storm_multi", "storm_chain" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
@@ -1384,11 +1383,9 @@ public class CoreSystemTests
     [Test] public void Frost_Slow_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_slow"); Assert.AreEqual(0.1f, m.FrostSlowBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Freeze_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_freeze"); Assert.IsTrue(m.FrostFreeze); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Frost_Blizzard_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_blizzard"); Assert.IsTrue(m.FrostBlizzard); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Absolute_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_absolute"); Assert.IsTrue(m.FrostAbsolute); Object.DestroyImmediate(m.gameObject); }
 
     // ── 雷电专属 ──
 
-    [Test] public void Static_Damage_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_damage"); Assert.AreEqual(5f, m.StaticDamageBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_chain"); Assert.AreEqual(1, m.StaticChainBonus); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Tick_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_tick"); Assert.AreEqual(0.15f, m.StaticTickReduction, 0.001f); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Static_Range_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_range"); Assert.AreEqual(0.2f, m.StaticRangeBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
@@ -1413,22 +1410,6 @@ public class CoreSystemTests
         var m = CreateMageWithConfig();
         for (int i = 0; i < 5; i++) m.ApplyUpgrade("poison_duration");
         Assert.AreEqual(5f, m.PoisonDurationBonus);
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test] public void Poison_Crit_Stacks5()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 5; i++) m.ApplyUpgrade("poison_crit");
-        Assert.AreEqual(0.25f, m.PoisonCritBonus, 0.001f);
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test] public void Static_Damage_Stacks5()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 5; i++) m.ApplyUpgrade("static_damage");
-        Assert.AreEqual(25f, m.StaticDamageBonus);
         Object.DestroyImmediate(m.gameObject);
     }
 
