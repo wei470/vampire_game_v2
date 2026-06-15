@@ -249,3 +249,21 @@
 
 > 落地顺序建议：先在 `DotEffectConfig` 加数值字段 → 在 `MageUpgradeApplier` 注册新 upgradeId 策略 →
 > 反应逻辑统一进 `DotComboSystem` → 配置进 `MageUpgradeConfig.asset`。
+
+---
+
+## 6. 实现状态
+
+| 项目 | 状态 |
+|------|------|
+| UpgradeRarity 枚举 | ✅ |
+| UpgradeEntry 添加 rarity 字段 | ✅ |
+| CharacterUpgradeOption 添加 rarity 字段 | ✅ |
+| 48 个强化条目（8通用+40子弹专属） | ✅ |
+| 40 个子弹专属类别枚举 | ✅ |
+| 40 个子弹专属属性 (MagePassive) | ✅ |
+| 48 个强化应用逻辑 (MageUpgradeApplier) | ✅ |
+| LevelUpOptionGenerator 稀有度加权选择 | ✅ |
+| TestBulletSelectUI 稀有度颜色显示 | ✅ |
+| 12 个强化系统测试 | ✅ |
+| 光明/黑暗专属强化 | ⏳ 跳过（用户要求暂不添加） |
