@@ -53,7 +53,7 @@ public class AmaterasuEffect : MonoBehaviour
 
         var frost = GetComponent<FrostEffect>();
         if (frost != null && frost.FrostStacks > 0)
-            frost.AddStack();
+            frost.ApplyFreeze(3f, frost.slowPercent, frost.frostDps, false, 0f, 0f);
 
         var staticEff = GetComponent<StaticStackEffect>();
         if (staticEff != null && staticEff.StackCount > 0)
