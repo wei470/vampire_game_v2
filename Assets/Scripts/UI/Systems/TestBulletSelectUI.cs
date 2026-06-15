@@ -463,7 +463,7 @@ public class TestBulletSelectUI : MonoBehaviour
         float btnW = 80f;
         float btnH = 28f;
         float startX = PANEL_X + 15f;
-        float y = PANEL_Y - 30f;
+        float y = PANEL_Y - 55f;
 
         for (int i = 0; i < _bulletFilterNames.Length; i++)
         {
