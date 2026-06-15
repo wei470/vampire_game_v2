@@ -1232,7 +1232,7 @@ public class CoreSystemTests
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
         int total = config.upgradeEntries.Length;
-        Assert.AreEqual(35, total, $"Expected 35 upgrades (8 general + 27 bullet), got {total}");
+        Assert.AreEqual(33, total, $"Expected 33 upgrades (8 general + 25 bullet), got {total}");
         Object.DestroyImmediate(config);
     }
 
@@ -1281,10 +1281,10 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void MageUpgradeConfig_Frost3Upgrades()
+    public void MageUpgradeConfig_Frost1Upgrade()
     {
         var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        string[] ids = { "frost_slow", "frost_freeze", "frost_blizzard" };
+        string[] ids = { "frost_slow" };
         foreach (var id in ids)
             Assert.IsTrue(config.GetUpgradeEntry(id).HasValue, $"Missing upgrade: {id}");
         Object.DestroyImmediate(config);
@@ -1380,8 +1380,6 @@ public class CoreSystemTests
     // ── 霜冻专属 ──
 
     [Test] public void Frost_Slow_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_slow"); Assert.AreEqual(0.1f, m.FrostSlowBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Freeze_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_freeze"); Assert.IsTrue(m.FrostFreeze); Object.DestroyImmediate(m.gameObject); }
-    [Test] public void Frost_Blizzard_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_blizzard"); Assert.IsTrue(m.FrostBlizzard); Object.DestroyImmediate(m.gameObject); }
 
     // ── 雷电专属 ──
 
@@ -1562,26 +1560,6 @@ public class CoreSystemTests
         Assert.IsFalse(m.BurnBurst, "默认关闭");
         m.ApplyUpgrade("burn_burst");
         Assert.IsTrue(m.BurnBurst, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Frost_Freeze_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.FrostFreeze, "默认关闭");
-        m.ApplyUpgrade("frost_freeze");
-        Assert.IsTrue(m.FrostFreeze, "激活后应为true");
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test]
-    public void Frost_Blizzard_TogglesFlag()
-    {
-        var m = CreateMageWithConfig();
-        Assert.IsFalse(m.FrostBlizzard, "默认关闭");
-        m.ApplyUpgrade("frost_blizzard");
-        Assert.IsTrue(m.FrostBlizzard, "激活后应为true");
         Object.DestroyImmediate(m.gameObject);
     }
 

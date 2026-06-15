@@ -111,10 +111,6 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // ═══ 霜冻专属 ═══
                 // 灰色
                 new UpgradeEntry { upgradeId = "frost_slow", upgradeName = "减速强化", description = "霜冻减速+10%", category = CharacterUpgradeOption.UpgradeCategory.FrostSlow, rarity = UpgradeRarity.Common, value1 = 0.10f, maxStacks = 5 },
-                // 蓝色
-                new UpgradeEntry { upgradeId = "frost_freeze", upgradeName = "冰封", description = "霜冻满层冻结0.5s", category = CharacterUpgradeOption.UpgradeCategory.FrostFreeze, rarity = UpgradeRarity.Rare, value1 = 0.5f, maxStacks = 1 },
-                // 紫色
-                new UpgradeEntry { upgradeId = "frost_blizzard", upgradeName = "暴风雪", description = "霜冻范围×2", category = CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
 
                 // ═══ 雷电专属 ═══
                 // 灰色
