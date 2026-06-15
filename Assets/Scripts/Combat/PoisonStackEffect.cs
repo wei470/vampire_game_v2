@@ -8,7 +8,7 @@ public class PoisonStackEffect : StackEffectBase
     private DotColorBlender _blender;
     private float _baseTickInterval = 1f;
     private int _damagePerTick = 2;
-    private int _maxStacks = 20;
+    private int _maxStacks = 999;
     private int _lastRegisteredStacks = -1;
 
     public override int StackCount => _stacks;

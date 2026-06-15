@@ -21,7 +21,7 @@ public class StaticStackEffect : StackEffectBase
     private float _stunDurationHit = 0.1f;
     private float _stunDurationDischarge = 0.5f;
     private float _stunDurationFirst = 1.0f;
-    private int _maxStacks = 15;
+    private int _maxStacks = 999;
     private float _lastTickTime;
     private float _stunEndTime;
     private EnemyBase _enemyBase;

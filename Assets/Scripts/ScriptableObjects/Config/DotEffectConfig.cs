@@ -116,7 +116,7 @@ public class DotEffectConfig : ScriptableObject
     [Tooltip("中毒效果的最大叠加层数（整数）。\n" +
              "层数超过此值后不再增加。\n" +
              "默认值：20")]
-    public int PoisonMaxStacks = 20;
+    public int PoisonMaxStacks = 999;
 
     // ══════════════════════════════════════════════════════════════
     // 霜冻子弹（FrostBullet）
@@ -207,7 +207,7 @@ public class DotEffectConfig : ScriptableObject
     [Tooltip("静电的最大叠加层数（整数）。\n" +
              "层数超过此值后不再增加。\n" +
              "默认值：15")]
-    public int StaticMaxStacks = 15;
+    public int StaticMaxStacks = 999;
 
     // ══════════════════════════════════════════════════════════════
     // 暗影子弹（DarkBullet）

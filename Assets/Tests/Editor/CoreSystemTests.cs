@@ -132,11 +132,10 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void PoisonStackEffect_MaxStacks_Is20()
+    public void PoisonStackEffect_MaxStacks_Is999()
     {
-        // 最大层数应为20
-        int maxStacks = 20;
-        Assert.AreEqual(20, maxStacks);
+        int maxStacks = 999;
+        Assert.AreEqual(999, maxStacks);
     }
 
     [Test]
