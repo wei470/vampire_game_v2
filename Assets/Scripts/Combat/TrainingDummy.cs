@@ -10,7 +10,6 @@ public class TrainingDummy : MonoBehaviour
     private Rigidbody2D _rb;
     private Vector3 _spawnPos;
     private long _maxHp = 2000000;
-    private int _armor = 0;
     private float _regen = 0f;
     private bool _invincible = false;
     private float _respawnDelay = 1f;
@@ -21,10 +20,9 @@ public class TrainingDummy : MonoBehaviour
     private static readonly Color HIT_COLOR = new Color(1f, 1f, 1f);
     private float _hitFlashEnd;
 
-    public void Init(long hp, int armor, float regen, bool invincible, float respawnDelay)
+    public void Init(long hp, float regen, bool invincible, float respawnDelay)
     {
         _maxHp = hp;
-        _armor = armor;
         _regen = regen;
         _invincible = invincible;
         _respawnDelay = respawnDelay;

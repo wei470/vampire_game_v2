@@ -55,7 +55,6 @@ public class WaveChallengeSystem : MonoBehaviour
     public float ChallengeHpMultiplier { get; private set; } = 1f;
     public float ChallengeSpeedMultiplier { get; private set; } = 1f;
     public bool ChallengeExtraBoss { get; private set; } = false;
-    public int ChallengeEliteArmor { get; private set; } = 0;
 
     // ── 新增挑战效果属性 ──
     /// <summary>黑暗降临：视野缩小倍率（0.5 = 缩小50%）</summary>
@@ -210,16 +209,16 @@ public class WaveChallengeSystem : MonoBehaviour
         {
             case ChallengeType.DoubleHp:
                 ChallengeHpMultiplier = 2f; ChallengeSpeedMultiplier = 1f;
-                ChallengeExtraBoss = false; ChallengeEliteArmor = 0; break;
+                ChallengeExtraBoss = false; break;
             case ChallengeType.SpeedBoost:
                 ChallengeHpMultiplier = 1f; ChallengeSpeedMultiplier = 1.5f;
-                ChallengeExtraBoss = false; ChallengeEliteArmor = 0; break;
+                ChallengeExtraBoss = false; break;
             case ChallengeType.ExtraBoss:
                 ChallengeHpMultiplier = 1f; ChallengeSpeedMultiplier = 1f;
-                ChallengeExtraBoss = true; ChallengeEliteArmor = 0; break;
+                ChallengeExtraBoss = true; break;
             case ChallengeType.EliteWave:
-                ChallengeHpMultiplier = 1f; ChallengeSpeedMultiplier = 1f;
-                ChallengeExtraBoss = false; ChallengeEliteArmor = 10; break;
+                ChallengeHpMultiplier = 1.5f; ChallengeSpeedMultiplier = 1.2f;
+                ChallengeExtraBoss = false; break;
             case ChallengeType.DarkFall:
                 ChallengeViewScale = 0.5f; break;
             case ChallengeType.ElementStorm:
@@ -255,7 +254,6 @@ public class WaveChallengeSystem : MonoBehaviour
         ChallengeHpMultiplier = 1f;
         ChallengeSpeedMultiplier = 1f;
         ChallengeExtraBoss = false;
-        ChallengeEliteArmor = 0;
         ChallengeViewScale = 1f;
         ChallengeElementStorm = false;
         ChallengeMirrorChance = 0f;

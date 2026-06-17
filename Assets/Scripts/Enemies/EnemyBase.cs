@@ -52,6 +52,7 @@ public class EnemyBase : BaseEntity
     // ── 集中速度管理（FrostEffect/StaticStackEffect 只设置这些标志，不直接改 MoveSpeed） ──
     /// <summary>霜冻减速乘数（0~1，1=无减速，0=完全停止）</summary>
     public float FrostSlowMultiplier { get; set; } = 1f;
+    public float PoisonSwampMultiplier { get; set; } = 1f;
     /// <summary>是否处于静电硬直中</summary>
     public bool IsStaticStunned { get; set; } = false;
 
@@ -86,6 +87,7 @@ public class EnemyBase : BaseEntity
 
         _moveSpeed = BaseMoveSpeed;
         FrostSlowMultiplier = 1f;
+        PoisonSwampMultiplier = 1f;
         IsStaticStunned = false;
 
         // 对象池回收时重置血条状态（组件已在 Awake 中创建）
@@ -185,7 +187,7 @@ public class EnemyBase : BaseEntity
         {
             Vector2 direction = (_target.position - transform.position).normalized;
             // 集中计算实际速度：基础速度 × 霜冻减速 × 静电硬直
-            float effectiveSpeed = IsStaticStunned ? 0f : BaseMoveSpeed * FrostSlowMultiplier;
+            float effectiveSpeed = IsStaticStunned ? 0f : BaseMoveSpeed * FrostSlowMultiplier * PoisonSwampMultiplier;
             _rb.linearVelocity = direction * effectiveSpeed * DebugConfigPanel.DebugEnemySpeedMultiplier;
             _lastAiUpdateFrame = _globalFrameCounter;
         }

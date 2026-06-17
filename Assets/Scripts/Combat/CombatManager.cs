@@ -25,9 +25,9 @@ public class CombatManager : Singleton<CombatManager>
     public float GlobalDamageMultiplier { get => _globalDamageMultiplier; set => _globalDamageMultiplier = value; }
 
     /// <summary>
-    /// 计算最终伤害（考虑护甲、倍率、暴击等）
+    /// 计算最终伤害（考虑倍率、暴击等）
     /// </summary>
-    public static int CalculateFinalDamage(int baseDamage, float multiplier, int armor, out bool isCrit)
+    public static int CalculateFinalDamage(int baseDamage, float multiplier, out bool isCrit)
     {
         // 暴击判定（P1-25）
         float critChance = SaveManager.Instance?.GetPermanentBonus("crit_chance") ?? 0f;
@@ -35,15 +35,15 @@ public class CombatManager : Singleton<CombatManager>
         float critMult = isCrit ? 1.5f : 1f;
 
         int rawDamage = Mathf.RoundToInt(baseDamage * multiplier * Instance._globalDamageMultiplier * DebugConfigPanel.DebugDamageMultiplier * critMult);
-        return Mathf.Max(1, rawDamage - armor);
+        return Mathf.Max(1, rawDamage);
     }
 
     /// <summary>
     /// 计算最终伤害（兼容旧签名，不输出暴击标志）
     /// </summary>
-    public static int CalculateFinalDamage(int baseDamage, float multiplier, int armor)
+    public static int CalculateFinalDamage(int baseDamage, float multiplier)
     {
-        return CalculateFinalDamage(baseDamage, multiplier, armor, out _);
+        return CalculateFinalDamage(baseDamage, multiplier, out _);
     }
 
     /// <summary>
@@ -53,7 +53,7 @@ public class CombatManager : Singleton<CombatManager>
     {
         if (target == null || target.CurrentHp <= 0) return;
 
-        int finalDamage = CalculateFinalDamage(baseDamage, multiplier, target.Armor, out bool isCrit);
+        int finalDamage = CalculateFinalDamage(baseDamage, multiplier, out bool isCrit);
         target.TakeDamage(finalDamage);
 
         // 吸血系统（P1-26）
@@ -287,6 +287,7 @@ public class ExplosionVFX : MonoBehaviour
     private float _duration;
     private float _spawnTime;
     private SpriteRenderer _sr;
+    private float _initialAlpha = 1f;
 
     public void Setup(float maxRadius, float duration)
     {
@@ -294,6 +295,7 @@ public class ExplosionVFX : MonoBehaviour
         _duration = duration;
         _spawnTime = Time.unscaledTime;
         _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _initialAlpha = _sr.color.a;
     }
 
     private void Update()
@@ -312,7 +314,7 @@ public class ExplosionVFX : MonoBehaviour
         if (_sr != null)
         {
             Color c = _sr.color;
-            c.a = Mathf.Lerp(1f, 0f, t);
+            c.a = Mathf.Lerp(_initialAlpha, 0f, t);
             _sr.color = c;
         }
     }

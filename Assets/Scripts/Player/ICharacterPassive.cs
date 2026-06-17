@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// 角色被动能力接口 — 所有角色共享的能力抽象。
 ///
 /// 通用接口：攻速/弹数/弹体/击退/贯穿/升级
-/// DOT 子接口：IDotCharacterPassive（DOT枪/DOT倍率/引爆/腐蚀/侵蚀）
+/// DOT 子接口：IDotCharacterPassive（DOT枪/DOT倍率/引爆）
 ///
 /// MagePassive 实现 IDotCharacterPassive，新角色只需实现 ICharacterPassive。
 /// </summary>
@@ -35,7 +35,7 @@ public interface ICharacterPassive
 
 /// <summary>
 /// DOT 角色被动子接口 — 仅 Mage 等 DOT 专属角色实现。
-/// 包含 DOT 枪管理、DOT 伤害倍率、引爆系统、腐蚀/侵蚀。
+/// 包含 DOT 枪管理、DOT 伤害倍率、引爆系统。
 /// </summary>
 public interface IDotCharacterPassive : ICharacterPassive
 {
@@ -51,9 +51,7 @@ public interface IDotCharacterPassive : ICharacterPassive
     float GetDotCritMultiplier();
     float GetDotDurationMultiplier();
 
-    // ── DOT 增强属性（腐蚀/侵蚀/诅咒传播）──
-    float CorrosionArmorReduction { get; set; }
-    int ErosionArmorPenetration { get; set; }
+    // ── DOT 增强属性（诅咒传播）──
     int CurseSpreadTargets { get; set; }
 
     // ── 引爆系统 ──
@@ -69,6 +67,7 @@ public interface IDotCharacterPassive : ICharacterPassive
     // ── 协同/高级属性 ──
     float DoomsdayThreshold { get; set; }
     float FrostExplosionPct { get; set; }
+    bool WildWind { get; set; }
 
     // ── DOT 持续时间 ──
     void AddDotDurationBonus(float bonus);

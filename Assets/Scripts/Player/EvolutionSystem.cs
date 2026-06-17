@@ -141,10 +141,6 @@ public class EvolutionSystem : MonoBehaviour
                 ApplyMoveSpeedBonus(milestone.value);
                 break;
 
-            case EvolutionEffectType.ArmorBonus:
-                ApplyArmorBonus((int)milestone.value);
-                break;
-
             case EvolutionEffectType.CritChanceBonus:
                 ApplyCritChanceBonus(milestone.value);
                 break;
@@ -228,23 +224,6 @@ public class EvolutionSystem : MonoBehaviour
             {
                 controller.MoveSpeed *= (1f + bonus);
                 DebugHelper.Log($"[EvolutionSystem] Move Speed +{bonus * 100:F0}% (total: {controller.MoveSpeed})");
-            }
-        }
-    }
-
-    /// <summary>
-    /// 护甲加成
-    /// </summary>
-    private void ApplyArmorBonus(int bonus)
-    {
-        var player = GameReferences.Player;
-        if (player != null)
-        {
-            var damageable = player.GetComponent<Damageable>();
-            if (damageable != null)
-            {
-                damageable.AddArmor(bonus);
-                DebugHelper.Log($"[EvolutionSystem] Armor +{bonus}");
             }
         }
     }

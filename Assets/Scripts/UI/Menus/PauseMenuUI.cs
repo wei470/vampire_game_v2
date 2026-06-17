@@ -211,8 +211,6 @@ public class PauseMenuUI : MonoBehaviour
             {
                 DrawStatRow(x, y, w, labelStyle, valueStyle, "HP", $"{dmg.CurrentHp}/{dmg.MaxHp}");
                 y += 22;
-                DrawStatRow(x, y, w, labelStyle, valueStyle, "Armor", $"{dmg.Armor}");
-                y += 22;
             }
             DrawStatRow(x, y, w, labelStyle, valueStyle, "Move Speed", $"{player.MoveSpeed:F1}");
             y += 22;

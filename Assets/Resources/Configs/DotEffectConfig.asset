@@ -34,9 +34,10 @@ MonoBehaviour:
   PoisonMaxStacks: 20
   FrostSpeed: 20
   FrostSlowPerStack: 0.05
-  FrostBaseSlowPct: 0.3
+  FrostBaseSlowPct: 0.05
   FrostFreezeDuration: 1
-  FrostMaxSlow: 0.9
+  FrostMaxSlow: 0.5
+  FrostMaxStacks: 10
   LightningSpeed: 16
   LightningChainCount: 3
   LightningChainRadius: 8
@@ -74,7 +75,7 @@ MonoBehaviour:
   WindMaxStacks: 999
   BurnSpreadRadius: 5
   FrostLightningFieldRadius: 1
-  FrostLightningFieldDuration: 2
+  FrostLightningFieldDuration: 1
   FrostLightningTickInterval: 1.25
   MeltDuration: 1
   MeltDamageMultiplier: 2

@@ -21,8 +21,6 @@ public class CharacterData : ScriptableObject
     [Header("基础属性")]
     public int maxHP = 1000;
     public float moveSpeed = 7.0f;
-    public int armor = 0;
-
     [Header("攻击属性")]
     public int attackDamage = 10;
     public float attackCooldown = 0.5f;       // 攻击间隔（秒）
@@ -139,7 +137,6 @@ public enum EvolutionEffectType
     DetonateTriggerAllCombos, // 引爆时触发所有DOT组合
     DotDamageBonus,         // DOT伤害加成
     MoveSpeedBonus,         // 移速加成
-    ArmorBonus,             // 护甲加成
     CritChanceBonus,        // 暴击率加成
     HpRegenBonus,           // 回血加成
     AttackSpeedBonus        // 攻速加成

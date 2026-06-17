@@ -44,11 +44,8 @@ public class CharacterUpgradeOption
         Special,            // 特殊能力
 
         // ── Mage 专属扩展 ──
-        ArmorReduction,     // 腐蚀 — 拥有DOT的敌人护甲降低
-        ArmorPenetration,   // 侵蚀 — 无视敌人护甲
         DotFrequency,       // 痛苦 — DOT触发间隔缩短
         DotCritBurst,       // 凋零 — DOT有几率造成双倍伤害
-        DotTrigger,         // 侵蚀 — 每N次DOT生效额外冲击
         AttackSpeed,        // 急速 — 攻速
         BulletCount,        // 弹幕 — 子弹数量增加
         Ricochet,           // 贯穿 — 子弹穿透
@@ -56,7 +53,6 @@ public class CharacterUpgradeOption
 
         // ── 一般强化（全角色通用）──
         MoveSpeed,          // 移速
-        ArmorBonus,         // 护甲
         MaxHpBonus,         // 最大HP
         CritChanceBonus,    // 暴击率
         CritDamageBonus,    // 暴击伤害
@@ -92,15 +88,22 @@ public class CharacterUpgradeOption
         BurnMelt,           // 融化精通
         BurnStorm,          // 火焰风暴
         BurnBurst,          // 炎爆
+        BurnFirmament,      // 焚天
 
         FrostDuration,      // 霜冻持久
-        FrostSlow,          // 减速强化
+        FrostMaxSlow,       // 冬天
+        FrostPerStackSlow,  // 寒冬
         FrostTick,          // 霜冻加速
         FrostRange,         // 霜冻范围
         FrostCrit,          // 霜冻暴击
         FrostFreeze,        // 冰封
         FrostBlizzard,      // 暴风雪
         FrostAbsolute,      // 绝对零度
+        SnowyDay,           // 下雪天
+        FrozenHands,        // 冻手
+        IceBlade,           // 冰刃
+        ColdBullet,         // 冷弹
+        ColdEmbrace,        // 冷酷之拥
 
         StaticDamage,       // 雷电强化
         StaticChain,        // 连锁强化
@@ -110,6 +113,7 @@ public class CharacterUpgradeOption
         StaticOverload,     // 超载
         StormMulti,         // 雷暴
         StormChain,         // 万雷齐发
+        Paralysis,          // 瘫痪
 
         WindDamage,         // 风刃强化
         WindSpeed,          // 风速
@@ -119,5 +123,10 @@ public class CharacterUpgradeOption
         WindStormEye,       // 风暴之眼
         WindHurricane,      // 飓风
         WindLord,           // 风暴领主
+        Typhoon,            // 台风
+        Tornado,            // 龙卷风
+        WildWind,           // 狂风
+        StormWind,          // 暴风
+        SwiftWind,          // 速风
     }
 }

@@ -108,7 +108,7 @@ public static class DotBulletFactory
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
         var mage = GetMage();
-        float slowPct = Config.FrostBaseSlowPct + (mage != null ? mage.FrostSlowBonus : 0f);
+        float slowPct = Config.FrostBaseSlowPct;
         float critBonus = mage != null ? mage.FrostCritBonus : 0f;
         float rangeBonus = mage != null ? mage.FrostRangeBonus : 0f;
 
@@ -134,6 +134,14 @@ public static class DotBulletFactory
             go.transform.localScale *= 2f;
             var col = go.GetComponent<Collider2D>();
             if (col is CircleCollider2D c) c.radius *= 2f;
+        }
+
+        // 寒弹：附加墙壁反弹
+        if (go != null && mage != null && mage.ColdBullet)
+        {
+            var wbh = go.GetComponent<WallBounceHandler>();
+            if (wbh == null) wbh = go.AddComponent<WallBounceHandler>();
+            wbh.Setup(3, 2f);
         }
 
         AttachRicochetIfAvailable(go);
@@ -197,7 +205,7 @@ public static class DotBulletFactory
         float durMult, float dmgMult, bool canCrit, float critChance, float critMult)
     {
         var mage = GetMage();
-        float speed = Config.WindSpeed * (1f + (mage != null ? mage.WindSpeedBonus : 0f));
+        float baseSpeed = Config.WindSpeed * (1f + (mage != null ? mage.WindSpeedBonus : 0f));
         float spreadAngle = mage != null ? mage.WindPrecisionAngle : 25f;
 
         float randomAngle = Random.Range(-spreadAngle, spreadAngle);
@@ -206,8 +214,34 @@ public static class DotBulletFactory
             dir.x * Mathf.Cos(rad) - dir.y * Mathf.Sin(rad),
             dir.x * Mathf.Sin(rad) + dir.y * Mathf.Cos(rad)
         ).normalized;
+
+        bool isTornado = false;
+        float speed = baseSpeed;
+        if (mage != null && mage.WindHurricane && Random.value < 0.20f)
+        {
+            isTornado = true;
+            speed = baseSpeed * 0.30f;
+        }
+        else if (mage != null && mage.SwiftWind && Random.value < 0.30f)
+        {
+            speed = baseSpeed * 2f;
+        }
+
         var go = WindBullet.Create(pos, spreadDir, speed, 0,
             dmgMult, false, 0f, critMult)?.gameObject;
+
+        if (go != null)
+        {
+            var wb = go.GetComponent<WindBullet>();
+            if (wb != null) wb.IsTornado = isTornado;
+
+            if (mage != null && mage.SwiftWind && !isTornado && speed > baseSpeed * 1.5f)
+            {
+                var ph = go.GetComponent<PenetrateHandler>();
+                if (ph == null) ph = go.AddComponent<PenetrateHandler>();
+                ph.Setup(999);
+            }
+        }
 
         AttachRicochetIfAvailable(go);
         return go;

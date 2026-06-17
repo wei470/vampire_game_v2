@@ -20,7 +20,6 @@ MonoBehaviour:
   characterColor: {r: 0.23529412, g: 0.78431374, b: 0.39215687, a: 1}
   maxHP: 1000
   moveSpeed: 9.0
-  armor: 0
   attackDamage: 8
   attackCooldown: 0.3
   attackRange: 20

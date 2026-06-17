@@ -35,8 +35,6 @@ public class TestBulletSelectUI : MonoBehaviour
         CharacterUpgradeOption.UpgradeCategory.AttackSpeed,
         CharacterUpgradeOption.UpgradeCategory.BulletCount,
         CharacterUpgradeOption.UpgradeCategory.Ricochet,
-        CharacterUpgradeOption.UpgradeCategory.ArmorReduction,
-        CharacterUpgradeOption.UpgradeCategory.ArmorPenetration,
         CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier,
         CharacterUpgradeOption.UpgradeCategory.DetonateAbility,
     };
@@ -64,22 +62,30 @@ public class TestBulletSelectUI : MonoBehaviour
                 CharacterUpgradeOption.UpgradeCategory.BurnStorm, CharacterUpgradeOption.UpgradeCategory.BurnBurst,
             },
             new HashSet<CharacterUpgradeOption.UpgradeCategory> {
-                CharacterUpgradeOption.UpgradeCategory.FrostDuration, CharacterUpgradeOption.UpgradeCategory.FrostSlow,
-                CharacterUpgradeOption.UpgradeCategory.FrostTick, CharacterUpgradeOption.UpgradeCategory.FrostRange,
-                CharacterUpgradeOption.UpgradeCategory.FrostCrit, CharacterUpgradeOption.UpgradeCategory.FrostFreeze,
-                CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, CharacterUpgradeOption.UpgradeCategory.FrostAbsolute,
+                CharacterUpgradeOption.UpgradeCategory.FrostDuration, CharacterUpgradeOption.UpgradeCategory.FrostMaxSlow,
+                CharacterUpgradeOption.UpgradeCategory.FrostPerStackSlow, CharacterUpgradeOption.UpgradeCategory.FrostTick,
+                CharacterUpgradeOption.UpgradeCategory.FrostRange, CharacterUpgradeOption.UpgradeCategory.FrostCrit,
+                CharacterUpgradeOption.UpgradeCategory.FrostFreeze, CharacterUpgradeOption.UpgradeCategory.FrostBlizzard,
+                CharacterUpgradeOption.UpgradeCategory.FrostAbsolute,
+                CharacterUpgradeOption.UpgradeCategory.SnowyDay, CharacterUpgradeOption.UpgradeCategory.FrozenHands,
+                CharacterUpgradeOption.UpgradeCategory.IceBlade, CharacterUpgradeOption.UpgradeCategory.ColdBullet,
+                CharacterUpgradeOption.UpgradeCategory.ColdEmbrace,
             },
             new HashSet<CharacterUpgradeOption.UpgradeCategory> {
                 CharacterUpgradeOption.UpgradeCategory.StaticDamage, CharacterUpgradeOption.UpgradeCategory.StaticChain,
                 CharacterUpgradeOption.UpgradeCategory.StaticTick, CharacterUpgradeOption.UpgradeCategory.StaticRange,
                 CharacterUpgradeOption.UpgradeCategory.StaticCrit, CharacterUpgradeOption.UpgradeCategory.StaticOverload,
                 CharacterUpgradeOption.UpgradeCategory.StormMulti, CharacterUpgradeOption.UpgradeCategory.StormChain,
+                CharacterUpgradeOption.UpgradeCategory.Paralysis,
             },
             new HashSet<CharacterUpgradeOption.UpgradeCategory> {
                 CharacterUpgradeOption.UpgradeCategory.WindDamage, CharacterUpgradeOption.UpgradeCategory.WindSpeed,
                 CharacterUpgradeOption.UpgradeCategory.WindTick, CharacterUpgradeOption.UpgradeCategory.WindPierce,
                 CharacterUpgradeOption.UpgradeCategory.WindCrit, CharacterUpgradeOption.UpgradeCategory.WindStormEye,
                 CharacterUpgradeOption.UpgradeCategory.WindHurricane, CharacterUpgradeOption.UpgradeCategory.WindLord,
+                CharacterUpgradeOption.UpgradeCategory.Typhoon, CharacterUpgradeOption.UpgradeCategory.Tornado,
+                CharacterUpgradeOption.UpgradeCategory.WildWind, CharacterUpgradeOption.UpgradeCategory.StormWind,
+                CharacterUpgradeOption.UpgradeCategory.SwiftWind,
             },
         };
     }

@@ -1062,7 +1062,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Gameplay::Damageable
   _maxHp: 100
   _currentHp: 0
-  _armor: 0
   _invincibleDuration: 0.5
   _poolKey: 
 --- !u!114 &1397515662

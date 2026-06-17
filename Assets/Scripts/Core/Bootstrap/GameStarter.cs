@@ -54,19 +54,15 @@ public class GameStarter
             if (dmg != null)
             {
                 int baseHp = charData.maxHP;
-                int baseArmor = charData.armor;
 
                 if (SaveManager.Instance != null)
                 {
                     float hpBonus = SaveManager.Instance.GetPermanentBonus("max_hp");
-                    float armorBonus = SaveManager.Instance.GetPermanentBonus("armor");
                     baseHp += Mathf.RoundToInt(hpBonus);
-                    baseArmor += Mathf.RoundToInt(armorBonus);
                 }
 
                 dmg.SetMaxHp(baseHp);
                 dmg.Heal(baseHp);
-                dmg.SetArmor(baseArmor);
             }
             var sr = _player.GetComponent<SpriteRenderer>();
             if (sr != null)

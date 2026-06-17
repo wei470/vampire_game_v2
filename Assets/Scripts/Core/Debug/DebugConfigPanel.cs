@@ -59,7 +59,6 @@ public class DebugConfigPanel : MonoBehaviour
     // 字段编辑缓存（用于文本输入）
     private static string _hpInput = "";
     private static string _speedInput = "";
-    private static string _armorInput = "";
     private static string _attackInput = "";
     private static string _baseExpInput = "";
     private static string _expPerLevelInput = "";
@@ -113,7 +112,6 @@ public class DebugConfigPanel : MonoBehaviour
 
         _hpInput = gc.basePlayerHP.ToString();
         _speedInput = gc.basePlayerSpeed.ToString("F1");
-        _armorInput = gc.basePlayerArmor.ToString();
         _attackInput = gc.basePlayerAttack.ToString();
         _baseExpInput = gc.baseLevelUpExp.ToString();
         _expPerLevelInput = gc.expPerLevel.ToString();
@@ -297,7 +295,6 @@ public class DebugConfigPanel : MonoBehaviour
         {
             gc.basePlayerHP = DrawIntField("基础 HP", ref _hpInput, gc.basePlayerHP);
             gc.basePlayerSpeed = DrawFloatField("移动速度", ref _speedInput, gc.basePlayerSpeed);
-            gc.basePlayerArmor = DrawIntField("基础护甲", ref _armorInput, gc.basePlayerArmor);
             gc.basePlayerAttack = DrawIntField("基础攻击", ref _attackInput, gc.basePlayerAttack);
         }
 

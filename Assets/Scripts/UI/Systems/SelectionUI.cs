@@ -153,7 +153,7 @@ public class SelectionUI : MonoBehaviour
         switch (_selectPhase)
         {
             case SelectPhase.Character:
-                if (_selectedChar < _characters.Length && _characters[_selectedChar] != null) { var c = _characters[_selectedChar]; t = c.characterName; d = c.description; e = $"HP: {c.maxHP}  |  SPD: {c.moveSpeed:F1}  |  ARM: {c.armor}\nATK: {c.attackDamage}  |  Crit: {c.critChance:P0}\n\nPassive: {c.passiveDescription}"; }
+                if (_selectedChar < _characters.Length && _characters[_selectedChar] != null) { var c = _characters[_selectedChar]; t = c.characterName; d = c.description; e = $"HP: {c.maxHP}  |  SPD: {c.moveSpeed:F1}\nATK: {c.attackDamage}  |  Crit: {c.critChance:P0}\n\nPassive: {c.passiveDescription}"; }
                 else { t = "???"; d = ""; e = ""; } break;
             default: return;
         }

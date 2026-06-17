@@ -46,7 +46,7 @@ public class FrostBullet : DotBulletBase
     private static void TryTriggerFrostLightning(Vector2 pos, StaticStackEffect staticEff)
     {
         if (!staticEff.ConsumeStack()) return;
-        FrostLightningField.Create(pos, 1f, 2f);
+        FrostLightningField.Create(pos, 1f, 1f);
         DebugHelper.Log($"[FrostLightning] 霜电反应触发！pos={pos}");
     }
 

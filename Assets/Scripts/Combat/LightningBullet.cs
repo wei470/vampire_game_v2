@@ -93,6 +93,14 @@ public class LightningBullet : MonoBehaviour
             // 普通雷电：不造成直接伤害，只叠静电层数 + 连锁
             DotBulletHelper.EnsureStatusEffectManager(other.gameObject);
             ApplyStaticToEnemy(other.gameObject);
+
+            var mage = GameReferences.DotCharacterPassive as MagePassive;
+            if (mage != null && mage.IsLightningExplosionPending)
+            {
+                mage.ConsumeLightningExplosion();
+                TriggerStaticExplosion(other.transform.position);
+            }
+
             _hitEnemies.Add(other.gameObject);
             ChainLightning(other.gameObject);
         }
@@ -176,6 +184,30 @@ public class LightningBullet : MonoBehaviour
         if (staticEffect == null)
             staticEffect = enemy.AddComponent<StaticStackEffect>();
         staticEffect.AddStack();
+    }
+
+    private void TriggerStaticExplosion(Vector2 center)
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        float halfScreen = cam.orthographicSize * cam.aspect;
+        CombatManager.CreateExplosionEffect(center, halfScreen, new Color(0.5f, 0.3f, 1f, 0.4f), 0.5f);
+        var spawnMgr = GameReferences.SpawnManager;
+        if (spawnMgr == null) return;
+        var enemies = spawnMgr.ActiveEnemies;
+        if (enemies == null) return;
+        float radiusSqr = halfScreen * halfScreen;
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var e = enemies[i];
+            if (e == null || !e.activeInHierarchy) continue;
+            Vector2 delta = (Vector2)e.transform.position - center;
+            if (delta.sqrMagnitude > radiusSqr) continue;
+            DotBulletHelper.EnsureStatusEffectManager(e);
+            var se = e.GetComponent<StaticStackEffect>();
+            if (se == null) se = e.AddComponent<StaticStackEffect>();
+            for (int s = 0; s < 3; s++) se.AddStack();
+        }
     }
 
     private void ChainLightning(GameObject origin)

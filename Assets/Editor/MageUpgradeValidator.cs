@@ -329,11 +329,6 @@ public class MageUpgradeValidator : EditorWindow
     {
         switch (e.category)
         {
-            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction:
-                if (e.value1 > 0.5f)
-                    AddWarning("Upgrade", tag, $"护甲削减 {e.value1:P0}，超过 50% 可能过于强力");
-                break;
-
             case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
                 if (e.value1 > 0.5f)
                     AddWarning("Upgrade", tag, $"DOT 暴击率 {e.value1:P0}，超过 50% 可能过于强力");
@@ -393,7 +388,6 @@ public class MageUpgradeValidator : EditorWindow
         // 大部分 Mage 专属 category 的 value1 是百分比（0~1）
         switch (cat)
         {
-            case CharacterUpgradeOption.UpgradeCategory.ArmorReduction:
             case CharacterUpgradeOption.UpgradeCategory.DotFrequency:
             case CharacterUpgradeOption.UpgradeCategory.DotCritBurst:
             case CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier:

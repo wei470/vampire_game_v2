@@ -229,8 +229,6 @@ public class LevelUpUI : MonoBehaviour
                 damageable.Heal(Mathf.RoundToInt(damageable.MaxHp * 0.2f)); break;
             case LevelUpOptionGenerator.GenericUpgradeType.SpeedUp:
                 _playerController.MoveSpeed *= 1.1f; break;
-            case LevelUpOptionGenerator.GenericUpgradeType.ArmorUp:
-                damageable.SetArmor(damageable.Armor + 3); break;
             case LevelUpOptionGenerator.GenericUpgradeType.MagnetRangeUp:
                 MagnetMultiplierSystem.ApplyMagnetRangeUp(); break;
             case LevelUpOptionGenerator.GenericUpgradeType.WeaponDamageUp:

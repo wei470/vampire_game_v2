@@ -303,11 +303,10 @@ public class SpawnManager : MonoBehaviour
 
         float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
         float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
-        int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
 
         EnemyScalingHelper.ApplyScaling(enemy, _playerTransform,
             HpMultiplier, WeakenMultiplier,
-            challengeHp, challengeSpd, eliteArmor, _currentWave);
+            challengeHp, challengeSpd, _currentWave);
 
         if (EliteModifierSystem.ShouldSpawnElite(_currentWave, 1f))
         {
@@ -335,8 +334,7 @@ public class SpawnManager : MonoBehaviour
 
         float challengeHp = _challengeSystem != null ? _challengeSystem.ChallengeHpMultiplier : 1f;
         float challengeSpd = _challengeSystem != null ? _challengeSystem.ChallengeSpeedMultiplier : 1f;
-        int eliteArmor = _challengeSystem != null ? _challengeSystem.ChallengeEliteArmor : 0;
-        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, eliteArmor, _currentWave);
+        EnemyScalingHelper.ApplyScaling(enemy, _playerTransform, HpMultiplier, WeakenMultiplier, challengeHp, challengeSpd, _currentWave);
 
         _activeEnemies.Add(enemy);
         _enemiesAlive = _activeEnemies.Count;

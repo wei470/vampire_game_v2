@@ -139,7 +139,7 @@ public class DotEffectConfig : ScriptableObject
              "例如 0.3 表示首次命中即减速 30%。\n" +
              "后续每层在基础上叠加 FrostSlowPerStack。\n" +
              "默认值：0.3（即 30%）")]
-    public float FrostBaseSlowPct = 0.3f;
+    public float FrostBaseSlowPct = 0.05f;
 
     [Tooltip("霜冻效果每次施加时的持续时间（单位：秒）。\n" +
              "命中后在此时间内减速生效，超时后减速消失。\n" +
@@ -150,7 +150,9 @@ public class DotEffectConfig : ScriptableObject
     [Tooltip("霜冻减速效果的上限（小数形式）。\n" +
              "即使叠加再多层，总减速也不会超过此值。\n" +
              "默认值：0.9（即最高减速 90%）")]
-    public float FrostMaxSlow = 0.9f;
+    public float FrostMaxSlow = 0.5f;
+
+    public int FrostMaxStacks = 10;
 
     // ══════════════════════════════════════════════════════════════
     // 雷电子弹（LightningBullet）
@@ -384,7 +386,7 @@ public class DotEffectConfig : ScriptableObject
     [Tooltip("霜电冰场的存在时间（单位：秒）。\n" +
              "冰场生成后在此时间内持续生效，超时自动消失。\n" +
              "默认值：2")]
-    public float FrostLightningFieldDuration = 2f;
+    public float FrostLightningFieldDuration = 1f;
 
     [Tooltip("霜电冰场对区域内敌人施加霜冻效果的时间间隔（单位：秒）。\n" +
              "每隔此时间对冰场内所有敌人施加一次霜冻减速。\n" +

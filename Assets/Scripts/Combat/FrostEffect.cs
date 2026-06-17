@@ -16,11 +16,15 @@ public class FrostEffect : StackEffectBase
     private int _frostStacks = 0;
     private bool _blenderUnregistered;
 
-    private float _baseSlow = 0.30f;
+    private float _baseSlow = 0.05f;
     private float _perStackSlow = 0.05f;
-    private float _maxSlow = 0.90f;
+    private float _maxSlow = 0.50f;
+    private int _maxStacks = 10;
+    private float _coldEmbraceDps;
     private float _frostTickAccumulator;
     private const float FROST_TICK_INTERVAL = 1f;
+
+    public float EffectiveFrostDps => frostDps > 0f ? frostDps : _coldEmbraceDps;
 
     public override int StackCount => _frostStacks;
     public override StatusEffectType EffectType => StatusEffectType.Frostbite;
@@ -32,6 +36,7 @@ public class FrostEffect : StackEffectBase
     public void ApplyFreeze(float freezeDuration, float slowPercent, float frostDps,
         bool canCrit, float critChance, float critMult)
     {
+        if (_frostStacks >= _maxStacks) return;
         this.frostDps = Mathf.Max(this.frostDps, frostDps);
         this.canCrit = canCrit; this.critChance = critChance; this.critMult = critMult;
         _frostStacks++;
@@ -44,6 +49,8 @@ public class FrostEffect : StackEffectBase
         {
             _enemyBase.FrostSlowMultiplier = 1f - this.slowPercent;
         }
+
+        if (GetComponent<EnemySpeedBar>() == null) gameObject.AddComponent<EnemySpeedBar>();
     }
 
     public int FrostStacks => _frostStacks;
@@ -67,6 +74,7 @@ public class FrostEffect : StackEffectBase
         slowPercent = 0f;
         _frostStacks = 0;
         frostDps = 0f;
+        _coldEmbraceDps = 0f;
         _frostTickAccumulator = 0f;
         _lastSyncedStacks = -1;
         _blenderUnregistered = false;
@@ -99,13 +107,14 @@ public class FrostEffect : StackEffectBase
         }
 
         // 绝对零度（frost_absolute）：frostDps > 0 时霜冻才造成伤害，每层叠加
-        if (frostDps > 0f && _frostStacks > 0 && _damageable != null)
+        float activeFrostDps = frostDps > 0f ? frostDps : _coldEmbraceDps;
+        if (activeFrostDps > 0f && _frostStacks > 0 && _damageable != null)
         {
             _frostTickAccumulator += Time.deltaTime;
             if (_frostTickAccumulator >= FROST_TICK_INTERVAL)
             {
                 _frostTickAccumulator -= FROST_TICK_INTERVAL;
-                float dmg = frostDps * _frostStacks;
+                float dmg = activeFrostDps * _frostStacks;
                 if (canCrit && Random.value < critChance) dmg *= critMult;
                 _damageable.TakeDamage(Mathf.Max(0.01f, dmg), DotColorBlender.FROST_BLUE);
             }
@@ -152,13 +161,18 @@ public class FrostEffect : StackEffectBase
         _maxSlow = cfg.FrostMaxSlow;
         _baseSlow = cfg.FrostBaseSlowPct;
         _perStackSlow = cfg.FrostSlowPerStack;
+        _maxStacks = cfg.FrostMaxStacks;
 
         // 应用减速强化
         var mage = GameReferences.DotCharacterPassive as MagePassive;
-        if (mage != null && mage.FrostSlowBonus > 0)
+        if (mage != null)
         {
-            _baseSlow += mage.FrostSlowBonus;
-            _maxSlow = Mathf.Min(0.95f, _maxSlow + mage.FrostSlowBonus);
+            if (mage.FrostMaxSlowBonus > 0)
+                _maxSlow = Mathf.Min(0.95f, _maxSlow + mage.FrostMaxSlowBonus);
+            if (mage.FrostPerStackSlowBonus > 0)
+                _perStackSlow += mage.FrostPerStackSlowBonus;
+            if (mage.ColdEmbrace)
+                _coldEmbraceDps = 3f;
         }
     }
 }

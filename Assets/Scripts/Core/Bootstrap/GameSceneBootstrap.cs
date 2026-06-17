@@ -271,7 +271,6 @@ public class GameSceneBootstrap : MonoBehaviour
         // TrainingDummy 组件
         var dummy = dummyObj.AddComponent<TrainingDummy>();
         dummy.Init(hp,
-            gc != null ? gc.dpsDummyArmor : 0,
             gc != null ? gc.dpsDummyRegen : 0f,
             gc != null ? gc.dpsDummyInvincible : false,
             gc != null ? gc.dpsDummyRespawnDelay : 1f);

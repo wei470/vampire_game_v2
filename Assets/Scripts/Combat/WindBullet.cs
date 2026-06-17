@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class WindBullet : DotBulletBase
 {
+    public bool IsTornado { get; set; } = false;
+
     protected override StatusEffectType EffectType => StatusEffectType.WindErosion;
     protected override Color DefaultBulletColor => new Color(0.7f, 0.85f, 1f);
     protected override Color DefaultTrailStartColor => new Color(0.7f, 0.85f, 1f, 0.6f);
@@ -36,6 +38,7 @@ public class WindBullet : DotBulletBase
         var wind = enemy.GetComponent<WindErosionEffect>();
         if (wind == null)
             wind = enemy.AddComponent<WindErosionEffect>();
+        if (IsTornado) wind.KnockbackMultiplier *= 1.5f;
         wind.RegisterHit();
     }
 

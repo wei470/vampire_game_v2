@@ -14,13 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: Warrior
   characterId: warrior
-  description: High HP, high armor, slow but sturdy
-  passiveDescription: Starts with +2 armor, +100 HP
+  description: High HP, slow but sturdy
+  passiveDescription: Starts with +100 HP
   icon: {fileID: 0}
   characterColor: {r: 0.8627451, g: 0.23529412, b: 0.23529412, a: 1}
   maxHP: 1000
   moveSpeed: 5.6
-  armor: 2
   attackDamage: 15
   attackCooldown: 0.5
   attackRange: 20

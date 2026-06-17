@@ -13,8 +13,7 @@ public static class WaveAffixSystem
         FrostCurse,         // 冰霜诅咒：玩家移速-20%
         FlameFury,          // 烈焰之怒：敌人被点燃时爆炸
         ThunderJudgment,    // 雷霆审判：每5秒随机位置落雷
-        VoidErosion,        // 虚空侵蚀：玩家每秒失去1%当前HP
-        IronSkin            // 钢铁皮肤：敌人护甲+50%
+        VoidErosion        // 虚空侵蚀：玩家每秒失去1%当前HP
     }
 
     private static AffixType _currentAffix;
@@ -77,15 +76,6 @@ public static class WaveAffixSystem
     }
 
     /// <summary>
-    /// 获取敌人护甲加成（钢铁皮肤词缀）
-    /// </summary>
-    public static int GetBonusArmor()
-    {
-        if (!_affixActive) return 0;
-        return _currentAffix == AffixType.IronSkin ? 50 : 0;
-    }
-
-    /// <summary>
     /// 获取玩家移速倍率（冰霜诅咒词缀）
     /// </summary>
     public static float GetPlayerSpeedMult()
@@ -136,7 +126,6 @@ public static class WaveAffixSystem
             AffixType.FlameFury => "烈焰之怒：敌人被点燃时爆炸",
             AffixType.ThunderJudgment => "雷霆审判：每5秒随机落雷",
             AffixType.VoidErosion => "虚空侵蚀：每秒失去1%HP",
-            AffixType.IronSkin => "钢铁皮肤：敌人护甲+50",
             _ => ""
         };
     }
@@ -151,7 +140,6 @@ public static class WaveAffixSystem
             AffixType.FlameFury => new Color(1f, 0.3f, 0f),
             AffixType.ThunderJudgment => new Color(1f, 1f, 0.3f),
             AffixType.VoidErosion => new Color(0.5f, 0f, 0.5f),
-            AffixType.IronSkin => new Color(0.6f, 0.6f, 0.6f),
             _ => Color.white
         };
     }

@@ -22,19 +22,11 @@ public static class DotBulletHelper
         if (dotPassive != null)
         {
             sem.DotDurationMultiplier = dotPassive.GetDotDurationMultiplier();
-            sem.CorrosionArmorReduction = dotPassive.CorrosionArmorReduction;
             sem.WindErosionKnockback = dotPassive.GetKnockbackBonus();
 
-            var dmg = enemy.GetComponent<Damageable>();
-            if (dmg != null)
-            {
-                int armor = dmg.Armor;
-                if (dotPassive.CorrosionArmorReduction > 0)
-                    armor = Mathf.FloorToInt(armor * (1f - dotPassive.CorrosionArmorReduction));
-                if (dotPassive.ErosionArmorPenetration > 0)
-                    armor -= dotPassive.ErosionArmorPenetration;
-                dmg.SetArmor(Mathf.Max(0, armor));
-            }
+            var mage = dotPassive as MagePassive;
+            if (mage != null)
+                sem.ParalysisActive = mage.Paralysis;
         }
     }
 }

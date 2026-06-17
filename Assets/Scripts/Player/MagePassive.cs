@@ -21,8 +21,6 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     [SerializeField] private float _dotCritMultiplier = 2f;
 
     [Header("DOT 增强属性")]
-    [SerializeField] private float _corrosionArmorReduction = 0.1f;
-    [SerializeField] private int _erosionArmorPenetration = 0;
     [SerializeField] private int _curseSpreadTargets = 1;
 
     [Header("P1 深度玩法属性")]
@@ -68,16 +66,23 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     [SerializeField] private bool _burnMeltMastery = false;
     [SerializeField] private bool _burnStorm = false;
     [SerializeField] private bool _burnBurst = false;
+    [SerializeField] private bool _burnFirmament = false;
 
     [Header("霜冻专属")]
     [SerializeField] private float _frostDurationBonus = 0f;
-    [SerializeField] private float _frostSlowBonus = 0f;
+    [SerializeField] private float _frostMaxSlowBonus = 0f;
+    [SerializeField] private float _frostPerStackSlowBonus = 0f;
     [SerializeField] private float _frostTickReduction = 0f;
     [SerializeField] private float _frostRangeBonus = 0f;
     [SerializeField] private float _frostCritBonus = 0f;
     [SerializeField] private bool _frostFreeze = false;
     [SerializeField] private bool _frostBlizzard = false;
     [SerializeField] private bool _frostAbsolute = false;
+    [SerializeField] private bool _snowyDay = false;
+    [SerializeField] private bool _frozenHands = false;
+    [SerializeField] private bool _iceBlade = false;
+    [SerializeField] private bool _coldBullet = false;
+    [SerializeField] private bool _coldEmbrace = false;
 
     [Header("雷电专属")]
     [SerializeField] private float _staticDamageBonus = 0f;
@@ -88,14 +93,40 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     [SerializeField] private bool _staticOverload = false;
     [SerializeField] private bool _stormMulti = false;
     [SerializeField] private bool _stormChain = false;
+    [SerializeField] private bool _paralysis = false;
 
     [Header("风专属")]
     [SerializeField] private float _windSpeedBonus = 0f;
     [SerializeField] private float _windTickReduction = 0f;
     [SerializeField] private bool _windHurricane = false;
     [SerializeField] private float _windPrecisionAngle = 25f;
+    [SerializeField] private float _typhoonKnockbackBonus = 0f;
+    [SerializeField] private bool _tornado = false;
+    [SerializeField] private bool _wildWind = false;
+    [SerializeField] private bool _stormWind = false;
+    [SerializeField] private bool _swiftWind = false;
 
     private List<DotGunState> _dotGuns = new List<DotGunState>();
+
+    // 雷暴延迟发射
+    private float _stormMultiDelay = -1f;
+    private DotGunState _stormMultiGun;
+    private System.Collections.Generic.List<Vector2> _stormMultiDirs = new();
+    private float _stormMultiDmgMult;
+
+    // 静电爆炸（万雷齐发）
+    private int _lightningBulletCount;
+    private bool _lightningExplosionPending;
+
+    // 暴风延迟发射
+    private float _stormWindDelay = -1f;
+    private DotGunState _stormWindGun;
+    private System.Collections.Generic.List<Vector2> _stormWindDirs = new();
+    private float _stormWindDmgMult;
+    private float _stormWindDelay2 = -1f;
+    private DotGunState _stormWindGun2;
+    private System.Collections.Generic.List<Vector2> _stormWindDirs2 = new();
+    private float _stormWindDmgMult2;
 
     // ── 里程碑系统 ──
     private bool _elementMasterTriggered = false;
@@ -128,8 +159,6 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     public HashSet<StatusEffectType> EvolvedTypes => _evolvedTypes;
 
     // ── DOT 增强属性访问器 ──
-    public float CorrosionArmorReduction { get => _corrosionArmorReduction; set => _corrosionArmorReduction = value; }
-    public int ErosionArmorPenetration { get => _erosionArmorPenetration; set => _erosionArmorPenetration = value; }
     public int CurseSpreadTargets { get => _curseSpreadTargets; set => _curseSpreadTargets = value; }
 
     // ── P1 深度玩法属性访问器 ──
@@ -175,16 +204,23 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     public bool BurnMeltMastery { get => _burnMeltMastery; set => _burnMeltMastery = value; }
     public bool BurnStorm { get => _burnStorm; set => _burnStorm = value; }
     public bool BurnBurst { get => _burnBurst; set => _burnBurst = value; }
+    public bool BurnFirmament { get => _burnFirmament; set => _burnFirmament = value; }
 
     // ── 霜冻专属访问器 ──
     public float FrostDurationBonus { get => _frostDurationBonus; set => _frostDurationBonus = value; }
-    public float FrostSlowBonus { get => _frostSlowBonus; set => _frostSlowBonus = value; }
+    public float FrostMaxSlowBonus { get => _frostMaxSlowBonus; set => _frostMaxSlowBonus = value; }
+    public float FrostPerStackSlowBonus { get => _frostPerStackSlowBonus; set => _frostPerStackSlowBonus = value; }
     public float FrostTickReduction { get => _frostTickReduction; set => _frostTickReduction = value; }
     public float FrostRangeBonus { get => _frostRangeBonus; set => _frostRangeBonus = value; }
     public float FrostCritBonus { get => _frostCritBonus; set => _frostCritBonus = value; }
     public bool FrostFreeze { get => _frostFreeze; set => _frostFreeze = value; }
     public bool FrostBlizzard { get => _frostBlizzard; set => _frostBlizzard = value; }
     public bool FrostAbsolute { get => _frostAbsolute; set => _frostAbsolute = value; }
+    public bool SnowyDay { get => _snowyDay; set => _snowyDay = value; }
+    public bool FrozenHands { get => _frozenHands; set => _frozenHands = value; }
+    public bool IceBlade { get => _iceBlade; set => _iceBlade = value; }
+    public bool ColdBullet { get => _coldBullet; set => _coldBullet = value; }
+    public bool ColdEmbrace { get => _coldEmbrace; set => _coldEmbrace = value; }
 
     // ── 雷电专属访问器 ──
     public float StaticDamageBonus { get => _staticDamageBonus; set => _staticDamageBonus = value; }
@@ -195,12 +231,20 @@ public partial class MagePassive : CharacterPassiveBase, IDotCharacterPassive
     public bool StaticOverload { get => _staticOverload; set => _staticOverload = value; }
     public bool StormMulti { get => _stormMulti; set => _stormMulti = value; }
     public bool StormChain { get => _stormChain; set => _stormChain = value; }
+    public bool Paralysis { get => _paralysis; set => _paralysis = value; }
 
     // ── 风专属访问器 ──
     public float WindSpeedBonus { get => _windSpeedBonus; set => _windSpeedBonus = value; }
     public float WindTickReduction { get => _windTickReduction; set => _windTickReduction = value; }
     public bool WindHurricane { get => _windHurricane; set => _windHurricane = value; }
     public float WindPrecisionAngle { get => _windPrecisionAngle; set => _windPrecisionAngle = value; }
+    public float TyphoonKnockbackBonus { get => _typhoonKnockbackBonus; set => _typhoonKnockbackBonus = value; }
+    public bool Tornado { get => _tornado; set => _tornado = value; }
+    public bool WildWind { get => _wildWind; set => _wildWind = value; }
+    public bool StormWind { get => _stormWind; set => _stormWind = value; }
+    public bool SwiftWind { get => _swiftWind; set => _swiftWind = value; }
+    public bool IsLightningExplosionPending => _lightningExplosionPending;
+    public void ConsumeLightningExplosion() { _lightningExplosionPending = false; }
 
     // ── 综合查询方法 ──
     public float GetTotalDotCritChance() => GetDotCritChance() + _toxicologyCritBonus;

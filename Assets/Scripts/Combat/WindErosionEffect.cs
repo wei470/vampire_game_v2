@@ -27,6 +27,8 @@ public class WindErosionEffect : StackEffectBase
     private static readonly Color WIND_COLOR = new Color(0.7f, 0.85f, 1f);
     private static readonly Color WIND_POPUP_COLOR = new Color(0.7f, 0.85f, 1f);
 
+    public float KnockbackMultiplier { get; set; } = 1f;
+
     public override int StackCount => _windStacks;
     public override StatusEffectType EffectType => StatusEffectType.WindErosion;
     public override bool IsActive => _windStacks > 0;
@@ -98,7 +100,7 @@ public class WindErosionEffect : StackEffectBase
         if (player == null) return;
 
         Vector2 knockDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
-        float dist = GetKnockbackForce();
+        float dist = GetKnockbackForce() * KnockbackMultiplier;
         if (_rb != null)
             _rb.MovePosition(_rb.position + knockDir * dist);
         else
@@ -136,5 +138,9 @@ public class WindErosionEffect : StackEffectBase
         var cfg = DotEffectConfig.GetDefault();
         _knockbackDistance = cfg.WindErosionKnockbackDistance;
         _maxStacks = cfg.WindMaxStacks;
+
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage != null && mage.TyphoonKnockbackBonus > 0)
+            KnockbackMultiplier = 1f + mage.TyphoonKnockbackBonus;
     }
 }

@@ -6,9 +6,6 @@ using UnityEngine;
 /// </summary>
 public class ShielderAuraAbility : AuraAbility
 {
-    [Header("护盾参数")]
-    [SerializeField] private float _damageReduction = 0.5f;
-
     private float _shieldPulse;
 
     /// <summary>
@@ -44,8 +41,7 @@ public class ShielderAuraAbility : AuraAbility
             var dmg = hit.GetComponent<Damageable>();
             if (dmg != null)
             {
-                int extraArmor = Mathf.RoundToInt(10 * _damageReduction);
-                dmg.SetArmor(extraArmor);
+                // Armor system removed — shield aura provides damage reduction via buff instead
             }
         }
     }

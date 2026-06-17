@@ -125,7 +125,6 @@ public class GameDataLoader
         c.description = "Default character";
         c.maxHP = 100;
         c.moveSpeed = 20f;
-        c.armor = 0;
         c.attackDamage = 10;
         c.characterColor = Color.blue;
         return c;

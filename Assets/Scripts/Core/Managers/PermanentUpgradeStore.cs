@@ -22,7 +22,6 @@ public static class PermanentUpgradeStore
         new ShopUpgradeDef("Max HP +50",  "Start with 50 more HP",          "max_hp",          50f,  1.0f,  5),
         new ShopUpgradeDef("ATK +2",      "Start with 2 more damage",       "attack_damage",   2f,   1.0f,  5),
         new ShopUpgradeDef("Speed +10%",  "Move 10% faster",                "speed",           0f,   1.10f, 5),
-        new ShopUpgradeDef("Armor +1",    "Reduce damage by 1",             "armor",           1f,   1.0f,  8),
         new ShopUpgradeDef("HP Regen +0.5/s", "Regen 0.5 HP per second",    "hp_regen",        0.5f, 1.0f,  5),
         new ShopUpgradeDef("XP Boost +10%", "Gain 10% more XP",            "xp_multiplier",   0.1f, 1.0f,  10),
         new ShopUpgradeDef("Weaken Enemies", "Enemies -5% HP/DMG/SPD",     "weaken_enemies",  0f,   0.95f, 12),
@@ -46,7 +45,7 @@ public static class PermanentUpgradeStore
         new MilestoneDef("kills_100", "Slayer",            "Kill 100 enemies",    "totalKills",  100,  "+3 ATK",             "attack_damage",  3f),
         new MilestoneDef("kills_500", "Warlord",           "Kill 500 enemies",    "totalKills",  500,  "+0.3 Speed",         "speed",          0.3f),
         new MilestoneDef("kills_1k",  "Genocide",          "Kill 1000 enemies",   "totalKills",  1000, "+5% Crit Chance",    "crit_chance",    0.05f),
-        new MilestoneDef("games_5",   "Regular",           "Play 5 games",        "totalGames",  5,    "+1 Armor",           "armor",          1f),
+        new MilestoneDef("games_5",   "Regular",           "Play 5 games",        "totalGames",  5,    "+5% XP",             "xp_multiplier",  0.05f),
         new MilestoneDef("games_20",  "Addicted",          "Play 20 games",       "totalGames",  20,   "+0.5 HP Regen/s",    "hp_regen",       0.5f),
         new MilestoneDef("games_50",  "Dedicated",         "Play 50 games",       "totalGames",  50,   "+20% XP, +1 Armor",  "xp_multiplier",  0.20f),
     };

@@ -223,6 +223,10 @@ public class LevelUpOptionGenerator
             case "bleed": case "poison": case "burn": case "frostbite":
             case "static": case "dark": case "light": case "wind":
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
+            case "frost_winter": case "frost_deep_winter": case "frost_snowy_day": case "frost_frozen_hands":
+            case "frost_ice_blade": case "frost_cold_bullet": case "frost_cold_embrace":
+            case "burn_firmament": case "paralysis":
+            case "wind_typhoon": case "wind_tornado": case "wind_wild": case "wind_storm": case "wind_swift":
                 return BuildRoute.DotType;
             case "radiate": case "contaminate":
                 return BuildRoute.Detonate;
@@ -337,6 +341,13 @@ public class LevelUpOptionGenerator
             case "light_judgment": return StatusEffectType.Light;
             case "static_field": return StatusEffectType.Static;
             case "frost_explosion": return StatusEffectType.Frostbite;
+            case "frost_winter": case "frost_deep_winter": case "frost_snowy_day": case "frost_frozen_hands":
+            case "frost_ice_blade": case "frost_cold_bullet": case "frost_cold_embrace":
+                return StatusEffectType.Frostbite;
+            case "burn_firmament": return StatusEffectType.Burn;
+            case "paralysis": return StatusEffectType.Static;
+            case "wind_typhoon": case "wind_tornado": case "wind_wild": case "wind_storm": case "wind_swift":
+                return StatusEffectType.WindErosion;
             // DOT增强需要至少1种DOT子弹
             case "corrosion": case "curse": case "agony": case "wither": case "erosion":
                 return StatusEffectType.Poison; // 占位，实际只需检查有DOT枪

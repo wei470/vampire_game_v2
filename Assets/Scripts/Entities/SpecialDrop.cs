@@ -135,12 +135,12 @@ public class SpecialDrop : MonoBehaviour
                 break;
 
             case DropType.ShieldOrb:
-                // 给予临时护甲
-                if (dmg != null)
-                {
-                    dmg.SetArmor(dmg.Armor + Mathf.RoundToInt(_value));
-                    DebugHelper.Log($"[SpecialDrop] Shield Orb: +{Mathf.RoundToInt(_value)} armor for {_duration}s");
-                }
+                // Armor system removed — shield orb grants temporary invincibility instead
+                var buffSys = player.GetComponent<TemporaryBuffSystem>();
+                if (buffSys == null)
+                    buffSys = player.gameObject.AddComponent<TemporaryBuffSystem>();
+                buffSys.AddBuff(TemporaryBuffSystem.BuffType.InvincibleShield, _duration > 0 ? _duration : 3f);
+                DebugHelper.Log($"[SpecialDrop] Shield Orb: invincibility for {(_duration > 0 ? _duration : 3f)}s");
                 break;
 
             case DropType.XPMultiplier:

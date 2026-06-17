@@ -10,7 +10,6 @@ public class GameConfig : ScriptableObject
     [Header("玩家基础属性")]
     public int basePlayerHP = 100;
     public float basePlayerSpeed = 5f;
-    public int basePlayerArmor = 0;
     public int basePlayerAttack = 10;
 
     [Header("经验系统")]
@@ -22,11 +21,6 @@ public class GameConfig : ScriptableObject
     [Header("金币系统")]
     public int baseCoinDrop = 5;
     public float coinPickupRadius = 2.0f;
-
-    [Header("装备系统")]
-    public float equipmentDropChance = 0.12f;
-    public float legendaryDropChance = 0.02f;
-    public int maxEquipmentSlots = 3;
 
     [Header("难度倍率")]
     public float damageScalingPerWave = 0.1f;
@@ -55,7 +49,6 @@ public class GameConfig : ScriptableObject
 
     [Header("DPS 测试木桩")]
     public long dpsDummyHP = 2000000;               // 木桩HP（默认200万）
-    public int dpsDummyArmor = 0;                   // 木桩护甲
     public float dpsDummyRegen = 0f;                // 木桩每秒回血
     public bool dpsDummyInvincible = false;          // 木桩是否无敌（不死亡）
     public float dpsDummyRespawnDelay = 1f;          // 木桩死亡后重生延迟

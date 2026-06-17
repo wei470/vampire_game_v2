@@ -25,7 +25,6 @@ public static class DotVisualEffectManager
             case StatusEffectType.Poison: ec = Color.Lerp(originalColor, new Color(0.1f, 0.9f, 0.1f), 0.6f); break;
             case StatusEffectType.Burn: case StatusEffectType.Immolate: ec = Color.Lerp(originalColor, new Color(1f, 0.4f, 0f), 0.6f); break;
             case StatusEffectType.Frostbite: ec = Color.Lerp(originalColor, new Color(0.3f, 0.6f, 1f), 0.6f); break;
-            case StatusEffectType.Corrosion: case StatusEffectType.Erosion: ec = Color.Lerp(originalColor, new Color(0.5f, 0.8f, 0.2f), 0.6f); break;
             case StatusEffectType.Curse: case StatusEffectType.Wither: ec = Color.Lerp(originalColor, new Color(0.4f, 0f, 0.6f), 0.6f); break;
             case StatusEffectType.Agony: ec = Color.Lerp(originalColor, new Color(0.6f, 0f, 0.3f), 0.6f); break;
             case StatusEffectType.Radiate: ec = Color.Lerp(originalColor, new Color(0f, 1f, 0.5f), 0.6f); break;

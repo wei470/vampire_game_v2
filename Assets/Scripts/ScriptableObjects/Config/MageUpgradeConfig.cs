@@ -75,12 +75,10 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // ═══ 通用强化 ═══
                 // 灰色
                 new UpgradeEntry { upgradeId = "move_speed", upgradeName = "移速 (Move Speed)", description = "移动速度+10%", category = CharacterUpgradeOption.UpgradeCategory.MoveSpeed, rarity = UpgradeRarity.Common, value1 = 0.10f, maxStacks = 5 },
-                new UpgradeEntry { upgradeId = "erosion", upgradeName = "侵蚀 (Erosion)", description = "无视敌人1点护甲", category = CharacterUpgradeOption.UpgradeCategory.ArmorPenetration, rarity = UpgradeRarity.Common, value1 = 1f, maxStacks = 0 },
                 // 绿色
                 new UpgradeEntry { upgradeId = "haste", upgradeName = "急速 (Haste)", description = "攻速+15%", category = CharacterUpgradeOption.UpgradeCategory.AttackSpeed, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 10 },
                 new UpgradeEntry { upgradeId = "radiate", upgradeName = "辐射 (Radiation)", description = "引爆伤害×115%", category = CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, rarity = UpgradeRarity.Uncommon, value1 = 0.15f, maxStacks = 10 },
                 // 蓝色
-                new UpgradeEntry { upgradeId = "corrosion", upgradeName = "腐蚀 (Corrosion)", description = "护甲×90%", category = CharacterUpgradeOption.UpgradeCategory.ArmorReduction, rarity = UpgradeRarity.Rare, value1 = 0.10f, maxStacks = 8 },
                 new UpgradeEntry { upgradeId = "contaminate", upgradeName = "污染 (Contaminate)", description = "引爆冷却-10%", category = CharacterUpgradeOption.UpgradeCategory.DetonateAbility, rarity = UpgradeRarity.Rare, value1 = 0.10f, maxStacks = 6 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "barrage", upgradeName = "弹幕 (Barrage)", description = "子弹+1", category = CharacterUpgradeOption.UpgradeCategory.BulletCount, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 2 },
@@ -103,14 +101,24 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // 绿色
                 new UpgradeEntry { upgradeId = "burn_tick", upgradeName = "火焰加速", description = "火场叠层间隔-0.1s", category = CharacterUpgradeOption.UpgradeCategory.BurnTick, rarity = UpgradeRarity.Uncommon, value1 = 0.1f, maxStacks = 3 },
                 new UpgradeEntry { upgradeId = "burn_slow", upgradeName = "火场减速", description = "火场内敌人移速-20%", category = CharacterUpgradeOption.UpgradeCategory.BurnSlow, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
+                new UpgradeEntry { upgradeId = "burn_cinders", upgradeName = "余烬", description = "燃烧结束时残留余烬", category = CharacterUpgradeOption.UpgradeCategory.BurnStorm, rarity = UpgradeRarity.Uncommon, value1 = 1f, maxStacks = 1 },
                 // 蓝色
                 new UpgradeEntry { upgradeId = "burn_melt", upgradeName = "融化精通", description = "融化DOT×3", category = CharacterUpgradeOption.UpgradeCategory.BurnMelt, rarity = UpgradeRarity.Rare, value1 = 3f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "burn_firmament", upgradeName = "焚天", description = "额外发射跟踪小火箭，命中叠1层燃烧，攻速为燃烧子弹的2倍", category = CharacterUpgradeOption.UpgradeCategory.BurnFirmament, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "burn_burst", upgradeName = "炎爆", description = "燃烧满层爆炸", category = CharacterUpgradeOption.UpgradeCategory.BurnBurst, rarity = UpgradeRarity.Epic, value1 = 1f, maxStacks = 1 },
 
                 // ═══ 霜冻专属 ═══
                 // 灰色
-                new UpgradeEntry { upgradeId = "frost_slow", upgradeName = "减速强化", description = "霜冻减速+10%", category = CharacterUpgradeOption.UpgradeCategory.FrostSlow, rarity = UpgradeRarity.Common, value1 = 0.10f, maxStacks = 5 },
+                new UpgradeEntry { upgradeId = "frost_winter", upgradeName = "冬天", description = "霜冻减速上限+10%/层（敌人最低速40%→35%→30%）", category = CharacterUpgradeOption.UpgradeCategory.FrostMaxSlow, rarity = UpgradeRarity.Common, value1 = 0.05f, maxStacks = 3 },
+                new UpgradeEntry { upgradeId = "frost_deep_winter", upgradeName = "寒冬", description = "冰冻子弹每层减速+1%", category = CharacterUpgradeOption.UpgradeCategory.FrostPerStackSlow, rarity = UpgradeRarity.Common, value1 = 0.01f, maxStacks = 5 },
+                // 蓝色
+                new UpgradeEntry { upgradeId = "frost_frozen_hands", upgradeName = "冻手", description = "被减速敌人射出的子弹弹速降低33%", category = CharacterUpgradeOption.UpgradeCategory.FrozenHands, rarity = UpgradeRarity.Rare, value1 = 0.33f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "frost_ice_blade", upgradeName = "冰刃", description = "每射出5发霜冻子弹追加一波5发散弹冰弹，速度2倍，命中叠1层霜冻", category = CharacterUpgradeOption.UpgradeCategory.IceBlade, rarity = UpgradeRarity.Rare, value1 = 5f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "frost_cold_embrace", upgradeName = "冷酷之拥", description = "冰冻增加DOT伤害，伤害为4×层数，参与引爆", category = CharacterUpgradeOption.UpgradeCategory.ColdEmbrace, rarity = UpgradeRarity.Rare, value1 = 4f, maxStacks = 1 },
+                // 紫色
+                new UpgradeEntry { upgradeId = "frost_snowy_day", upgradeName = "下雪天", description = "场地略微变蓝，每1秒落下冰雹，命中敌人施加2层霜冻", category = CharacterUpgradeOption.UpgradeCategory.SnowyDay, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "frost_cold_bullet", upgradeName = "冷弹", description = "霜冻子弹和冰刃可通过墙壁反弹2次，子弹存在时间+5秒", category = CharacterUpgradeOption.UpgradeCategory.ColdBullet, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
 
                 // ═══ 雷电专属 ═══
                 // 灰色
@@ -118,14 +126,21 @@ public class MageUpgradeConfig : CharacterUpgradeConfig
                 // 绿色
                 new UpgradeEntry { upgradeId = "static_range", upgradeName = "雷电范围", description = "连锁范围+20%", category = CharacterUpgradeOption.UpgradeCategory.StaticRange, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
                 // 紫色
-                new UpgradeEntry { upgradeId = "storm_multi", upgradeName = "雷暴", description = "连续发射两枚雷电子弹", category = CharacterUpgradeOption.UpgradeCategory.StormMulti, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
-                new UpgradeEntry { upgradeId = "storm_chain", upgradeName = "万雷齐发", description = "连锁目标×2", category = CharacterUpgradeOption.UpgradeCategory.StormChain, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "storm_multi", upgradeName = "雷暴", description = "每发雷电子弹都会变成双发，延迟0.1秒", category = CharacterUpgradeOption.UpgradeCategory.StormMulti, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "storm_chain", upgradeName = "静电爆炸", description = "每射出5发雷电子弹，下一发命中后产生半个屏幕的爆炸，范围内所有敌人+1层雷电印记", category = CharacterUpgradeOption.UpgradeCategory.StormChain, rarity = UpgradeRarity.Epic, value1 = 2f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "paralysis", upgradeName = "瘫痪", description = "身上带有雷电层数的敌人受到的所有DOT伤害+10%", category = CharacterUpgradeOption.UpgradeCategory.Paralysis, rarity = UpgradeRarity.Rare, value1 = 0.10f, maxStacks = 1 },
 
                 // ═══ 风专属 ═══
                 // 绿色
                 new UpgradeEntry { upgradeId = "wind_speed", upgradeName = "风速", description = "风弹速度+20%", category = CharacterUpgradeOption.UpgradeCategory.WindSpeed, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 3 },
+                new UpgradeEntry { upgradeId = "wind_typhoon", upgradeName = "台风", description = "风子弹击退距离+20%", category = CharacterUpgradeOption.UpgradeCategory.Typhoon, rarity = UpgradeRarity.Uncommon, value1 = 0.20f, maxStacks = 1 },
+                // 蓝色
+                new UpgradeEntry { upgradeId = "wind_wild", upgradeName = "狂风", description = "DOT引爆时击退所有敌人", category = CharacterUpgradeOption.UpgradeCategory.WildWind, rarity = UpgradeRarity.Rare, value1 = 1f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "wind_swift", upgradeName = "速风", description = "30%概率子弹速度200%并穿透所有敌人", category = CharacterUpgradeOption.UpgradeCategory.SwiftWind, rarity = UpgradeRarity.Rare, value1 = 0.30f, maxStacks = 1 },
                 // 紫色
                 new UpgradeEntry { upgradeId = "wind_precision", upgradeName = "精准", description = "偏移角度缩小为5°", category = CharacterUpgradeOption.UpgradeCategory.WindTick, rarity = UpgradeRarity.Epic, value1 = 5f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "wind_tornado", upgradeName = "龙卷风", description = "20%概率替换为龙卷风，速度30%，击退200%", category = CharacterUpgradeOption.UpgradeCategory.Tornado, rarity = UpgradeRarity.Epic, value1 = 0.20f, maxStacks = 1 },
+                new UpgradeEntry { upgradeId = "wind_storm", upgradeName = "暴风", description = "33%概率替换为三连发（延迟0.2秒）", category = CharacterUpgradeOption.UpgradeCategory.StormWind, rarity = UpgradeRarity.Epic, value1 = 0.33f, maxStacks = 1 },
             };
         }
     }

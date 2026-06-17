@@ -224,16 +224,6 @@ public class CoreSystemTests
     }
 
     [Test]
-    public void Upgrade_Corrosion_ArmorReduction()
-    {
-        var mage = CreateTestMage();
-        Assert.AreEqual(0.1f, mage.CorrosionArmorReduction, 0.001f);
-        mage.CorrosionArmorReduction += 0.10f;
-        Assert.AreEqual(0.2f, mage.CorrosionArmorReduction, 0.001f);
-        Object.DestroyImmediate(mage.gameObject);
-    }
-
-    [Test]
     public void Upgrade_Radiate_DetonateMultiplier()
     {
         var mage = CreateTestMage();
@@ -331,111 +321,6 @@ public class CoreSystemTests
         Object.DestroyImmediate(config);
     }
 
-    // ═══ 护甲系统测试 ═══
-
-    [Test]
-    public void Armor_EachPointGives2PctReduction()
-    {
-        var go = new GameObject("TestEnemy");
-        var dmg = go.AddComponent<Damageable>();
-        dmg.SetMaxHp(1000); dmg.Heal(1000);
-
-        // 0 护甲 = 0% 减伤
-        dmg.SetArmor(0);
-        dmg.TakeDamage(100f);
-        Assert.AreEqual(900, dmg.CurrentHp, "0护甲: 100伤害应扣100HP");
-
-        // 重置
-        dmg.Heal(1000);
-
-        // 10 护甲 = 20% 减伤 → 100 * 0.8 = 80
-        dmg.SetArmor(10);
-        dmg.TakeDamage(100f);
-        Assert.AreEqual(920, dmg.CurrentHp, "10护甲: 100伤害应扣80HP (20%减伤)");
-
-        Object.DestroyImmediate(go);
-    }
-
-    [Test]
-    public void Armor_50Points_Max90PctReduction()
-    {
-        var go = new GameObject("TestEnemy");
-        var dmg = go.AddComponent<Damageable>();
-        dmg.SetMaxHp(1000); dmg.Heal(1000);
-
-        // 50 护甲 = 100% → 上限 90% → 100 * 0.1 = 10
-        dmg.SetArmor(50);
-        dmg.TakeDamage(100f);
-        Assert.AreEqual(990, dmg.CurrentHp, "50护甲: 上限90%减伤, 100伤害应扣10HP");
-
-        Object.DestroyImmediate(go);
-    }
-
-    [Test]
-    public void Armor_WaveScaling_Plus1PerWave()
-    {
-        // 验证 EnemyScalingHelper 每波+1护甲的逻辑
-        int wave = 5;
-        int expectedArmor = wave;
-        Assert.AreEqual(5, expectedArmor, "第5波敌人应有5护甲");
-    }
-
-    [Test]
-    public void Armor_Corrosion_ReducesBy10PctPerStack()
-    {
-        // 模拟腐蚀：护甲 × (1 - 0.1) = 护甲 × 0.9
-        int initialArmor = 20;
-        float corrosionRate = 0.1f;
-
-        int after1 = Mathf.RoundToInt(initialArmor * (1f - corrosionRate));
-        Assert.AreEqual(18, after1, "1层腐蚀: 20 × 0.9 = 18");
-
-        int after2 = Mathf.RoundToInt(after1 * (1f - corrosionRate));
-        Assert.AreEqual(16, after2, "2层腐蚀: 18 × 0.9 = 16");
-
-        int after5 = initialArmor;
-        for (int i = 0; i < 5; i++)
-            after5 = Mathf.RoundToInt(after5 * (1f - corrosionRate));
-        Assert.AreEqual(12, after5, "5层腐蚀: 20 × 0.9^5 ≈ 12");
-    }
-
-    [Test]
-    public void Armor_Corrosion_NeverBelowZero()
-    {
-        int armor = 1;
-        float corrosionRate = 0.1f;
-        int reduced = Mathf.RoundToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(1, Mathf.Max(0, reduced), "1护甲腐蚀后至少为0");
-
-        armor = 0;
-        reduced = Mathf.RoundToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(0, Mathf.Max(0, reduced), "0护甲腐蚀后仍为0");
-    }
-
-    [Test]
-    public void Armor_WithCorrosion_DamageIncreases()
-    {
-        var go = new GameObject("TestEnemy");
-        var dmg = go.AddComponent<Damageable>();
-        dmg.SetMaxHp(1000); dmg.Heal(1000);
-
-        // 10护甲 = 20%减伤
-        dmg.SetArmor(10);
-        dmg.TakeDamage(100f);
-        int hpAfter10Armor = dmg.CurrentHp; // 920
-
-        // 重置，腐蚀后 10 × 0.9 = 9护甲 = 18%减伤
-        dmg.Heal(1000);
-        dmg.SetArmor(9);
-        dmg.TakeDamage(100f);
-        int hpAfterCorrosion = dmg.CurrentHp; // 918
-
-        Assert.Greater(hpAfter10Armor, hpAfterCorrosion,
-            "腐蚀后护甲降低，受到更多伤害");
-
-        Object.DestroyImmediate(go);
-    }
-
     // ═══ 引爆冷却测试 ═══
 
     [Test]
@@ -473,117 +358,6 @@ public class CoreSystemTests
         float maxReduction = 0.9f;
         float cd = baseCooldown * Mathf.Max(0.1f, 1f - maxReduction);
         Assert.AreEqual(1.2f, cd, 0.01f, "90%减冷: 1.2s (不会到0)");
-    }
-
-    // ═══ 腐蚀效果测试 ═══
-
-    [Test]
-    public void Corrosion_ArmorReduction_Formula()
-    {
-        float corrosionRate = 0.1f;
-
-        int armor20 = Mathf.FloorToInt(20 * (1f - corrosionRate));
-        Assert.AreEqual(18, armor20, "20护甲 × 0.9 = 18");
-
-        int armor10 = Mathf.FloorToInt(10 * (1f - corrosionRate));
-        Assert.AreEqual(9, armor10, "10护甲 × 0.9 = 9");
-
-        int armor1 = Mathf.FloorToInt(1 * (1f - corrosionRate));
-        Assert.AreEqual(0, armor1, "1护甲 × 0.9 = 0 (FloorToInt)");
-    }
-
-    [Test]
-    public void Corrosion_AppliedMultipleTimes()
-    {
-        float corrosionRate = 0.1f;
-        int armor = 20;
-
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(18, armor, "第1次: 20 × 0.9 = 18");
-
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(16, armor, "第2次: 18 × 0.9 = 16");
-
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(14, armor, "第3次: 16 × 0.9 ≈ 14");
-    }
-
-    // ═══ 侵蚀效果测试 ═══
-
-    [Test]
-    public void Erosion_Ignores1ArmorPerStack()
-    {
-        int armor = 10;
-        int erosion = 3;
-        int result = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(7, result, "10护甲 - 3侵蚀 = 7");
-    }
-
-    [Test]
-    public void Corrosion_ThenErosion_OrderCorrect()
-    {
-        int armor = 20;
-        float corrosionRate = 0.1f;
-        int erosion = 5;
-
-        // 1. 腐蚀
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(18, armor, "腐蚀: 20 × 0.9 = 18");
-
-        // 2. 侵蚀
-        armor = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(13, armor, "侵蚀: 18 - 5 = 13");
-    }
-
-    [Test]
-    public void Corrosion_MaxStacks8()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var entry = config.GetUpgradeEntry("corrosion");
-        Assert.IsTrue(entry.HasValue);
-        Assert.AreEqual(8, entry.Value.maxStacks, "腐蚀最多8层");
-        Object.DestroyImmediate(config);
-    }
-
-    [Test]
-    public void Erosion_InfiniteStacks()
-    {
-        var config = ScriptableObject.CreateInstance<MageUpgradeConfig>();
-        var entry = config.GetUpgradeEntry("erosion");
-        Assert.IsTrue(entry.HasValue);
-        Assert.AreEqual(0, entry.Value.maxStacks, "侵蚀无上限");
-        Object.DestroyImmediate(config);
-    }
-
-    [Test]
-    public void Erosion_ArmorNeverBelowZero()
-    {
-        int armor = 5;
-        int erosion = 100;
-        int result = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(0, result, "侵蚀后护甲不会负数");
-    }
-
-    [Test]
-    public void Armor_FullPipeline_20Armor_Corrosion3_Erosion5()
-    {
-        int armor = 20;
-        float corrosionRate = 0.1f;
-        int erosion = 5;
-
-        // 3次腐蚀
-        for (int i = 0; i < 3; i++)
-            armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(14, armor, "3次腐蚀: 20→18→16→14");
-
-        // 侵蚀
-        armor = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(9, armor, "侵蚀: 14 - 5 = 9");
-
-        // 减伤
-        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
-        float actualDmg = 100f * (1f - reduction);
-        Assert.AreEqual(82f, actualDmg, 0.01f, "9护甲=18%减伤, 100→82");
     }
 
     // ═══ 重构后新增测试 ═══
@@ -1156,66 +930,6 @@ public class CoreSystemTests
         Object.DestroyImmediate(enemy);
     }
 
-    // ═══ 护甲公式测试 ═══
-
-    [Test]
-    public void ArmorFormula_DamageReduction()
-    {
-        int armor = 10;
-        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
-        float actualDmg = 100f * (1f - reduction);
-        Assert.AreEqual(80f, actualDmg, 0.01f, "10 armor = 20% reduction");
-    }
-
-    [Test]
-    public void ArmorFormula_MaxReduction()
-    {
-        int armor = 100;
-        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
-        Assert.AreEqual(0.9f, reduction, "Should cap at 90%");
-    }
-
-    [Test]
-    public void ArmorFormula_CorrosionCalculation()
-    {
-        int armor = 20;
-        float corrosionRate = 0.1f;
-
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(18, armor, "First corrosion: 20 → 18");
-
-        armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(16, armor, "Second corrosion: 18 → 16");
-    }
-
-    [Test]
-    public void ArmorFormula_ErosionCalculation()
-    {
-        int armor = 10;
-        int erosion = 3;
-        armor = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(7, armor, "Erosion should subtract directly");
-    }
-
-    [Test]
-    public void ArmorFormula_CorrosionThenErosion()
-    {
-        int armor = 20;
-        float corrosionRate = 0.1f;
-        int erosion = 5;
-
-        for (int i = 0; i < 3; i++)
-            armor = Mathf.FloorToInt(armor * (1f - corrosionRate));
-        Assert.AreEqual(14, armor, "3x corrosion: 20→18→16→14");
-
-        armor = Mathf.Max(0, armor - erosion);
-        Assert.AreEqual(9, armor, "erosion: 14 - 5 = 9");
-
-        float reduction = Mathf.Min(armor * 0.02f, 0.9f);
-        float actualDmg = 100f * (1f - reduction);
-        Assert.AreEqual(82f, actualDmg, 0.01f, "9 armor = 18% reduction, 100→82");
-    }
-
     // ═══ 强化系统测试 ═══
 
     [Test]
@@ -1376,10 +1090,6 @@ public class CoreSystemTests
     [Test] public void Burn_Melt_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_melt"); Assert.IsTrue(m.BurnMeltMastery); Object.DestroyImmediate(m.gameObject); }
     [Test] public void Burn_Burst_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("burn_burst"); Assert.IsTrue(m.BurnBurst); Object.DestroyImmediate(m.gameObject); }
 
-    // ── 霜冻专属 ──
-
-    [Test] public void Frost_Slow_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("frost_slow"); Assert.AreEqual(0.1f, m.FrostSlowBonus, 0.001f); Object.DestroyImmediate(m.gameObject); }
-
     // ── 雷电专属 ──
 
     [Test] public void Static_Chain_Applies() { var m = CreateMageWithConfig(); m.ApplyUpgrade("static_chain"); Assert.AreEqual(1, m.StaticChainBonus); Object.DestroyImmediate(m.gameObject); }
@@ -1399,14 +1109,6 @@ public class CoreSystemTests
         var m = CreateMageWithConfig();
         for (int i = 0; i < 5; i++) m.ApplyUpgrade("poison_duration");
         Assert.AreEqual(5f, m.PoisonDurationBonus);
-        Object.DestroyImmediate(m.gameObject);
-    }
-
-    [Test] public void Frost_Slow_Stacks5()
-    {
-        var m = CreateMageWithConfig();
-        for (int i = 0; i < 5; i++) m.ApplyUpgrade("frost_slow");
-        Assert.AreEqual(0.5f, m.FrostSlowBonus, 0.001f);
         Object.DestroyImmediate(m.gameObject);
     }
 

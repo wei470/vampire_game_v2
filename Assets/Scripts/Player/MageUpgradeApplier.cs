@@ -22,11 +22,8 @@ public static class MageUpgradeApplier
 
     private static readonly Dictionary<CharacterUpgradeOption.UpgradeCategory, System.Action<MagePassive, UpgradeEntry>> _appliers = new()
     {
-        { CharacterUpgradeOption.UpgradeCategory.ArmorReduction, ApplyArmorReduction },
-        { CharacterUpgradeOption.UpgradeCategory.ArmorPenetration, ApplyArmorPenetration },
         { CharacterUpgradeOption.UpgradeCategory.DetonateMultiplier, ApplyDetonateMultiplier },
         { CharacterUpgradeOption.UpgradeCategory.DetonateAbility, ApplyDetonateAbility },
-        { CharacterUpgradeOption.UpgradeCategory.DotTrigger, ApplyNoop },
         { CharacterUpgradeOption.UpgradeCategory.AttackSpeed, ApplyAttackSpeed },
         { CharacterUpgradeOption.UpgradeCategory.BulletCount, ApplyBulletCount },
         { CharacterUpgradeOption.UpgradeCategory.Ricochet, ApplyRicochet },
@@ -59,26 +56,39 @@ public static class MageUpgradeApplier
         { CharacterUpgradeOption.UpgradeCategory.BurnMelt, ApplyBurnMelt },
         { CharacterUpgradeOption.UpgradeCategory.BurnStorm, ApplyBurnStorm },
         { CharacterUpgradeOption.UpgradeCategory.BurnBurst, ApplyBurnBurst },
+        { CharacterUpgradeOption.UpgradeCategory.BurnFirmament, ApplyBurnFirmament },
 
         // 霜冻专属
         { CharacterUpgradeOption.UpgradeCategory.FrostDuration, ApplyFrostDuration },
-        { CharacterUpgradeOption.UpgradeCategory.FrostSlow, ApplyFrostSlow },
+        { CharacterUpgradeOption.UpgradeCategory.FrostMaxSlow, ApplyFrostMaxSlow },
+        { CharacterUpgradeOption.UpgradeCategory.FrostPerStackSlow, ApplyFrostPerStackSlow },
         { CharacterUpgradeOption.UpgradeCategory.FrostTick, ApplyFrostTick },
         { CharacterUpgradeOption.UpgradeCategory.FrostRange, ApplyFrostRange },
         { CharacterUpgradeOption.UpgradeCategory.FrostCrit, ApplyFrostCrit },
         { CharacterUpgradeOption.UpgradeCategory.FrostFreeze, ApplyFrostFreeze },
         { CharacterUpgradeOption.UpgradeCategory.FrostBlizzard, ApplyFrostBlizzard },
         { CharacterUpgradeOption.UpgradeCategory.FrostAbsolute, ApplyFrostAbsolute },
+        { CharacterUpgradeOption.UpgradeCategory.SnowyDay, ApplySnowyDay },
+        { CharacterUpgradeOption.UpgradeCategory.FrozenHands, ApplyFrozenHands },
+        { CharacterUpgradeOption.UpgradeCategory.IceBlade, ApplyIceBlade },
+        { CharacterUpgradeOption.UpgradeCategory.ColdBullet, ApplyColdBullet },
+        { CharacterUpgradeOption.UpgradeCategory.ColdEmbrace, ApplyColdEmbrace },
 
         // 雷电专属
         { CharacterUpgradeOption.UpgradeCategory.StaticChain, ApplyStaticChain },
         { CharacterUpgradeOption.UpgradeCategory.StaticRange, ApplyStaticRange },
         { CharacterUpgradeOption.UpgradeCategory.StormMulti, ApplyStormMulti },
         { CharacterUpgradeOption.UpgradeCategory.StormChain, ApplyStormChain },
+        { CharacterUpgradeOption.UpgradeCategory.Paralysis, ApplyParalysis },
 
         // 风专属
         { CharacterUpgradeOption.UpgradeCategory.WindSpeed, ApplyWindSpeed },
         { CharacterUpgradeOption.UpgradeCategory.WindTick, ApplyWindPrecision },
+        { CharacterUpgradeOption.UpgradeCategory.Typhoon, ApplyTyphoon },
+        { CharacterUpgradeOption.UpgradeCategory.Tornado, ApplyTornado },
+        { CharacterUpgradeOption.UpgradeCategory.WildWind, ApplyWildWind },
+        { CharacterUpgradeOption.UpgradeCategory.StormWind, ApplyStormWind },
+        { CharacterUpgradeOption.UpgradeCategory.SwiftWind, ApplySwiftWind },
     };
 
     public static bool ApplyUpgrade(MagePassive mage, string upgradeId)
@@ -114,16 +124,6 @@ public static class MageUpgradeApplier
     private static void CheckSynergies(MagePassive mage) { }
 
     // ═══ DOT 增强 ═══
-
-    private static void ApplyArmorReduction(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.CorrosionArmorReduction += ue.value1;
-    }
-
-    private static void ApplyArmorPenetration(MagePassive mage, UpgradeEntry ue)
-    {
-        mage.ErosionArmorPenetration += (int)ue.value1;
-    }
 
     private static void ApplyDetonateMultiplier(MagePassive mage, UpgradeEntry ue)
     {
@@ -241,17 +241,24 @@ public static class MageUpgradeApplier
     private static void ApplyBurnMelt(MagePassive mage, UpgradeEntry ue) { mage.BurnMeltMastery = true; DebugHelper.Log("[Upgrade] BurnMelt activated"); }
     private static void ApplyBurnStorm(MagePassive mage, UpgradeEntry ue) { mage.BurnStorm = true; DebugHelper.Log("[Upgrade] BurnStorm activated"); }
     private static void ApplyBurnBurst(MagePassive mage, UpgradeEntry ue) { mage.BurnBurst = true; DebugHelper.Log("[Upgrade] BurnBurst activated"); }
+    private static void ApplyBurnFirmament(MagePassive mage, UpgradeEntry ue) { mage.BurnFirmament = true; DebugHelper.Log("[Upgrade] BurnFirmament activated — tracking burn rockets"); }
 
     // ═══ 霜冻专属 ═══
 
     private static void ApplyFrostDuration(MagePassive mage, UpgradeEntry ue) { mage.FrostDurationBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostDuration +{ue.value1} (total: {mage.FrostDurationBonus})"); }
-    private static void ApplyFrostSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostSlowBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostSlow +{ue.value1} (total: {mage.FrostSlowBonus})"); }
+    private static void ApplyFrostMaxSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostMaxSlowBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostMaxSlow +{ue.value1} (total: {mage.FrostMaxSlowBonus})"); }
+    private static void ApplyFrostPerStackSlow(MagePassive mage, UpgradeEntry ue) { mage.FrostPerStackSlowBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostPerStackSlow +{ue.value1} (total: {mage.FrostPerStackSlowBonus})"); }
     private static void ApplyFrostTick(MagePassive mage, UpgradeEntry ue) { mage.FrostTickReduction += ue.value1; DebugHelper.Log($"[Upgrade] FrostTick +{ue.value1} (total: {mage.FrostTickReduction})"); }
     private static void ApplyFrostRange(MagePassive mage, UpgradeEntry ue) { mage.FrostRangeBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostRange +{ue.value1} (total: {mage.FrostRangeBonus})"); }
     private static void ApplyFrostCrit(MagePassive mage, UpgradeEntry ue) { mage.FrostCritBonus += ue.value1; DebugHelper.Log($"[Upgrade] FrostCrit +{ue.value1} (total: {mage.FrostCritBonus})"); }
     private static void ApplyFrostFreeze(MagePassive mage, UpgradeEntry ue) { mage.FrostFreeze = true; DebugHelper.Log("[Upgrade] FrostFreeze activated"); }
     private static void ApplyFrostBlizzard(MagePassive mage, UpgradeEntry ue) { mage.FrostBlizzard = true; DebugHelper.Log("[Upgrade] FrostBlizzard activated"); }
     private static void ApplyFrostAbsolute(MagePassive mage, UpgradeEntry ue) { mage.FrostAbsolute = true; DebugHelper.Log("[Upgrade] FrostAbsolute activated"); }
+    private static void ApplySnowyDay(MagePassive mage, UpgradeEntry ue) { mage.SnowyDay = true; var player = GameReferences.Player; if (player != null && player.GetComponent<SnowyDaySystem>() == null) player.gameObject.AddComponent<SnowyDaySystem>(); DebugHelper.Log("[Upgrade] SnowyDay activated"); }
+    private static void ApplyFrozenHands(MagePassive mage, UpgradeEntry ue) { mage.FrozenHands = true; DebugHelper.Log("[Upgrade] FrozenHands activated"); }
+    private static void ApplyIceBlade(MagePassive mage, UpgradeEntry ue) { mage.IceBlade = true; DebugHelper.Log("[Upgrade] IceBlade activated"); }
+    private static void ApplyColdBullet(MagePassive mage, UpgradeEntry ue) { mage.ColdBullet = true; DebugHelper.Log("[Upgrade] ColdBullet activated — frost/ice blades bounce off walls"); }
+    private static void ApplyColdEmbrace(MagePassive mage, UpgradeEntry ue) { mage.ColdEmbrace = true; DebugHelper.Log("[Upgrade] ColdEmbrace activated — frost DOT 4×stacks, participates in detonation"); }
 
     // ═══ 雷电专属 ═══
 
@@ -259,12 +266,19 @@ public static class MageUpgradeApplier
     private static void ApplyStaticRange(MagePassive mage, UpgradeEntry ue) { mage.StaticRangeBonus += ue.value1; DebugHelper.Log($"[Upgrade] StaticRange +{ue.value1} (total: {mage.StaticRangeBonus})"); }
     private static void ApplyStormMulti(MagePassive mage, UpgradeEntry ue) { mage.StormMulti = true; DebugHelper.Log("[Upgrade] StormMulti activated"); }
     private static void ApplyStormChain(MagePassive mage, UpgradeEntry ue) { mage.StormChain = true; DebugHelper.Log("[Upgrade] StormChain activated"); }
+    private static void ApplyParalysis(MagePassive mage, UpgradeEntry ue) { mage.Paralysis = true; SyncParalysisToAllEnemies(true); DebugHelper.Log("[Upgrade] Paralysis activated — DOT +10% on static enemies"); }
+    private static void SyncParalysisToAllEnemies(bool value) { var spawnMgr = GameReferences.SpawnManager; if (spawnMgr == null) return; var enemies = spawnMgr.ActiveEnemies; if (enemies == null) return; for (int i = 0; i < enemies.Count; i++) { var e = enemies[i]; if (e == null) continue; var sem = e.GetComponent<StatusEffectManager>(); if (sem != null) sem.ParalysisActive = value; } }
 
     // ═══ 风专属 ═══
 
     private static void ApplyWindSpeed(MagePassive mage, UpgradeEntry ue) { mage.WindSpeedBonus += ue.value1; DebugHelper.Log($"[Upgrade] WindSpeed +{ue.value1} (total: {mage.WindSpeedBonus})"); }
     private static void ApplyWindPrecision(MagePassive mage, UpgradeEntry ue) { mage.WindPrecisionAngle = ue.value1; DebugHelper.Log($"[Upgrade] WindPrecision → {ue.value1}°"); }
     private static void ApplyWindHurricane(MagePassive mage, UpgradeEntry ue) { mage.WindHurricane = true; DebugHelper.Log("[Upgrade] WindHurricane activated"); }
+    private static void ApplyTyphoon(MagePassive mage, UpgradeEntry ue) { mage.TyphoonKnockbackBonus += ue.value1; DebugHelper.Log($"[Upgrade] Typhoon +{ue.value1} knockback"); }
+    private static void ApplyTornado(MagePassive mage, UpgradeEntry ue) { mage.Tornado = true; DebugHelper.Log("[Upgrade] Tornado activated"); }
+    private static void ApplyWildWind(MagePassive mage, UpgradeEntry ue) { mage.WildWind = true; DebugHelper.Log("[Upgrade] WildWind activated — detonate knocks back all enemies"); }
+    private static void ApplyStormWind(MagePassive mage, UpgradeEntry ue) { mage.StormWind = true; DebugHelper.Log("[Upgrade] StormWind activated — 33% triple burst"); }
+    private static void ApplySwiftWind(MagePassive mage, UpgradeEntry ue) { mage.SwiftWind = true; DebugHelper.Log("[Upgrade] SwiftWind activated — 30% fast + penetrate all"); }
 
     // ═══ 进化兼容 ═══
 

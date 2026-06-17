@@ -227,9 +227,6 @@ public static class HealthBarSpriteHelper
                 return new Color(1f, 0.5f, 0f);
             case StatusEffectType.Frostbite:
                 return new Color(0.3f, 0.6f, 1f);
-            case StatusEffectType.Corrosion:
-            case StatusEffectType.Erosion:
-                return new Color(0.5f, 0.8f, 0.2f);
             case StatusEffectType.Curse:
             case StatusEffectType.Wither:
                 return new Color(0.4f, 0f, 0.6f);

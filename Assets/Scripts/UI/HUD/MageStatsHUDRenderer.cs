@@ -198,7 +198,6 @@ public static class MageStatsHUDRenderer
 
             // ── DOT 增强属性 ──
             cy = DrawSectionHeader(x, cy, panelW, "DOT ENHANCEMENTS", headerHeight, titleStyle);
-            cy = DrawStatRow(x + 8, cy, panelW - 16, "Corrosion", $"{mage.CorrosionArmorReduction * 100:F0}%/stack", TextPrimary, lineHeight, labelStyle, valueStyle);
             cy = DrawStatRow(x + 8, cy, panelW - 16, "Curse Spread", $"{mage.CurseSpreadTargets} targets", TextPrimary, lineHeight, labelStyle, valueStyle);
 
             // ── 子弹增强属性 ──

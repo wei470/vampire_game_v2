@@ -88,7 +88,6 @@ public class DebugOverlay : MonoBehaviour
             {
                 GUI.color = dmg.HpPercent > 0.5f ? Color.green : (dmg.HpPercent > 0.2f ? Color.yellow : Color.red);
                 GUILayout.Label($"HP: {dmg.CurrentHp}/{dmg.MaxHp} ({dmg.HpPercent:P0})");
-                GUILayout.Label($"Armor: {dmg.Armor}");
             }
 
             var lvlSys = _player.GetComponent<PlayerLevelSystem>();

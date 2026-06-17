@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Gameplay::GameConfig
   basePlayerHP: 100
   basePlayerSpeed: 5
-  basePlayerArmor: 0
   basePlayerAttack: 10
   baseLevelUpExp: 20
   expPerLevel: 15
@@ -22,9 +21,6 @@ MonoBehaviour:
   xpGemMagnetSpeed: 8
   baseCoinDrop: 5
   coinPickupRadius: 2
-  equipmentDropChance: 0.12
-  legendaryDropChance: 0.02
-  maxEquipmentSlots: 3
   damageScalingPerWave: 0.1
   hpScalingPerWave: 0.15
   speedScalingPerWave: 0.03
@@ -41,7 +37,6 @@ MonoBehaviour:
   cameraFollowSpeed: 8
   screenShakeIntensity: 0.3
   dpsDummyHP: 2000000
-  dpsDummyArmor: 0
   dpsDummyRegen: 0
   dpsDummyInvincible: 0
   dpsDummyRespawnDelay: 1

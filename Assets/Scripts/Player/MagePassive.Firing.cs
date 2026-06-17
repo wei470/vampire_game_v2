@@ -11,6 +11,9 @@ public partial class MagePassive
     // 帧预算耗尽时的轮转起始枪索引，保证各枪轮流获得开火机会（避免末尾的枪饿死）
     private int _fireStartIndex;
 
+    private float _burnRocketAccumulator;
+    private int _frostBulletCount;
+
     private void Update()
     {
         _detonateSystem.UpdateChargeInput();
@@ -67,6 +70,64 @@ public partial class MagePassive
             }
         }
 
+        // 燃烧枪 → 以 cooldown × 0.25 的频率发射 BurnRocketBullet
+        DotGunState burnGun = null;
+        for (int i = 0; i < gunCount; i++)
+        {
+            if (_dotGuns[i].effectType == StatusEffectType.Burn) { burnGun = _dotGuns[i]; break; }
+        }
+        if (burnGun != null && BurnStorm)
+        {
+            float burnCooldown = Mathf.Max(MIN_COOLDOWN, burnGun.cooldown * attackSpeedMult) * 0.25f;
+            _burnRocketAccumulator += dt;
+            if (_burnRocketAccumulator >= burnCooldown && hasTarget)
+            {
+                _burnRocketAccumulator -= burnCooldown;
+                SpawnBurnRocket(fireDir, burnGun);
+            }
+        }
+
+        // 雷暴多发延迟 (0.1s delay)
+        if (_stormMultiDelay > 0f)
+        {
+            _stormMultiDelay -= dt;
+            if (_stormMultiDelay <= 0f && _stormMultiGun != null && hasTarget)
+            {
+                for (int i = 0; i < _stormMultiDirs.Count; i++)
+                    SpawnDotBullet(_stormMultiGun, _stormMultiDirs[i], _stormMultiDmgMult);
+                _stormMultiGun = null;
+                _stormMultiDirs.Clear();
+            }
+        }
+
+        // 风暴延迟 (two stages, 0.2s each)
+        if (_stormWindDelay > 0f)
+        {
+            _stormWindDelay -= dt;
+            if (_stormWindDelay <= 0f && _stormWindGun != null && hasTarget)
+            {
+                for (int i = 0; i < _stormWindDirs.Count; i++)
+                    SpawnDotBullet(_stormWindGun, _stormWindDirs[i], _stormWindDmgMult);
+                _stormWindDelay = 0.2f;
+                _stormWindGun2 = _stormWindGun;
+                _stormWindDmgMult2 = _stormWindDmgMult;
+                _stormWindDirs2 = new List<Vector2>(_stormWindDirs);
+                _stormWindGun = null;
+                _stormWindDirs.Clear();
+            }
+        }
+        if (_stormWindDelay2 > 0f)
+        {
+            _stormWindDelay2 -= dt;
+            if (_stormWindDelay2 <= 0f && _stormWindGun2 != null && hasTarget)
+            {
+                for (int i = 0; i < _stormWindDirs2.Count; i++)
+                    SpawnDotBullet(_stormWindGun2, _stormWindDirs2[i], _stormWindDmgMult2);
+                _stormWindGun2 = null;
+                _stormWindDirs2.Clear();
+            }
+        }
+
         _fireStartIndex = (_fireStartIndex + 1) % gunCount;
     }
 
@@ -98,34 +159,68 @@ public partial class MagePassive
 
         int created = 0;
 
-        // 雷暴：连续发射两枚（双发）
-        int shots = (gun.effectType == StatusEffectType.Static && StormMulti) ? 2 : 1;
-
-        for (int s = 0; s < shots; s++)
+        for (int b = 0; b < bulletCount; b++)
         {
-            for (int b = 0; b < bulletCount; b++)
+            Vector2 fireDir = direction;
+            if (bulletCount > 1)
             {
-                Vector2 fireDir = direction;
-                if (bulletCount > 1)
+                float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
+                float rad = angle * Mathf.Deg2Rad;
+                fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
+            }
+            GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+            if (bullet == null)
+                bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+
+            if (bullet == null)
+            {
+                DebugHelper.LogWarning($"[MagePassive] Bullet create failed for {gun.effectType}");
+                continue;
+            }
+
+            ApplyBulletSizeBonus(bullet);
+            ApplyUpgradeVisual(bullet, gun);
+            created++;
+
+            // 雷暴多发延迟触发 (0.1s delay for wind-like double shot for lightning)
+            if (gun.effectType == StatusEffectType.Static && StormMulti && _stormMultiDelay <= 0f)
+            {
+                _stormMultiGun = gun;
+                _stormMultiDirs.Add(fireDir);
+                _stormMultiDmgMult = dmgMultiplier;
+                _stormMultiDelay = 0.1f;
+            }
+
+            // 闪电弹计数 → StormChain (every 5th → static explosion pending)
+            if (gun.effectType == StatusEffectType.Static && StormChain)
+            {
+                _lightningBulletCount++;
+                if (_lightningBulletCount >= 5)
                 {
-                    float angle = (b - (bulletCount - 1) / 2f) * spreadAngle;
-                    float rad = angle * Mathf.Deg2Rad;
-                    fireDir = new Vector2(direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad), direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
+                    _lightningBulletCount = 0;
+                    _lightningExplosionPending = true;
                 }
-                GameObject bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+            }
 
-                if (bullet == null)
-                    bullet = DotBulletFactory.Create(gun.effectType, transform.position, fireDir, gun, durMult, dmgMultiplier, true, critChance, _dotCritMultiplier);
+            // 风暴延迟触发 (33% chance → save directions for delayed burst)
+            if (gun.effectType == StatusEffectType.WindErosion && Random.value < 0.33f && _stormWindDelay <= 0f)
+            {
+                _stormWindGun = gun;
+                _stormWindDirs.Add(fireDir);
+                _stormWindDmgMult = dmgMultiplier;
+                _stormWindDelay = 0.2f;
+            }
 
-                if (bullet == null)
+            // 冰刃计数 (every 5th frost → burst of 5 ice blade bullets)
+            if (gun.effectType == StatusEffectType.Frostbite)
+            {
+                _frostBulletCount++;
+                if (_frostBulletCount >= 5)
                 {
-                    DebugHelper.LogWarning($"[MagePassive] Bullet create failed for {gun.effectType}");
-                    continue;
+                    _frostBulletCount = 0;
+                    SpawnIceBladeBurst(fireDir);
                 }
-
-                ApplyBulletSizeBonus(bullet);
-                ApplyUpgradeVisual(bullet, gun);
-                created++;
             }
         }
 
@@ -176,5 +271,43 @@ public partial class MagePassive
     public static void ReturnGlowToPool(GameObject glow)
     {
         GlowReturnHelper.ReturnToPool(glow);
+    }
+
+    private void SpawnIceBladeBurst(Vector2 direction)
+    {
+        var config = DotEffectConfig.GetDefault();
+        float speed = config.FrostSpeed * 2f;
+        float lifetime = config.FrostFreezeDuration;
+        int count = 5;
+        float spreadAngle = 20f;
+        for (int i = 0; i < count; i++)
+        {
+            float angle = (i - (count - 1) / 2f) * spreadAngle;
+            float rad = angle * Mathf.Deg2Rad;
+            Vector2 dir = new Vector2(
+                direction.x * Mathf.Cos(rad) - direction.y * Mathf.Sin(rad),
+                direction.x * Mathf.Sin(rad) + direction.y * Mathf.Cos(rad)).normalized;
+            var bullet = IceBladeBullet.Create(transform.position, dir, speed, lifetime);
+            if (bullet != null)
+            {
+                ApplyBulletSizeBonus(bullet.gameObject);
+                if (_coldBullet)
+                {
+                    var bounce = bullet.gameObject.AddComponent<WallBounceHandler>();
+                    bounce.Setup(2, 5f);
+                }
+            }
+        }
+    }
+
+    private void SpawnBurnRocket(Vector2 direction, DotGunState burnGun)
+    {
+        var config = DotEffectConfig.GetDefault();
+        float lifetime = config.BurnLifetime * 0.5f;
+        float speed = 18f;
+        float burnDps = burnGun.dotDps;
+        float burnDuration = burnGun.dotDuration;
+        var rocket = BurnRocketBullet.Create(transform.position, direction, speed, lifetime, burnDps, burnDuration);
+        if (rocket != null) ApplyBulletSizeBonus(rocket.gameObject);
     }
 }

@@ -33,7 +33,6 @@ public class TemporaryBuffSystem : MonoBehaviour
     // 原始值缓存
     #pragma warning disable CS0414
     private float _originalMoveSpeed = -1f; // 保留用于未来扩展
-    private int _originalArmor = 0;
 
     public bool HasBuff(BuffType type)
     {
@@ -125,13 +124,7 @@ public class TemporaryBuffSystem : MonoBehaviour
                 break;
 
             case BuffType.InvincibleShield:
-                // 通过Damageable的免伤实现
-                var dmg = player.Damageable;
-                if (dmg != null)
-                {
-                    if (apply) _originalArmor = dmg.Armor;
-                    else dmg.SetArmor(_originalArmor);
-                }
+                // Invincibility handled via TemporaryBuffSystem.IsInvincible() check in Damageable
                 break;
 
             case BuffType.ThornsShield:

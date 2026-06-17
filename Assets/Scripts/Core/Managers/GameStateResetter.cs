@@ -34,7 +34,6 @@ public static class GameStateResetter
         Coin.All.Clear();
         XPGem.All.Clear();
         EnvironmentZone.All.Clear();
-        Backpack.Clear();
 
         // 用 Destroy（延迟）而非 DestroyImmediate —— 避免 OnDestroy 回调级联
         // LoadScene 会销毁所有场景对象，DontDestroyOnLoad 对象在帧末延迟销毁

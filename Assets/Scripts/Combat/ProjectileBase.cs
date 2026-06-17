@@ -51,6 +51,10 @@ public abstract class ProjectileBase : MonoBehaviour
         RotateToDirection();
     }
 
+    public Vector2 GetDirection() => _direction;
+
+    public void AddLifetime(float bonus) { _lifetime += bonus; }
+
     protected void RotateToDirection()
     {
         float angle = Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg;

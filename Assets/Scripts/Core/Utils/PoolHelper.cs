@@ -45,6 +45,9 @@ public static class PoolHelper
     public const string DOT_DARK_BULLET = "DotBullet_Dark";
     public const string DOT_WIND_BULLET = "DotBullet_Wind";
     public const string DOT_POISON_PUDDLE = "DotEffect_PoisonPuddle";
+    public const string BURN_ROCKET = "DotBullet_BurnRocket";
+    public const string HAIL_BULLET = "DotBullet_Hail";
+    public const string ICE_BLADE_BULLET = "DotBullet_IceBlade";
 
     // ── 掉落物池键常量 ──
     public const string XP_GEM = "Loot_XPGem";

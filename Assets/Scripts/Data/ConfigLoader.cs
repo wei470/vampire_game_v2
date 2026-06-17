@@ -66,7 +66,7 @@ public class ConfigLoader : Singleton<ConfigLoader>
         var gc = Game;
         var wc = Wave;
         DebugHelper.Log("═════════ Config Dump ═════════");
-        DebugHelper.Log($"[GameConfig] Player HP={gc.basePlayerHP}, SPD={gc.basePlayerSpeed}, ARM={gc.basePlayerArmor}");
+        DebugHelper.Log($"[GameConfig] Player HP={gc.basePlayerHP}, SPD={gc.basePlayerSpeed}, ATK={gc.basePlayerAttack}");
         DebugHelper.Log($"[GameConfig] Exp Base={gc.baseLevelUpExp}+{gc.expPerLevel}/lvl");
         DebugHelper.Log($"[GameConfig] Difficulty: DMG×{gc.damageScalingPerWave}/wave, HP×{gc.hpScalingPerWave}/wave");
         DebugHelper.Log($"[GameConfig] Boss: interval={gc.bossWaveInterval}, baseHP={gc.bossBaseHP}");

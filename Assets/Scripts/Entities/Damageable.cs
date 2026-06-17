@@ -12,12 +12,7 @@ public class Damageable : MonoBehaviour, IDamageable
     [Header("生命值")]
     [SerializeField] private int _maxHp = 100;
     [SerializeField] private int _currentHp;
-    [SerializeField] private int _armor = 0;
     [SerializeField] private float _hpRegenPerSecond = 0f;
-
-    // 护甲公式：每点护甲 = 2% 减伤
-    private const float ARMOR_REDUCTION_PER_POINT = 0.02f;
-    private const float MAX_REDUCTION = 0.9f;
 
     /// <summary>每秒HP回复（可被升级修改）</summary>
     public float HpRegenPerSecond
@@ -47,11 +42,6 @@ public class Damageable : MonoBehaviour, IDamageable
     /// 最大 HP
     /// </summary>
     public int MaxHp => _maxHp;
-
-    /// <summary>
-    /// 护甲值
-    /// </summary>
-    public int Armor => _armor;
 
     /// <summary>
     /// 受伤事件，参数：(当前HP, 最大HP)
@@ -188,7 +178,6 @@ public class Damageable : MonoBehaviour, IDamageable
 
     /// <summary>
     /// 受到伤害（默认白色数字）
-    /// 伤害公式：actualDamage = max(0.01, damage - armor)
     /// </summary>
     /// <param name="damage">原始伤害值</param>
     public void TakeDamage(float damage)
@@ -198,7 +187,6 @@ public class Damageable : MonoBehaviour, IDamageable
 
     /// <summary>
     /// 受到伤害（指定颜色的伤害数字）
-    /// 伤害公式：actualDamage = max(0.01, damage - armor)
     /// </summary>
     /// <param name="damage">原始伤害值</param>
     /// <param name="popupColor">伤害数字颜色</param>
@@ -236,24 +224,21 @@ public class Damageable : MonoBehaviour, IDamageable
 
         damage *= damageMultiplier;
 
-        // 护甲减伤：每点护甲 = 2% 减伤，上限 90%
-        float reduction = Mathf.Min(_armor * ARMOR_REDUCTION_PER_POINT, MAX_REDUCTION);
-        float actualDamage = Mathf.Max(0.01f, damage * (1f - reduction));
-        _currentHp = Mathf.Max(0, _currentHp - Mathf.RoundToInt(actualDamage));
+        _currentHp = Mathf.Max(0, _currentHp - Mathf.RoundToInt(damage));
 
-        DebugHelper.Log($"[Damageable] {gameObject.name} took {actualDamage:F2} damage (raw:{damage:F2} - armor:{_armor}), HP: {_currentHp}/{_maxHp}");
+        DebugHelper.Log($"[Damageable] {gameObject.name} took {damage:F2} damage, HP: {_currentHp}/{_maxHp}");
 
         // 显示伤害数字（敌人受击时）
         if (!gameObject.CompareTag("Player"))
         {
-            DamagePopup.Create(transform.position, actualDamage, popupColor, false);
+            DamagePopup.Create(transform.position, damage, popupColor, false);
 
             if (_cachedHitFlash == null) _cachedHitFlash = GetComponent<HitFlashEffect>();
             if (_cachedHitFlash != null) _cachedHitFlash.TriggerFlash();
         }
 
         OnDamaged?.Invoke(_currentHp, _maxHp);
-        EventManager.TriggerDamage(gameObject, actualDamage, transform.position);
+        EventManager.TriggerDamage(gameObject, damage, transform.position);
 
         // 玩家受伤后：触发无敌帧 + 受伤闪红
         if (gameObject.CompareTag("Player"))
@@ -331,22 +316,6 @@ public class Damageable : MonoBehaviour, IDamageable
         float ratio = (float)_currentHp / _maxHp;
         _maxHp = newMaxHp;
         _currentHp = Mathf.RoundToInt(_maxHp * ratio);
-    }
-
-    /// <summary>
-    /// 设置护甲值
-    /// </summary>
-    public void SetArmor(int armor)
-    {
-        _armor = armor;
-    }
-
-    /// <summary>
-    /// 追加护甲值（由进化系统调用）
-    /// </summary>
-    public void AddArmor(int bonus)
-    {
-        _armor += bonus;
     }
 
     /// <summary>

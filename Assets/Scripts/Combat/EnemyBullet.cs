@@ -15,6 +15,7 @@ public class EnemyBullet : MonoBehaviour
     [SerializeField] private float _lifetime = 5f;
 
     private float _spawnTime;
+    private static readonly Collider2D[] _enemyBuffer = new Collider2D[1];
 
     private void OnEnable()
     {
@@ -29,6 +30,8 @@ public class EnemyBullet : MonoBehaviour
         {
             OffScreenCuller.TrackProjectile(gameObject, PoolHelper.ENEMY_BULLET);
         }
+
+        ApplyFrozenHandsSlow();
     }
 
     private void OnDisable()
@@ -75,5 +78,33 @@ public class EnemyBullet : MonoBehaviour
     {
         _damage = damage;
         _lifetime = lifetime;
+    }
+
+    private void ApplyFrozenHandsSlow()
+    {
+        var mage = GameReferences.DotCharacterPassive as MagePassive;
+        if (mage == null || !mage.FrozenHands) return;
+        var spawnMgr = GameReferences.SpawnManager;
+        if (spawnMgr == null) return;
+        var enemies = spawnMgr.ActiveEnemies;
+        if (enemies == null || enemies.Count == 0) return;
+        float bestDistSqr = float.MaxValue;
+        GameObject nearest = null;
+        for (int i = 0; i < enemies.Count; i++)
+        {
+            var e = enemies[i];
+            if (e == null || !e.activeInHierarchy) continue;
+            float dSqr = ((Vector2)e.transform.position - (Vector2)transform.position).sqrMagnitude;
+            if (dSqr < bestDistSqr) { bestDistSqr = dSqr; nearest = e; }
+        }
+        if (nearest != null)
+        {
+            var frost = nearest.GetComponent<FrostEffect>();
+            if (frost != null && frost.FrostStacks > 0)
+            {
+                var rb = GetComponent<Rigidbody2D>();
+                if (rb != null) rb.linearVelocity *= 0.67f;
+            }
+        }
     }
 }

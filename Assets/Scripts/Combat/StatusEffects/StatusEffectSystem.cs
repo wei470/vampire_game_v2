@@ -5,8 +5,8 @@ using System.Collections.Generic;
 
 public enum StatusEffectType
 {
-    Bleed, Poison, Burn, Frostbite, Corrosion, Curse, Agony, Wither,
-    Immolate, Radiate, Contaminate, Erosion, WindErosion, Rend, Static,
+    Bleed, Poison, Burn, Frostbite, Curse, Agony, Wither,
+    Immolate, Radiate, Contaminate, WindErosion, Rend, Static,
     Dark, Light
 }
 
@@ -76,7 +76,6 @@ public class StatusEffectManager : MonoBehaviour
     public float DotDurationMultiplier { get; set; } = 1f;
     public float DotDamageMultiplier { get; set; } = 1f;
     public float RendDamageBonus { get; set; } = 0f;
-    public float CorrosionArmorReduction { get; set; } = 0f;
     public float CurseDamageAmplify { get; set; } = 0f;
     public float AgonyMissingHpScale { get; set; } = 0f;
     public bool WitherActive { get; set; } = false;
@@ -84,6 +83,7 @@ public class StatusEffectManager : MonoBehaviour
     public float ContaminateRange { get; set; } = 0f;
     public float RadiateRange { get; set; } = 0f;
     public float RadiateDamagePercent { get; set; } = 0f;
+    public bool ParalysisActive { get; set; } = false;
 
     // ── P0 新增强化 ──
     /// <summary>饱和：每种不同DOT伤害加成百分比</summary>
@@ -166,13 +166,6 @@ public class StatusEffectManager : MonoBehaviour
                 remainingDuration = duration, totalDuration = duration, stackCount = 1,
                 canCrit = canCrit, critChance = critChance, critMultiplier = critMult });
         }
-
-        if (CorrosionArmorReduction > 0 && _damageable != null)
-        {
-            int currentArmor = _damageable.Armor;
-            int reducedArmor = Mathf.FloorToInt(currentArmor * (1f - CorrosionArmorReduction));
-            _damageable.SetArmor(Mathf.Max(0, reducedArmor));
-        }
     }
 
     public void ApplyEffect(StatusEffectType type, float dps, float duration)
@@ -233,6 +226,7 @@ public class StatusEffectManager : MonoBehaviour
             if (effect.type == StatusEffectType.Static) tickDmg *= _comboSystem.SuperconductMult;
             if (_dotResistance != null) tickDmg *= _dotResistance.GetDamageMultiplier(effect.type);
             if (RendDamageBonus > 0) tickDmg *= (1f + RendDamageBonus);
+            if (ParalysisActive && effect.type == StatusEffectType.Static) tickDmg *= 1.5f;
             if (AgonyMissingHpScale > 0 && _damageable != null)
             { float miss = 1f - (float)_damageable.CurrentHp / _damageable.MaxHp; tickDmg *= (1f + miss * AgonyMissingHpScale); }
             // 剧毒天赋：额外暴击率 + 凋零暴击
@@ -318,7 +312,12 @@ public class StatusEffectManager : MonoBehaviour
     public float Detonate(float multiplier, float critChance, float critMult, out DetonateResult result)
     {
         result = new DetonateResult();
-        if (_activeEffects.Count == 0) return 0;
+        bool hasFrostDot = false;
+        for (int i = 0; i < _activeEffects.Count; i++)
+        {
+            if (_activeEffects[i].type == StatusEffectType.Frostbite) { hasFrostDot = true; break; }
+        }
+        if (_activeEffects.Count == 0 && !hasFrostDot) return 0;
         int poisonS = 0, burnS = 0, bleedS = 0, frostS = 0;
         float totalDmg = 0f;
         foreach (var eff in _activeEffects)
@@ -331,11 +330,22 @@ public class StatusEffectManager : MonoBehaviour
             float baseDmg = eff.damagePerSecond * 5f * multiplier;
             if (eff.type == StatusEffectType.Poison && eff.stackCount > 1) baseDmg *= 1f + (eff.stackCount - 1) * 0.05f;
             if (eff.type == StatusEffectType.Bleed && eff.stackCount > 1) baseDmg *= 1f + (eff.stackCount - 1) * 0.03f;
+            if (eff.type == StatusEffectType.Frostbite) baseDmg = 0f;
             if (RendDamageBonus > 0) baseDmg *= (1f + RendDamageBonus);
             if (AgonyMissingHpScale > 0 && _damageable != null)
             { float m = 1f - (float)_damageable.CurrentHp / _damageable.MaxHp; baseDmg *= (1f + m * AgonyMissingHpScale); }
             if (Random.value < critChance) baseDmg *= critMult;
             totalDmg += baseDmg;
+        }
+        if (hasFrostDot)
+        {
+            var frostEffect = GetComponent<FrostEffect>();
+            if (frostEffect != null && frostEffect.FrostStacks > 0)
+            {
+                float frostDmg = frostEffect.FrostStacks * 3f * multiplier;
+                if (Random.value < critChance) frostDmg *= critMult;
+                totalDmg += frostDmg;
+            }
         }
         result.poisonStacks = poisonS; result.burnStacks = burnS; result.bleedStacks = bleedS; result.frostStacks = frostS;
         _activeEffects.Clear();

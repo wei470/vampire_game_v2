@@ -297,44 +297,6 @@ public class AutomatedPlayModeTests
         Object.DestroyImmediate(go);
     }
 
-    // ═══ P2: 装备系统 ═══
-
-    [Test]
-    public void P2_LootDropSystem_DropsEquipment()
-    {
-        // Boss 100% 掉落
-        int drops = 0;
-        for (int i = 0; i < 10; i++)
-        {
-            var item = LootDropSystem.TryDrop(false, true, 10);
-            if (item != null) drops++;
-        }
-        Assert.AreEqual(10, drops, "Boss 应100%掉落");
-    }
-
-    [Test]
-    public void P2_Backpack_AddAndRemove()
-    {
-        Backpack.Clear();
-        var item = new EquipmentInstance
-        {
-            equipmentId = "test_001",
-            rarity = EquipmentRarity.Common,
-            slot = EquipmentSlot.Weapon,
-            displayName = "测试武器",
-            affixes = new EquipmentAffix[0]
-        };
-
-        Assert.IsTrue(Backpack.AddItem(item), "添加装备应成功");
-        Assert.AreEqual(1, Backpack.Inventory.Count);
-
-        int materials = Backpack.Dismantle(item);
-        Assert.Greater(materials, 0, "分解应获得材料");
-        Assert.AreEqual(0, Backpack.Inventory.Count);
-
-        Backpack.Clear();
-    }
-
     // ═══ P2: 环境区域 ═══
 
     [Test]
@@ -450,7 +412,7 @@ public class AutomatedPlayModeTests
         dmg.Heal(1000);
 
         var dummy = go.AddComponent<TrainingDummy>();
-        dummy.Init(1000, 0, 0f, false, 1f);
+        dummy.Init(1000, 0f, false, 1f);
         Assert.IsNotNull(dummy, "TrainingDummy 应可创建");
 
         Object.DestroyImmediate(go);
@@ -582,40 +544,6 @@ public class AutomatedPlayModeTests
         Assert.AreEqual(2, ig.UpgradeLevel);
     }
 
-    [Test]
-    public void P2_ArmorFormula_MixedReduction()
-    {
-        // 混合护甲公式：固定减伤（上限50%）+ 百分比减伤（递减收益）
-        // 公式：actualDamage = Max(0.01, (damage - Min(armor, damage*0.5)) * (1 - armor/(armor+100)))
-
-        // 无护甲：伤害不变
-        float dmg0 = CalcDamage(100f, 0);
-        Assert.AreEqual(100f, dmg0, 0.01f, "0护甲应无减伤");
-
-        // 护甲50：固定减伤25(50*0.5) + 百分比减伤50/(50+100)=33% → (100-25)*(1-0.33)=50.25
-        float dmg50 = CalcDamage(100f, 50);
-        Assert.Greater(dmg50, 0f, "护甲50不应免疫");
-        Assert.Less(dmg50, 100f, "护甲50应有减伤");
-
-        // 护甲100：固定减伤50(100*0.5) + 百分比减伤100/(100+100)=50% → (100-50)*(1-0.5)=25
-        float dmg100 = CalcDamage(100f, 100);
-        Assert.Greater(dmg100, 0f, "护甲100不应免疫");
-        Assert.Less(dmg100, dmg50, "护甲100应比护甲50减伤更多");
-
-        // 护甲999：永远不低于0.01
-        float dmg999 = CalcDamage(10f, 999);
-        Assert.GreaterOrEqual(dmg999, 0.01f, "超高护甲不应免疫，最低0.01");
-    }
-
-    private float CalcDamage(float damage, int armor)
-    {
-        float flatCap = 0.5f;
-        float percentBase = 100f;
-        float flatReduction = Mathf.Min(armor, damage * flatCap);
-        float percentReduction = armor / (armor + percentBase);
-        return Mathf.Max(0.01f, (damage - flatReduction) * (1f - percentReduction));
-    }
-
     // ═══ 辅助方法 ═══
 
     [TearDown]
@@ -703,7 +631,7 @@ public class AutomatedPlayModeTests
         go.AddComponent<BoxCollider2D>();
         go.AddComponent<Damageable>();
         var dummy = go.AddComponent<TrainingDummy>();
-        dummy.Init(1000, 0, 0f, false, 1f);
+        dummy.Init(1000, 0f, false, 1f);
 
         var rb = go.GetComponent<Rigidbody2D>();
         Assert.IsNotNull(rb, "木桩应有 Rigidbody2D");
@@ -721,7 +649,7 @@ public class AutomatedPlayModeTests
         go.AddComponent<BoxCollider2D>();
         go.AddComponent<Damageable>();
         var dummy = go.AddComponent<TrainingDummy>();
-        dummy.Init(1000, 0, 0f, false, 1f);
+        dummy.Init(1000, 0f, false, 1f);
 
         // 模拟物理推力
         var rb = go.GetComponent<Rigidbody2D>();
@@ -1049,8 +977,6 @@ public class AutomatedPlayModeTests
         Assert.Greater(dot.GetDotCritChance(), 0f, "Crit chance should be > 0");
         Assert.AreEqual(2f, dot.GetDotCritMultiplier(), 0.01f);
 
-        Assert.AreEqual(0.1f, dot.CorrosionArmorReduction, 0.01f);
-        Assert.AreEqual(0, dot.ErosionArmorPenetration);
         Assert.AreEqual(1, dot.CurseSpreadTargets);
 
         Object.DestroyImmediate(go);
